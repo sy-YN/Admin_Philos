@@ -33,15 +33,15 @@ export function ExecutiveMessageCard({ message, className, ...props }: Executive
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-semibold text-card-foreground">{message.author}</span>
-            <span className="text-xs text-muted-foreground">{message.time}</span>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">{message.time}</span>
           </div>
           <div className="flex items-center gap-2 mb-2">
             <Badge variant={message.priority === "high" ? "destructive" : "secondary"}>
               {message.priority === "high" ? "重要" : "更新"}
             </Badge>
           </div>
-          <h3 className="font-medium text-card-foreground mb-1">{message.title}</h3>
-          <p className="text-sm text-muted-foreground">{message.preview}</p>
+          <h3 className="font-medium text-card-foreground mb-1 whitespace-normal">{message.title}</h3>
+          <p className="text-sm text-muted-foreground whitespace-normal">{message.preview}</p>
         </div>
       </div>
     </Card>

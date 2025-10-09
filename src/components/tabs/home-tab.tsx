@@ -308,13 +308,13 @@ export function HomeTab({ isDarkMode }: HomeTabProps) {
           <Building2 className="h-5 w-5 text-primary" />
           経営層からのメッセージ
         </h2>
-        <ScrollArea className="w-full whitespace-nowrap" orientation="horizontal">
+        <ScrollArea className="w-full" orientation="horizontal">
           <div className="flex w-max space-x-4 pb-4">
             {executiveMessages.map((message) => (
               <Dialog key={message.id}>
                 <DialogTrigger asChild>
                   <div className="w-80">
-                    <ExecutiveMessageCard message={message} />
+                    <ExecutiveMessageCard message={message} className="h-full"/>
                   </div>
                 </DialogTrigger>
                 <DialogContent className={cn("max-w-md", isDarkMode && 'dark')}>
