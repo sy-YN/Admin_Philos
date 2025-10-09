@@ -8,7 +8,7 @@ import { BoardPostForm } from "../board-post-form";
 import { BoardPostCard } from "../board-post-card";
 import { BoardPostReplyForm } from "../board-post-reply-form";
 import type { Post } from "@/app/actions";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Carousel,
   CarouselContent,
@@ -308,16 +308,16 @@ export function HomeTab({ isDarkMode }: HomeTabProps) {
           <Building2 className="h-5 w-5 text-primary" />
           経営層からのメッセージ
         </h2>
-        <ScrollArea className="h-full">
-          <div className="space-y-3 pr-4">
-            {executiveMessages.map((message, index) => (
-               <Dialog key={message.id}>
+        <ScrollArea className="w-full whitespace-nowrap" orientation="horizontal">
+          <div className="flex w-max space-x-4 pb-4">
+            {executiveMessages.map((message) => (
+              <Dialog key={message.id}>
                 <DialogTrigger asChild>
-                  <ExecutiveMessageCard 
-                    message={message}
-                  />
+                  <div className="w-80">
+                    <ExecutiveMessageCard message={message} />
+                  </div>
                 </DialogTrigger>
-                <DialogContent className={cn("max-w-xs", isDarkMode && 'dark')}>
+                <DialogContent className={cn("max-w-md", isDarkMode && 'dark')}>
                   <DialogHeader>
                     <div className="flex items-start gap-4 mb-4">
                       <Image
@@ -349,6 +349,7 @@ export function HomeTab({ isDarkMode }: HomeTabProps) {
               </Dialog>
             ))}
           </div>
+          <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </section>
     </div>
