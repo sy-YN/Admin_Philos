@@ -18,8 +18,8 @@ const navItems = [
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
-    <nav className="absolute bottom-0 left-0 right-0 bg-card/80 backdrop-blur-sm border-t border-border/50 px-2 py-1 rounded-b-[48px] overflow-hidden z-20 shrink-0">
-      <div className="flex items-center justify-around pb-4">
+    <nav className="bg-card/80 backdrop-blur-sm border-t border-border/50 px-2 py-1 z-20 shrink-0">
+      <div className="flex items-center justify-around max-w-2xl mx-auto">
         {navItems.map((item) => (
           <Button
             key={item.id}

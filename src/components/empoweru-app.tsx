@@ -92,7 +92,7 @@ export default function EmpowerUApp() {
   };
 
   return (
-    <div className={cn(isDarkMode && 'dark')}>
+    <div className={cn("max-w-7xl mx-auto", isDarkMode && 'dark')}>
       <AppShell>
         <AppHeader
           notificationCount={notifications.length}
@@ -107,7 +107,7 @@ export default function EmpowerUApp() {
         />
 
         <Dialog open={!!selectedNotification} onOpenChange={(isOpen) => !isOpen && setSelectedNotification(null)}>
-          <DialogContent className={cn("max-w-xs", isDarkMode && 'dark')}>
+          <DialogContent className={cn("max-w-md", isDarkMode && 'dark')}>
             {selectedNotification && (
               <>
                 <DialogHeader>
@@ -124,7 +124,7 @@ export default function EmpowerUApp() {
 
 
         <main
-          className="h-[calc(100%-130px)] relative"
+          className="flex-1 relative overflow-hidden"
           onClick={() => showNotifications && setShowNotifications(false)}
         >
           {renderContent()}
