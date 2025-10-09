@@ -56,9 +56,9 @@ export default function CalendarPage() {
   const year = today.getFullYear();
 
   return (
-    <main className={cn("flex min-h-screen w-full items-center justify-center bg-white dark:bg-background", isDarkMode && 'dark')}>
+    <main className={cn("flex min-h-screen w-full items-center justify-center bg-background", isDarkMode && 'dark')}>
       <div 
-        className="relative h-full w-full flex flex-col items-center justify-center cursor-pointer bg-background"
+        className="relative h-full w-full flex flex-col items-center justify-center cursor-pointer"
         onClick={handlePageFlip}
       >
         <div 
