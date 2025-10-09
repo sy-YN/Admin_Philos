@@ -3,20 +3,26 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Palette } from 'lucide-react';
+import { ArrowLeft, Palette, Volume2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
 
 export default function SettingsPage() {
   const router = useRouter();
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [volume, setVolume] = useState(50);
 
   useEffect(() => {
     const darkModeValue = localStorage.getItem('darkMode') === 'true';
     setIsDarkMode(darkModeValue);
     
+    const savedVolume = localStorage.getItem('volume');
+    if (savedVolume) {
+      setVolume(Number(savedVolume));
+    }
   }, []);
 
   const handleDarkModeChange = (enabled: boolean) => {
@@ -24,6 +30,12 @@ export default function SettingsPage() {
     localStorage.setItem('darkMode', String(enabled));
     // This will force a re-render on the parent components that use this value
     window.dispatchEvent(new Event('storage'));
+  };
+
+  const handleVolumeChange = (value: number[]) => {
+    const newVolume = value[0];
+    setVolume(newVolume);
+    localStorage.setItem('volume', String(newVolume));
   };
 
   return (
@@ -51,6 +63,25 @@ export default function SettingsPage() {
                         checked={isDarkMode}
                         onCheckedChange={handleDarkModeChange}
                     />
+                </div>
+            </Card>
+            <Card className="p-4 max-w-2xl mx-auto">
+                <div className="space-y-3">
+                    <Label htmlFor="volume-slider" className="flex items-center gap-3">
+                        <Volume2 className="w-5 h-5 text-primary" />
+                        <span className="text-base font-medium">音量</span>
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Slider
+                          id="volume-slider"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={[volume]}
+                          onValueChange={handleVolumeChange}
+                      />
+                      <span className="text-sm font-mono w-10 text-right">{volume}%</span>
+                    </div>
                 </div>
             </Card>
         </div>
