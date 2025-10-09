@@ -4,13 +4,12 @@
 import { useState, useEffect } from 'react';
 import { AppShell } from '@/components/app-shell';
 import { AppHeader } from '@/components/app-header';
-import { BottomNav } from '@/components/bottom-nav';
+import { Sidebar } from '@/components/sidebar';
 import { NotificationPanel, type Notification } from '@/components/notification-panel';
 import { HomeTab } from '@/components/tabs/home-tab';
 import { PhilosophyTab } from '@/components/tabs/philosophy-tab';
 import { DashboardTab } from '@/components/tabs/dashboard-tab';
 import { RankingTab } from '@/components/tabs/ranking-tab';
-import { OtherTab } from '@/components/tabs/other-tab';
 import { PastGoalsTab } from '@/components/tabs/past-goals-tab';
 import { cn } from '@/lib/utils';
 import {
@@ -77,65 +76,68 @@ export default function EmpowerUApp() {
       philosophy: <PhilosophyTab />,
       dashboard: <DashboardTab onShowPastGoals={handleShowPastGoals} />,
       ranking: <RankingTab />,
-      other: <OtherTab />,
     };
 
     return (
-      <>
+      <div className="flex-1 overflow-hidden relative">
         {Object.entries(tabs).map(([tabId, content]) => (
           <div key={tabId} style={{ display: activeTab === tabId && !showPastGoals ? 'block' : 'none' }} className="h-full">
             {content}
           </div>
         ))}
-      </>
-    );
-  };
-
-  return (
-    <div className={cn("mx-auto h-full", isDarkMode && 'dark')}>
-      <AppShell>
-        <AppHeader
-          notificationCount={notifications.length}
-          onNotificationClick={() => setShowNotifications(!showNotifications)}
-        />
-
-        <NotificationPanel
-          isOpen={showNotifications}
-          notifications={notifications}
-          onClose={() => setShowNotifications(false)}
-          onNotificationSelect={handleNotificationSelect}
-        />
-
-        <Dialog open={!!selectedNotification} onOpenChange={(isOpen) => !isOpen && setSelectedNotification(null)}>
-          <DialogContent className={cn("max-w-md", isDarkMode && 'dark')}>
-            {selectedNotification && (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="dark:text-white">{selectedNotification.title}</DialogTitle>
-                  <DialogDescription>{selectedNotification.time}</DialogDescription>
-                </DialogHeader>
-                <div className="text-sm text-muted-foreground dark:text-gray-300 max-h-[60vh] overflow-y-auto">
-                  <p>{selectedNotification.fullContent}</p>
-                </div>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
-
-
-        <main
-          className="flex-1 relative overflow-hidden"
-          onClick={() => showNotifications && setShowNotifications(false)}
-        >
-          {renderContent()}
-          <PastGoalsTab 
+         <PastGoalsTab 
             show={showPastGoals} 
             departmentName={pastGoalsDepartment} 
             onNavigateBack={handleHidePastGoals} 
           />
-        </main>
+      </div>
+    );
+  };
 
-        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+  return (
+    <div className={cn("h-screen w-screen flex", isDarkMode && 'dark')}>
+      <AppShell>
+        <Sidebar 
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          notificationCount={notifications.length}
+          onNotificationClick={() => setShowNotifications(!showNotifications)}
+        />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <AppHeader
+            onNotificationClick={() => setShowNotifications(!showNotifications)}
+          />
+
+          <NotificationPanel
+            isOpen={showNotifications}
+            notifications={notifications}
+            onClose={() => setShowNotifications(false)}
+            onNotificationSelect={handleNotificationSelect}
+          />
+
+          <Dialog open={!!selectedNotification} onOpenChange={(isOpen) => !isOpen && setSelectedNotification(null)}>
+            <DialogContent className={cn("max-w-md", isDarkMode && 'dark')}>
+              {selectedNotification && (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="dark:text-white">{selectedNotification.title}</DialogTitle>
+                    <DialogDescription>{selectedNotification.time}</DialogDescription>
+                  </DialogHeader>
+                  <div className="text-sm text-muted-foreground dark:text-gray-300 max-h-[60vh] overflow-y-auto">
+                    <p>{selectedNotification.fullContent}</p>
+                  </div>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          <main
+            className="flex-1 relative overflow-hidden"
+            onClick={() => showNotifications && setShowNotifications(false)}
+          >
+            {renderContent()}
+          </main>
+        </div>
       </AppShell>
     </div>
   );

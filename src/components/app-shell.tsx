@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className={cn("w-full min-h-svh bg-background flex flex-col")}>
+    <div className={cn("w-full h-full bg-background flex")}>
       {children}
     </div>
   );
