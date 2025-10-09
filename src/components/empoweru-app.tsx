@@ -92,7 +92,7 @@ export default function EmpowerUApp() {
   };
 
   return (
-    <div className={cn("max-w-7xl mx-auto", isDarkMode && 'dark')}>
+    <div className={cn("mx-auto h-full", isDarkMode && 'dark')}>
       <AppShell>
         <AppHeader
           notificationCount={notifications.length}
