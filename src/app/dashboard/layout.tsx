@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut } from 'lucide-react';
+import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser } from '@/firebase';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users },
@@ -25,6 +27,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -48,45 +51,93 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-      <div className="hidden border-r bg-muted/40 md:block">
-        <div className="flex h-full max-h-screen flex-col gap-2">
-          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
-              <Building2 className="h-6 w-6 text-primary" />
-              <span className="">Philos Admin</span>
-            </Link>
-          </div>
-          <div className="flex-1">
-            <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary ${
-                    pathname.startsWith(item.href) ? 'bg-muted text-primary' : ''
-                  }`}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          <div className="mt-auto p-4">
-            <Button size="sm" className="w-full" variant="outline" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              ログアウト
-            </Button>
+    <TooltipProvider>
+      <div className={cn(
+        "grid min-h-screen w-full transition-all duration-300",
+        isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[280px_1fr]"
+        )}>
+        <div className="hidden border-r bg-muted/40 md:block">
+          <div className="flex h-full max-h-screen flex-col gap-2">
+            <div className={cn(
+              "flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 relative transition-all duration-300",
+               isCollapsed && "px-2 justify-center"
+              )}>
+              <Link href="/" className="flex items-center gap-2 font-semibold">
+                <Building2 className="h-6 w-6 text-primary" />
+                {!isCollapsed && <span className="">Philos Admin</span>}
+              </Link>
+               <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute -right-5 top-1/2 -translate-y-1/2 rounded-full h-10 w-10 border bg-background hover:bg-muted"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+               >
+                <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
+              </Button>
+            </div>
+            <div className="flex-1">
+              <nav className={cn(
+                "grid items-start text-sm font-medium transition-all duration-300",
+                 isCollapsed ? "px-2" : "px-4"
+                )}>
+                {navItems.map((item) => (
+                   <Tooltip key={item.href} delayDuration={0}>
+                    <TooltipTrigger asChild>
+                       <Link
+                          href={item.href}
+                           className={cn(
+                            "flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:text-primary",
+                            pathname.startsWith(item.href) && 'bg-muted text-primary',
+                            isCollapsed && "justify-center"
+                          )}
+                        >
+                          <item.icon className="h-5 w-5" />
+                          {!isCollapsed && <span>{item.label}</span>}
+                          <span className="sr-only">{item.label}</span>
+                        </Link>
+                    </TooltipTrigger>
+                     {isCollapsed && (
+                      <TooltipContent side="right">
+                        {item.label}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                ))}
+              </nav>
+            </div>
+            <div className={cn(
+              "mt-auto p-4 transition-all duration-300",
+              isCollapsed && "p-2"
+              )}>
+              <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                     <Button 
+                        size="icon" 
+                        className={cn("w-full", !isCollapsed && "w-full")}
+                        variant="outline" 
+                        onClick={handleLogout}
+                      >
+                      <LogOut className="h-5 w-5" />
+                      {!isCollapsed && <span className="ml-2">ログアウト</span>}
+                       <span className="sr-only">ログアウト</span>
+                    </Button>
+                  </TooltipTrigger>
+                   {isCollapsed && (
+                    <TooltipContent side="right">
+                      ログアウト
+                    </TooltipContent>
+                  )}
+              </Tooltip>
+            </div>
           </div>
         </div>
+        <div className="flex flex-col">
+          {/* Mobile Header will go here */}
+          <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-muted/40 overflow-auto">
+            {children}
+          </main>
+        </div>
       </div>
-      <div className="flex flex-col">
-        {/* Mobile Header will go here */}
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-muted/40">
-          {children}
-        </main>
-      </div>
-    </div>
+    </TooltipProvider>
   );
 }
