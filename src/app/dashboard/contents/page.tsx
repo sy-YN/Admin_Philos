@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -5,13 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle, Video, MessageSquare } from 'lucide-react';
 import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
 
 // ダミーデータ
 const dummyVideos = [
@@ -20,8 +22,8 @@ const dummyVideos = [
 ];
 
 const dummyMessages = [
-  { id: 'm1', title: '従業員エンゲージメント向上に向けて', author: '山田 太郎 (CEO)', createdAt: '2024/07/20' },
-  { id: 'm2', title: '夏の長期休暇について', author: '佐藤 管理者', createdAt: '2024/07/18' },
+  { id: 'm1', title: '従業員エンゲージメント向上に向けて', author: '山田 太郎 (CEO)', createdAt: '2024/07/20', priority: 'high' },
+  { id: 'm2', title: '夏の長期休暇について', author: '佐藤 管理者', createdAt: '2024/07/18', priority: 'normal' },
 ];
 
 export default function ContentsPage() {
@@ -139,6 +141,18 @@ export default function ContentsPage() {
                         <Input id="msg-title" placeholder="来期の事業戦略について" />
                       </div>
                       <div className="grid gap-2">
+                        <Label htmlFor="msg-priority">重要度</Label>
+                        <Select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="重要度を選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="normal">通常</SelectItem>
+                            <SelectItem value="high">高</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
                         <Label htmlFor="msg-content">内容</Label>
                         <Textarea id="msg-content" placeholder="来期は..." rows={10} />
                       </div>
@@ -155,6 +169,7 @@ export default function ContentsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>タイトル</TableHead>
+                    <TableHead className="w-[120px]">重要度</TableHead>
                     <TableHead className="w-[200px]">作成者</TableHead>
                     <TableHead className="w-[150px] hidden md:table-cell">作成日</TableHead>
                     <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -164,6 +179,11 @@ export default function ContentsPage() {
                   {dummyMessages.map((msg) => (
                     <TableRow key={msg.id}>
                       <TableCell className="font-medium">{msg.title}</TableCell>
+                      <TableCell>
+                        <Badge variant={msg.priority === 'high' ? 'destructive' : 'secondary'}>
+                          {msg.priority === 'high' ? '高' : '通常'}
+                        </Badge>
+                      </TableCell>
                       <TableCell>{msg.author}</TableCell>
                       <TableCell className="hidden md:table-cell">{msg.createdAt}</TableCell>
                       <TableCell>
