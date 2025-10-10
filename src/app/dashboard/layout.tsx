@@ -33,7 +33,9 @@ export default function DashboardLayout({
   }, [user, isUserLoading, router]);
 
   const handleLogout = async () => {
-    await auth.signOut();
+    if (auth) {
+      await auth.signOut();
+    }
     router.push('/login');
   };
 
@@ -62,7 +64,7 @@ export default function DashboardLayout({
                   key={item.href}
                   href={item.href}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary ${
-                    pathname === item.href ? 'bg-muted text-primary' : ''
+                    pathname.startsWith(item.href) ? 'bg-muted text-primary' : ''
                   }`}
                 >
                   <item.icon className="h-4 w-4" />
