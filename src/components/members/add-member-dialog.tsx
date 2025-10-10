@@ -15,10 +15,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function AddMemberDialog() {
   const [open, setOpen] = useState(false);
@@ -66,9 +66,9 @@ export function AddMemberDialog() {
         createdAt: serverTimestamp(),
       };
       
-      const usersCollection = collection(firestore, 'users');
+      const userDocRef = doc(firestore, 'users', user.uid);
       // Using non-blocking update for better UX
-      addDocumentNonBlocking(usersCollection, newMemberData);
+      setDocumentNonBlocking(userDocRef, newMemberData, { merge: false });
 
       toast({
         title: '成功',
