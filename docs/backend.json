@@ -1,0 +1,221 @@
+{
+  "entities": {
+    "Workspace": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Workspace",
+      "type": "object",
+      "description": "Represents a workspace in GitSpace, containing projects imported from Git repositories.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Workspace entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the workspace."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the workspace."
+        },
+        "repositoryUrl": {
+          "type": "string",
+          "description": "URL of the Git repository associated with the workspace."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to the User who owns the workspace. (Relationship: User 1:N Workspace)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "repositoryUrl",
+        "ownerId"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the GitSpace application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "username": {
+          "type": "string",
+          "description": "Username of the user."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the user."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "username"
+      ]
+    },
+    "Member": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Member",
+      "type": "object",
+      "description": "Represents a member of a workspace, defining their role and permissions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Member entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who is a member. (Relationship: User 1:N Member)"
+        },
+        "workspaceId": {
+          "type": "string",
+          "description": "Reference to the Workspace this member belongs to. (Relationship: Workspace 1:N Member)"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the member in the workspace (e.g., admin, editor, viewer)."
+        },
+        "permissions": {
+          "type": "array",
+          "description": "List of specific permissions granted to the member.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "workspaceId",
+        "role"
+      ]
+    },
+    "Tab": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tab",
+      "type": "object",
+      "description": "Represents a tab within the workspace, used for managing different functionalities or sections.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tab entity."
+        },
+        "workspaceId": {
+          "type": "string",
+          "description": "Reference to the Workspace the tab belongs to. (Relationship: Workspace 1:N Tab)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the tab."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the tab's purpose."
+        },
+        "configuration": {
+          "type": "string",
+          "description": "Configuration settings specific to the tab (e.g., layout, tools)."
+        }
+      },
+      "required": [
+        "id",
+        "workspaceId",
+        "name"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user data. Path-based ownership enables simple security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/workspaces/{workspaceId}",
+        "definition": {
+          "entityName": "Workspace",
+          "schema": {
+            "$ref": "#/backend/entities/Workspace"
+          },
+          "description": "Stores workspace data. Includes denormalized 'members' map for authorization independence.",
+          "params": [
+            {
+              "name": "workspaceId",
+              "description": "The unique identifier of the workspace."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/workspaces/{workspaceId}/members/{memberId}",
+        "definition": {
+          "entityName": "Member",
+          "schema": {
+            "$ref": "#/backend/entities/Member"
+          },
+          "description": "Stores member data for each workspace. Includes denormalized 'members' map copied from the parent workspace, for authorization independence.",
+          "params": [
+            {
+              "name": "workspaceId",
+              "description": "The unique identifier of the workspace."
+            },
+            {
+              "name": "memberId",
+              "description": "The unique identifier of the member."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/workspaces/{workspaceId}/tabs/{tabId}",
+        "definition": {
+          "entityName": "Tab",
+          "schema": {
+            "$ref": "#/backend/entities/Tab"
+          },
+          "description": "Stores tab data for each workspace. Includes denormalized 'members' map copied from the parent workspace for authorization independence.",
+          "params": [
+            {
+              "name": "workspaceId",
+              "description": "The unique identifier of the workspace."
+            },
+            {
+              "name": "tabId",
+              "description": "The unique identifier of the tab."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to manage users, workspaces, members, and tabs within the GitSpace application, emphasizing security, scalability, and debuggability. It adheres to the core design principles, particularly Authorization Independence, by denormalizing relevant data. This design avoids hierarchical authorization dependencies, making security rules simple, robust, and easily debuggable.\n\n*   **Users:** User data is stored in `/users/{userId}`. This is private data, so path-based ownership is preferred.\n*   **Workspaces:** Workspaces are stored in `/workspaces/{workspaceId}`. Each workspace has an `ownerId` field indicating the owner. To enable Authorization Independence, workspace documents also contain a `members` map (`members: {uid1: \"role\", uid2: \"role\"}`) to manage access. The owner is implicitly a member with an admin role.\n*   **Members:** Member entities are stored in a subcollection `/workspaces/{workspaceId}/members/{memberId}`. Each member document contains a `userId`, `workspaceId` and `role`. To enable Authorization Independence, member documents also contain a denormalized `members` map copied from the parent workspace. This is because membership roles depend on the parent workspace data.\n*   **Tabs:** Tabs are stored in a subcollection `/workspaces/{workspaceId}/tabs/{tabId}`. To enable Authorization Independence, tab documents include a denormalized `members` map from the parent workspace. This allows secure `list` operations. If the tab were stored in a top-level collection, security rules would be more complex, requiring filtering based on workspace membership.\n\nThis structure supports the required QAPs (Rules are not Filters) by segregating data based on access needs and employing membership models for collaborative data. The denormalized `members` map ensures that list operations can be securely performed without relying on `get()` calls in security rules, maintaining atomic operations and simplifying debugging."
+  }
+}
