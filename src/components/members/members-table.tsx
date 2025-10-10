@@ -73,7 +73,7 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
               <div className="text-sm text-muted-foreground">{member.email}</div>
             </TableCell>
             <TableCell>
-              <Badge variant="outline">{member.role}</Badge>
+              <Badge variant="secondary">{member.role}</Badge>
             </TableCell>
             <TableCell className="hidden md:table-cell">
               {member.department || 'N/A'}
