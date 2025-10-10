@@ -14,13 +14,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle, UserPlus } from 'lucide-react';
 import { collection, setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useUser } from '@/firebase';
 
 export function AddMemberDialog() {
+  const { user } = useUser();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -54,11 +56,11 @@ export function AddMemberDialog() {
     try {
       // 1. Create the user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
-      const user = userCredential.user;
+      const newUser = userCredential.user;
 
       // 2. Create the user document in Firestore
       const newMemberData = {
-        uid: user.uid,
+        uid: newUser.uid,
         email,
         displayName,
         department,
@@ -66,7 +68,7 @@ export function AddMemberDialog() {
         createdAt: serverTimestamp(),
       };
       
-      const userDocRef = doc(firestore, 'users', user.uid);
+      const userDocRef = doc(firestore, 'users', newUser.uid);
       // Using non-blocking update for better UX
       setDocumentNonBlocking(userDocRef, newMemberData, { merge: false });
 
@@ -101,15 +103,25 @@ export function AddMemberDialog() {
     }
   };
 
+  const triggerButton = user ? (
+      <Button size="sm" className="h-8 gap-1">
+        <PlusCircle className="h-3.5 w-3.5" />
+        <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+          メンバー追加
+        </span>
+      </Button>
+    ) : (
+      <Button variant="outline" className="w-full">
+        <UserPlus className="mr-2 h-4 w-4" />
+        最初の管理者アカウントを作成
+      </Button>
+    );
+
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="h-8 gap-1">
-          <PlusCircle className="h-3.5 w-3.5" />
-          <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-            メンバー追加
-          </span>
-        </Button>
+        {triggerButton}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleAddMember}>

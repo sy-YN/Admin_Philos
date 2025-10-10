@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Building2, Loader2 } from 'lucide-react';
+import { AddMemberDialog } from '@/components/members/add-member-dialog';
+import { Separator } from '@/components/ui/separator';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -113,6 +115,19 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
+        <CardFooter className="flex-col items-start gap-4">
+            <div className='flex items-center w-full gap-2'>
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">最初のユーザーですか？</span>
+                <Separator className="flex-1" />
+            </div>
+            <div className='w-full'>
+                <p className="text-xs text-muted-foreground mb-2">
+                    まだ管理者がいない場合は、ここから最初の管理者アカウントを作成してください。
+                </p>
+                 <AddMemberDialog />
+            </div>
+        </CardFooter>
       </Card>
     </main>
   );
