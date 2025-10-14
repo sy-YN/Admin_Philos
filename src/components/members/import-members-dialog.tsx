@@ -19,6 +19,7 @@ import { Loader2, Upload, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Papa from 'papaparse';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { ScrollArea } from '../ui/scroll-area';
 
 const REQUIRED_COLUMNS = ['email', 'password', 'displayName', 'role'];
 
@@ -142,7 +143,7 @@ export function ImportMembersDialog() {
           {parsedData.length > 0 && !fileError && (
             <div>
               <h4 className="text-sm font-medium mb-2">インポートプレビュー（最初の5件）</h4>
-              <div className="max-h-60 overflow-auto rounded-md border">
+              <ScrollArea className="max-h-60 rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -159,7 +160,7 @@ export function ImportMembersDialog() {
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+              </ScrollArea>
               <p className="text-xs text-muted-foreground mt-2">{parsedData.length}件のレコードが検出されました。</p>
             </div>
           )}
