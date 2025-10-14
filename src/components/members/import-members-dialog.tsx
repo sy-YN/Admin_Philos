@@ -15,9 +15,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2, Upload, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import Papa from 'papaparse';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
@@ -117,7 +116,7 @@ export function ImportMembersDialog() {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <Alert variant="default" className="bg-amber-50 border-amber-200">
-             <ExclamationTriangleIcon className="h-4 w-4 !text-amber-600" />
+             <AlertTriangle className="h-4 w-4 !text-amber-600" />
             <AlertTitle className="text-amber-800">CSVファイルの形式</AlertTitle>
             <AlertDescription className="text-amber-700">
               <p className="mb-2">
