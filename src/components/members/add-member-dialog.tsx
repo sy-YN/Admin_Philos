@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -35,6 +35,18 @@ export function AddMemberDialog() {
   const [displayName, setDisplayName] = useState('');
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState<Member['role']>('employee');
+  
+  // ログインユーザーがいない（最初の管理者作成）場合は、役割をadminに固定
+  const isFirstAdmin = !user;
+
+  useEffect(() => {
+    if (isFirstAdmin) {
+      setRole('admin');
+    } else {
+      setRole('employee');
+    }
+  }, [isFirstAdmin, open]);
+
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,10 +62,6 @@ export function AddMemberDialog() {
       return;
     }
     
-    // 注意: この方法はクライアントサイドでユーザーを作成するため、
-    // 本来はFirebase Functionsを介してサーバーサイドで実行するのが最も安全です。
-    // 今回は開発の簡便性を優先し、クライアントから直接呼び出しています。
-    // 管理者ユーザーのみがこの操作を実行できるように、セキュリティルールを適切に設定する必要があります。
     const tempAuth = getAuth();
 
     try {
@@ -62,23 +70,25 @@ export function AddMemberDialog() {
       const newUser = userCredential.user;
 
       // 2. Firestoreにユーザーのドキュメントを作成
-      const newMemberData = {
+      const newMemberData: Omit<Member, 'createdAt' | 'updatedAt'> = {
         uid: newUser.uid,
         email,
         displayName,
         department,
-        role,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        role: isFirstAdmin ? 'admin' : role, // 最初のユーザーはadminに固定
       };
       
       const userDocRef = doc(firestore, 'users', newUser.uid);
       
-      await setDoc(userDocRef, newMemberData);
+      await setDoc(userDocRef, {
+        ...newMemberData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
 
       toast({
         title: '成功',
-        description: '新しいメンバーが追加されました。',
+        description: `新しいメンバー「${displayName}」が追加されました。`,
       });
       
       // フォームをリセットしてダイアログを閉じる
@@ -107,17 +117,17 @@ export function AddMemberDialog() {
     }
   };
 
-  const triggerButton = user ? (
+  const triggerButton = isFirstAdmin ? (
+      <Button variant="outline" className="w-full">
+        <UserPlus className="mr-2 h-4 w-4" />
+        最初の管理者アカウントを作成
+      </Button>
+    ) : (
       <Button size="sm" className="h-8 gap-1">
         <PlusCircle className="h-3.5 w-3.5" />
         <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
           メンバー追加
         </span>
-      </Button>
-    ) : (
-      <Button variant="outline" className="w-full">
-        <UserPlus className="mr-2 h-4 w-4" />
-        最初の管理者アカウントを作成
       </Button>
     );
 
@@ -130,9 +140,9 @@ export function AddMemberDialog() {
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleAddMember}>
           <DialogHeader>
-            <DialogTitle>新しいメンバーを追加</DialogTitle>
+            <DialogTitle>{isFirstAdmin ? '最初の管理者アカウントを作成' : '新しいメンバーを追加'}</DialogTitle>
             <DialogDescription>
-              新しいメンバーの詳細情報を入力してください。
+              {isFirstAdmin ? 'このアカウントで管理画面にログインします。' : '新しいメンバーの詳細情報を入力してください。'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -190,6 +200,7 @@ export function AddMemberDialog() {
                 disabled={isLoading}
               />
             </div>
+            {!isFirstAdmin && (
              <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">
                 権限
@@ -210,6 +221,7 @@ export function AddMemberDialog() {
                 </SelectContent>
               </Select>
             </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isLoading}>
