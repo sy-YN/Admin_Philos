@@ -17,18 +17,19 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, UserPlus } from 'lucide-react';
 import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { useFirestore } from '@/firebase/provider';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { useUser } from '@/firebase';
+import { useFirestore, useUser, useAuth } from '@/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function AddMemberDialog() {
   const { user } = useUser();
+  const auth = useAuth(); // Use the central auth instance
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-  const firestore = useFirestore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,7 +37,7 @@ export function AddMemberDialog() {
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState<Member['role']>('employee');
   
-  // ログインユーザーがいない（最初の管理者作成）場合は、役割をadminに固定
+  // If no logged-in user (creating the first admin), fix the role to 'admin'
   const isFirstAdmin = !user;
 
   useEffect(() => {
@@ -52,30 +53,28 @@ export function AddMemberDialog() {
     e.preventDefault();
     setIsLoading(true);
 
-    if (!firestore) {
+    if (!firestore || !auth) {
       toast({
         title: 'エラー',
-        description: 'データベースに接続できませんでした。',
+        description: 'システムが初期化されていません。',
         variant: 'destructive',
       });
       setIsLoading(false);
       return;
     }
     
-    const tempAuth = getAuth();
-
     try {
-      // 1. Firebase Authenticationでユーザーを作成
-      const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
+      // 1. Create user in Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
-      // 2. Firestoreにユーザーのドキュメントを作成
+      // 2. Create user document in Firestore
       const newMemberData: Omit<Member, 'createdAt' | 'updatedAt'> = {
         uid: newUser.uid,
         email,
         displayName,
         department,
-        role: isFirstAdmin ? 'admin' : role, // 最初のユーザーはadminに固定
+        role: isFirstAdmin ? 'admin' : role, // Lock to admin for the first user
       };
       
       const userDocRef = doc(firestore, 'users', newUser.uid);
@@ -91,7 +90,7 @@ export function AddMemberDialog() {
         description: `新しいメンバー「${displayName}」が追加されました。`,
       });
       
-      // フォームをリセットしてダイアログを閉じる
+      // Reset form and close dialog
       setEmail('');
       setPassword('');
       setDisplayName('');
@@ -100,7 +99,7 @@ export function AddMemberDialog() {
       setOpen(false);
 
     } catch (error: any) {
-      console.error('Error adding member:', error);
+      // Handle specific auth errors and show a user-friendly message
       let description = 'メンバーの追加中にエラーが発生しました。';
       if (error.code === 'auth/email-already-in-use') {
         description = 'このメールアドレスは既に使用されています。';
@@ -200,6 +199,7 @@ export function AddMemberDialog() {
                 disabled={isLoading}
               />
             </div>
+            {/* Show role selection only if it's not the first admin */}
             {!isFirstAdmin && (
              <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">
