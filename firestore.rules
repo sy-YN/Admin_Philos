@@ -1,55 +1,49 @@
 /**
- * @fileoverview Firestore Security Rules for the Philos application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles,
- * preventing unauthorized data access. User documents are only accessible
- * to the authenticated user with the matching UID.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for user profiles.
  *
  * Data Structure:
- * - /users/{userId}: Stores individual user profiles, keyed by their Firebase Auth UID.
+ * - /users/{userId}: Stores profile information for each user. The {userId} must match the authenticated user's UID.
  *
  * Key Security Decisions:
- * - Listing of users is explicitly denied to prevent information disclosure.
- * - The rules explicitly validate that the `userId` in the path matches the
- *   authenticated user's UID for all create, update, and delete operations.
- *
- * Denormalization for Authorization:
- * No denormalization is needed, as the user's UID is directly available
- * from `request.auth.uid` and can be compared to the `userId` path segment.
+ * - Users can only read and write their own profile data.
+ * - Listing all users is disallowed.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profiles.
-     * @path /databases/{database}/documents/users/{userId}
-     * @allow (create) - Authenticated user with matching UID can create their own profile.
-     * @allow (get, update, delete) - Authenticated user with matching UID can access and modify their profile.
-     * @deny (list) - Prevents listing all user profiles.
-     * @deny (create, update, delete) - Any other user attempting to modify another user's profile.
-     * @principle Enforces document ownership for writes.
+     * @description Controls access to user profile documents.
+     * @path /users/{userId}
+     * @allow (create) - Authenticated user with matching UID can create their profile.
+     * @allow (get, update, delete) - Authenticated user can only access their own profile.
+     * @deny (create) - If the UID in the path does not match the authenticated user's UID.
+     * @deny (get, update, delete) - If the authenticated user attempts to access another user's profile.
+     * @deny (list) - Listing all users is not allowed.
+     * @principle Enforces document ownership.
      */
     match /users/{userId} {
+      // Check if the user is signed in
       function isSignedIn() {
         return request.auth != null;
       }
 
+      // Check if the requested user id matches the authenticated user id
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
 
+      // Check if the requested user id matches the authenticated user id and document exists
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
 
-      allow get: if isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == request.auth.uid;
+      allow get: if isSignedIn() && isOwner(userId);
       allow list: if false;
-
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
-      allow delete: if isExistingOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
   }
 }
