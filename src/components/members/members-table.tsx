@@ -60,6 +60,9 @@ function MemberTableRow({ member }: { member: Member }) {
       return;
     }
     
+    // 注意: これはデータベース上のドキュメントを削除するだけです。
+    // Firebase Authentication上のユーザーアカウント自体は削除されません。
+    // アカウントの完全な削除には、Firebase Functionsなどのサーバーサイドの仕組みが必要です。
     try {
       await deleteDoc(doc(firestore, "users", uid));
       toast({
@@ -79,6 +82,7 @@ function MemberTableRow({ member }: { member: Member }) {
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
     try {
+      // FirestoreのTimestamp型か、JSのDate型かを判定して変換
       const jsDate = date.toDate ? date.toDate() : new Date(date);
       if (isNaN(jsDate.getTime())) {
         return '無効な日付';
@@ -104,6 +108,9 @@ function MemberTableRow({ member }: { member: Member }) {
       </TableCell>
       <TableCell className="hidden md:table-cell">
         {formatDate(member.createdAt)}
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
+        {formatDate(member.updatedAt)}
       </TableCell>
       <TableCell>
         <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -178,6 +185,7 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
           <TableHead>権限</TableHead>
           <TableHead className="hidden md:table-cell">所属</TableHead>
           <TableHead className="hidden md:table-cell">登録日</TableHead>
+          <TableHead className="hidden md:table-cell">更新日</TableHead>
           <TableHead>
             <span className="sr-only">Actions</span>
           </TableHead>

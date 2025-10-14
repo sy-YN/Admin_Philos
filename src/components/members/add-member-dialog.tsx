@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, UserPlus } from 'lucide-react';
-import { collection, setDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useUser } from '@/firebase';
@@ -69,6 +69,7 @@ export function AddMemberDialog() {
         department,
         role,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       };
       
       const userDocRef = doc(firestore, 'users', newUser.uid);

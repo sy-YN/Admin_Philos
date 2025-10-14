@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -53,10 +53,11 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
     const userDocRef = doc(firestore, 'users', member.uid);
 
     try {
-      const updatedData: Partial<Omit<Member, 'uid' | 'email' | 'createdAt'>> = {
+      const updatedData = {
         displayName,
         department,
         role,
+        updatedAt: serverTimestamp(),
       };
       
       await updateDoc(userDocRef, updatedData);

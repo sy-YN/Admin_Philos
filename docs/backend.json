@@ -32,9 +32,14 @@
           "type": "string",
           "format": "date-time",
           "description": "Timestamp of when the user was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of when the user was last updated."
         }
       },
-      "required": ["uid", "email", "displayName", "role", "createdAt"]
+      "required": ["uid", "email", "displayName", "role", "createdAt", "updatedAt"]
     }
   },
   "auth": {

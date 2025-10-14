@@ -7,4 +7,5 @@ export type Member = {
   department?: string;
   role: 'admin' | 'executive' | 'manager' | 'employee';
   createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 };
