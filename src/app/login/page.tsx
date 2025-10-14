@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,33 +8,69 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Building2, Loader2 } from 'lucide-react';
 import { AddMemberDialog } from '@/components/members/add-member-dialog';
 import { Separator } from '@/components/ui/separator';
+import { doc, getDoc } from 'firebase/firestore';
+import type { Member } from '@/types/member';
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingRole, setIsCheckingRole] = useState(true);
 
   useEffect(() => {
-    if (!isUserLoading && user) {
-      router.replace('/dashboard');
-    }
-  }, [user, isUserLoading, router]);
+    // This effect handles redirection based on auth state and role.
+    const checkUserRoleAndRedirect = async () => {
+      if (isUserLoading) {
+        return; // Wait until auth state is confirmed
+      }
+
+      if (!user) {
+        setIsCheckingRole(false); // No user, stop checking and show login form
+        return;
+      }
+      
+      // User is authenticated, now check their role in Firestore
+      if (!firestore) {
+        setIsCheckingRole(false);
+        return;
+      };
+      
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists() && (userDoc.data() as Member).role === 'admin') {
+        router.replace('/dashboard');
+      } else {
+        // Not an admin or no document, sign them out and show an error
+        await auth.signOut();
+        toast({
+          title: 'ログインエラー',
+          description: '管理者権限を持つアカウントでログインしてください。',
+          variant: 'destructive',
+        });
+        setIsCheckingRole(false); // Stop checking and show login form
+      }
+    };
+
+    checkUserRoleAndRedirect();
+  }, [user, isUserLoading, router, firestore, auth, toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    if (!email || !password) {
+    if (!email || !password || !firestore) {
       toast({
         title: '入力エラー',
         description: 'メールアドレスとパスワードを入力してください。',
@@ -44,28 +81,46 @@ export default function LoginPage() {
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: 'ログイン成功',
-        description: 'ダッシュボードへようこそ！',
-      });
-      // The redirect will happen automatically via the useEffect hook watching the user state.
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const loggedInUser = userCredential.user;
+
+      // After successful authentication, check the user's role from Firestore.
+      const userDocRef = doc(firestore, 'users', loggedInUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists() && (userDoc.data() as Member).role === 'admin') {
+        toast({
+          title: 'ログイン成功',
+          description: 'ダッシュボードへようこそ！',
+        });
+        // The useEffect will handle the redirection.
+      } else {
+        // If not an admin or document doesn't exist, sign out and show error.
+        await auth.signOut();
+        toast({
+          title: 'ログインエラー',
+          description: '管理者権限がありません。',
+          variant: 'destructive',
+        });
+      }
     } catch (error: any) {
       console.error('Login Error:', error);
       let description = 'ログイン中にエラーが発生しました。';
       if (error.code === 'auth/invalid-credential') {
-        description = 'メールアドレスまたはパスワードが正しくありません。'
+        description = 'メールアドレスまたはパスワードが正しくありません。';
       }
       toast({
         title: 'ログインエラー',
         description,
         variant: 'destructive',
       });
+    } finally {
       setIsLoading(false);
     }
   };
   
-  if (isUserLoading || user) {
+  // Show a loading spinner while checking auth state or role
+  if (isUserLoading || isCheckingRole) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

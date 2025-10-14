@@ -1,14 +1,17 @@
+
 'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { doc, getDoc } from 'firebase/firestore';
+import type { Member } from '@/types/member';
 
 const navItems = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users },
@@ -26,14 +29,45 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(false); // New state to track authorization
 
   useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.replace('/login');
+    if (isUserLoading) {
+      return; // Wait until Firebase auth state is loaded
     }
-  }, [user, isUserLoading, router]);
+
+    if (!user) {
+      router.replace('/login'); // No user, redirect to login
+      return;
+    }
+
+    if (!firestore) {
+      // Firestore might not be ready, handle this case if necessary
+      return;
+    }
+
+    // Check user role in Firestore
+    const userDocRef = doc(firestore, 'users', user.uid);
+    getDoc(userDocRef).then(userDoc => {
+      if (userDoc.exists() && (userDoc.data() as Member).role === 'admin') {
+        setIsAuthorized(true); // User is an admin, grant access
+      } else {
+        // Not an admin or doc doesn't exist, sign out and redirect
+        auth.signOut().then(() => {
+          router.replace('/login');
+        });
+      }
+    }).catch(() => {
+      // Error fetching document, sign out and redirect
+      auth.signOut().then(() => {
+        router.replace('/login');
+      });
+    });
+
+  }, [user, isUserLoading, router, firestore, auth]);
 
   const handleLogout = async () => {
     if (auth) {
@@ -42,14 +76,16 @@ export default function DashboardLayout({
     router.push('/login');
   };
 
-  if (isUserLoading || !user) {
+  // While checking auth or authorization, show a loader
+  if (isUserLoading || !isAuthorized) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-
+  
+  // If authorized, render the dashboard
   return (
     <TooltipProvider>
       <div className={cn(
