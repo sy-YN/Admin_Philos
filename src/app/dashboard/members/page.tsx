@@ -1,6 +1,6 @@
 
 'use client';
-import { File, Search } from 'lucide-react';
+import { File, Search, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { useFirestore, useMemoFirebase } from '@/firebase/provider';
 import type { Member } from '@/types/member';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns-tz';
+import { ImportMembersDialog } from '@/components/members/import-members-dialog';
 
 export default function MembersPage() {
   const firestore = useFirestore();
@@ -42,12 +43,10 @@ export default function MembersPage() {
     const formatTimestamp = (timestamp: Timestamp | Date | undefined) => {
       if (!timestamp) return '';
       const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
-      // フォーマットを 'yyyy-MM-dd HH:mm:ss' に変更し、タイムゾーンを指定
       return format(date, 'yyyy-MM-dd HH:mm:ssXXX', { timeZone: 'Asia/Tokyo' });
     }
 
     const rowItems = members.map(row => {
-      // Create a new object to reorder and format fields
       const orderedRow = {
         uid: row.uid,
         displayName: row.displayName,
@@ -85,6 +84,7 @@ export default function MembersPage() {
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">メンバー管理</h1>
         <div className="ml-auto flex items-center gap-2">
+           <ImportMembersDialog />
           <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExport}>
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
