@@ -13,6 +13,17 @@ import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -22,6 +33,10 @@ import {
 import type { Member } from '@/types/member';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { useFirestore } from '@/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { EditMemberDialog } from './edit-member-dialog';
 
 interface MembersTableProps {
   members: Member[];
@@ -29,6 +44,39 @@ interface MembersTableProps {
 }
 
 export function MembersTable({ members, isLoading }: MembersTableProps) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const handleDeleteMember = async (uid: string) => {
+    if (!firestore) {
+       toast({
+        title: 'エラー',
+        description: 'データベースに接続できませんでした。',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // 重要：これはFirestoreのドキュメントを削除するだけで、
+    // Firebase Authentication上のユーザーは削除されません。
+    // Authユーザーの削除はセキュリティ上の理由からサーバーサイド(Firebase Functions)で
+    // 行うのが一般的です。
+    try {
+      await deleteDoc(doc(firestore, "users", uid));
+      toast({
+        title: '成功',
+        description: 'メンバーをデータベースから削除しました。',
+      });
+    } catch(error) {
+       console.error("Error deleting member:", error);
+       toast({
+        title: 'エラー',
+        description: 'メンバーの削除中にエラーが発生しました。',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-10">
@@ -47,7 +95,6 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
-    // Firestore Timestamps need to be converted to JS Date objects
     try {
       const jsDate = date.toDate ? date.toDate() : new Date(date);
       if (isNaN(jsDate.getTime())) {
@@ -59,7 +106,6 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
       return '日付エラー';
     }
   };
-
 
   return (
     <Table>
@@ -100,8 +146,36 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuItem>Edit</DropdownMenuItem>
-                  <DropdownMenuItem>Delete</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                     <EditMemberDialog member={member} />
+                  </DropdownMenuItem>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                       <DropdownMenuItem 
+                          onSelect={(e) => e.preventDefault()}
+                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                        >
+                          Delete
+                       </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          この操作は元に戻せません。メンバー「{member.displayName}」のデータがデータベースから完全に削除されます。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => handleDeleteMember(member.uid)}
+                          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                        >
+                          削除
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>
