@@ -1,11 +1,55 @@
+/**
+ * @fileoverview Firestore Security Rules for the Philos application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles,
+ * preventing unauthorized data access. User documents are only accessible
+ * to the authenticated user with the matching UID.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores individual user profiles, keyed by their Firebase Auth UID.
+ *
+ * Key Security Decisions:
+ * - Listing of users is explicitly denied to prevent information disclosure.
+ * - The rules explicitly validate that the `userId` in the path matches the
+ *   authenticated user's UID for all create, update, and delete operations.
+ *
+ * Denormalization for Authorization:
+ * No denormalization is needed, as the user's UID is directly available
+ * from `request.auth.uid` and can be compared to the `userId` path segment.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /posts/{postId} {
-      // For development, allow read/write access to everyone.
-      // In production, you should restrict this to authenticated users.
-      // e.g., allow read, write: if request.auth != null;
-      allow read, write: if true;
+
+    /**
+     * @description Controls access to user profiles.
+     * @path /databases/{database}/documents/users/{userId}
+     * @allow (create) - Authenticated user with matching UID can create their own profile.
+     * @allow (get, update, delete) - Authenticated user with matching UID can access and modify their profile.
+     * @deny (list) - Prevents listing all user profiles.
+     * @deny (create, update, delete) - Any other user attempting to modify another user's profile.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
