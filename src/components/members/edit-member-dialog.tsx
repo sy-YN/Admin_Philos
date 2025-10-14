@@ -23,9 +23,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface EditMemberDialogProps {
   member: Member;
+  onSuccess?: () => void;
 }
 
-export function EditMemberDialog({ member }: EditMemberDialogProps) {
+export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -52,7 +53,7 @@ export function EditMemberDialog({ member }: EditMemberDialogProps) {
     const userDocRef = doc(firestore, 'users', member.uid);
 
     try {
-      const updatedData: Partial<Member> = {
+      const updatedData: Partial<Omit<Member, 'uid' | 'email' | 'createdAt'>> = {
         displayName,
         department,
         role,
@@ -65,6 +66,7 @@ export function EditMemberDialog({ member }: EditMemberDialogProps) {
         description: 'メンバー情報が更新されました。',
       });
       
+      onSuccess?.();
       setOpen(false);
 
     } catch (error: any) {
@@ -89,7 +91,7 @@ export function EditMemberDialog({ member }: EditMemberDialogProps) {
           <DialogHeader>
             <DialogTitle>メンバー情報を編集</DialogTitle>
             <DialogDescription>
-              メンバーの詳細情報を更新します。メールアドレスとパスワードは変更できません。
+              メンバーの詳細情報を更新します。メールアドレスは変更できません。
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">

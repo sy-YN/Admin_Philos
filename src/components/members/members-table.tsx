@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -43,7 +44,9 @@ interface MembersTableProps {
   isLoading: boolean;
 }
 
-export function MembersTable({ members, isLoading }: MembersTableProps) {
+// Separate component for the row to manage its own state
+function MemberTableRow({ member }: { member: Member }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -57,10 +60,6 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
       return;
     }
     
-    // 重要：これはFirestoreのドキュメントを削除するだけで、
-    // Firebase Authentication上のユーザーは削除されません。
-    // Authユーザーの削除はセキュリティ上の理由からサーバーサイド(Firebase Functions)で
-    // 行うのが一般的です。
     try {
       await deleteDoc(doc(firestore, "users", uid));
       toast({
@@ -77,6 +76,84 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
     }
   };
 
+  const formatDate = (date: any) => {
+    if (!date) return 'N/A';
+    try {
+      const jsDate = date.toDate ? date.toDate() : new Date(date);
+      if (isNaN(jsDate.getTime())) {
+        return '無効な日付';
+      }
+      return format(jsDate, 'yyyy/MM/dd HH:mm', { locale: ja });
+    } catch (error) {
+      console.error("Error formatting date:", date, error);
+      return '日付エラー';
+    }
+  };
+
+  return (
+    <TableRow>
+      <TableCell>
+        <div className="font-medium">{member.displayName}</div>
+        <div className="text-sm text-muted-foreground">{member.email}</div>
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary">{member.role}</Badge>
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
+        {member.department || 'N/A'}
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
+        {formatDate(member.createdAt)}
+      </TableCell>
+      <TableCell>
+        <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button aria-haspopup="true" size="icon" variant="ghost">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Toggle menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+               <EditMemberDialog member={member} onSuccess={() => setIsMenuOpen(false)} />
+            </DropdownMenuItem>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                 <DropdownMenuItem 
+                    onSelect={(e) => e.preventDefault()}
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                  >
+                    Delete
+                 </DropdownMenuItem>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    この操作は元に戻せません。メンバー「{member.displayName}」のデータがデータベースから完全に削除されます。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={() => handleDeleteMember(member.uid)}
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                  >
+                    削除
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+
+export function MembersTable({ members, isLoading }: MembersTableProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-10">
@@ -93,20 +170,6 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
     );
   }
 
-  const formatDate = (date: any) => {
-    if (!date) return 'N/A';
-    try {
-      const jsDate = date.toDate ? date.toDate() : new Date(date);
-      if (isNaN(jsDate.getTime())) {
-        return '無効な日付';
-      }
-      return format(jsDate, 'yyyy/MM/dd HH:mm', { locale: ja });
-    } catch (error) {
-      console.error("Error formatting date:", date, error);
-      return '日付エラー';
-    }
-  };
-
   return (
     <Table>
       <TableHeader>
@@ -122,64 +185,7 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
       </TableHeader>
       <TableBody>
         {members.map((member) => (
-          <TableRow key={member.uid}>
-            <TableCell>
-              <div className="font-medium">{member.displayName}</div>
-              <div className="text-sm text-muted-foreground">{member.email}</div>
-            </TableCell>
-            <TableCell>
-              <Badge variant="secondary">{member.role}</Badge>
-            </TableCell>
-            <TableCell className="hidden md:table-cell">
-              {member.department || 'N/A'}
-            </TableCell>
-            <TableCell className="hidden md:table-cell">
-              {formatDate(member.createdAt)}
-            </TableCell>
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button aria-haspopup="true" size="icon" variant="ghost">
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Toggle menu</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                     <EditMemberDialog member={member} />
-                  </DropdownMenuItem>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                       <DropdownMenuItem 
-                          onSelect={(e) => e.preventDefault()}
-                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                        >
-                          Delete
-                       </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          この操作は元に戻せません。メンバー「{member.displayName}」のデータがデータベースから完全に削除されます。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction 
-                          onClick={() => handleDeleteMember(member.uid)}
-                          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                        >
-                          削除
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
+          <MemberTableRow key={member.uid} member={member} />
         ))}
       </TableBody>
     </Table>
