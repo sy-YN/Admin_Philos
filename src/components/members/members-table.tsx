@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -47,8 +48,16 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
     // Firestore Timestamps need to be converted to JS Date objects
-    const jsDate = date.toDate ? date.toDate() : new Date(date);
-    return format(jsDate, 'yyyy/MM/dd HH:mm', { locale: ja });
+    try {
+      const jsDate = date.toDate ? date.toDate() : new Date(date);
+      if (isNaN(jsDate.getTime())) {
+        return '無効な日付';
+      }
+      return format(jsDate, 'yyyy/MM/dd HH:mm', { locale: ja });
+    } catch (error) {
+      console.error("Error formatting date:", date, error);
+      return '日付エラー';
+    }
   };
 
 

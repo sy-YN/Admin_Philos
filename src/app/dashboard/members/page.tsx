@@ -1,3 +1,4 @@
+
 'use client';
 import { File, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -5,56 +6,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { MembersTable } from '@/components/members/members-table';
 import { AddMemberDialog } from '@/components/members/add-member-dialog';
-// import { useCollection } from '@/firebase';
-// import { collection, query, orderBy } from 'firebase/firestore';
-// import { useFirestore, useMemoFirebase } from '@/firebase/provider';
+import { useCollection } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { useFirestore, useMemoFirebase } from '@/firebase/provider';
 import type { Member } from '@/types/member';
-
-// ダミーデータ
-const dummyMembers: Member[] = [
-  {
-    id: '1',
-    uid: 'uid-1',
-    displayName: '山田 太郎',
-    email: 'taro.yamada@example.com',
-    department: '営業部',
-    role: 'employee',
-    createdAt: new Date(),
-  },
-  {
-    id: '2',
-    uid: 'uid-2',
-    displayName: '鈴木 花子',
-    email: 'hanako.suzuki@example.com',
-    department: '開発部',
-    role: 'manager',
-    createdAt: new Date(),
-  },
-  {
-    id: '3',
-    uid: 'uid-admin',
-    displayName: '佐藤 管理者',
-    email: 'admin@philos.co',
-    department: 'IT',
-    role: 'admin',
-    createdAt: new Date(),
-  },
-];
 
 
 export default function MembersPage() {
-  // const firestore = useFirestore();
+  const firestore = useFirestore();
   
-  // const membersQuery = useMemoFirebase(() => {
-  //   if (!firestore) return null;
-  //   return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
-  // }, [firestore]);
+  const membersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
+  }, [firestore]);
 
-  // const { data: members, isLoading } = useCollection<Member>(membersQuery);
-  
-  // ダミーデータをコンポーネントに渡す
-  const members = dummyMembers;
-  const isLoading = false;
+  const { data: members, isLoading } = useCollection<Member>(membersQuery);
 
   return (
     <>
