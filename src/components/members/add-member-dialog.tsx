@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -18,7 +19,6 @@ import { Loader2, PlusCircle, UserPlus } from 'lucide-react';
 import { collection, setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useUser } from '@/firebase';
 
 export function AddMemberDialog() {
@@ -48,17 +48,18 @@ export function AddMemberDialog() {
       return;
     }
     
-    // This is a temporary solution. In a real app, you would use Firebase Functions
-    // to create the user and the Firestore document in a single, atomic transaction.
-    // Calling createUserWithEmailAndPassword on the client is not secure for this use case.
+    // 注意: この方法はクライアントサイドでユーザーを作成するため、
+    // 本来はFirebase Functionsを介してサーバーサイドで実行するのが最も安全です。
+    // 今回は開発の簡便性を優先し、クライアントから直接呼び出しています。
+    // 管理者ユーザーのみがこの操作を実行できるように、セキュリティルールを適切に設定する必要があります。
     const tempAuth = getAuth();
 
     try {
-      // 1. Create the user in Firebase Authentication
+      // 1. Firebase Authenticationでユーザーを作成
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       const newUser = userCredential.user;
 
-      // 2. Create the user document in Firestore
+      // 2. Firestoreにユーザーのドキュメントを作成
       const newMemberData = {
         uid: newUser.uid,
         email,
@@ -69,15 +70,16 @@ export function AddMemberDialog() {
       };
       
       const userDocRef = doc(firestore, 'users', newUser.uid);
-      // Using non-blocking update for better UX
-      setDocumentNonBlocking(userDocRef, newMemberData, { merge: false });
+      
+      // setDocはPromiseを返すので、awaitで完了を待つ
+      await setDoc(userDocRef, newMemberData);
 
       toast({
         title: '成功',
         description: '新しいメンバーが追加されました。',
       });
       
-      // Reset form and close dialog
+      // フォームをリセットしてダイアログを閉じる
       setEmail('');
       setPassword('');
       setDisplayName('');
@@ -142,6 +144,7 @@ export function AddMemberDialog() {
                 onChange={(e) => setDisplayName(e.target.value)}
                 className="col-span-3"
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -155,6 +158,7 @@ export function AddMemberDialog() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="col-span-3"
                 required
+                disabled={isLoading}
               />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
@@ -168,6 +172,8 @@ export function AddMemberDialog() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="col-span-3"
                 required
+                disabled={isLoading}
+                placeholder="6文字以上"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -179,6 +185,7 @@ export function AddMemberDialog() {
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 className="col-span-3"
+                disabled={isLoading}
               />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
@@ -190,11 +197,12 @@ export function AddMemberDialog() {
                  value={role}
                  onChange={(e) => setRole(e.target.value)}
                  className="col-span-3 flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                 disabled={isLoading}
                >
-                 <option value="employee">Employee</option>
-                 <option value="manager">Manager</option>
-                 <option value="executive">Executive</option>
-                 <option value="admin">Admin</option>
+                 <option value="employee">employee</option>
+                 <option value="manager">manager</option>
+                 <option value="executive">executive</option>
+                 <option value="admin">admin</option>
                </select>
             </div>
           </div>
