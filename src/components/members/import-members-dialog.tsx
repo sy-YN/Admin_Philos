@@ -107,7 +107,7 @@ export function ImportMembersDialog() {
           </span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>メンバーをCSVで一括登録</DialogTitle>
           <DialogDescription>
@@ -142,7 +142,7 @@ export function ImportMembersDialog() {
           {parsedData.length > 0 && !fileError && (
             <div>
               <h4 className="text-sm font-medium mb-2">インポートプレビュー（最初の5件）</h4>
-              <div className="max-h-60 overflow-y-auto rounded-md border">
+              <div className="max-h-60 overflow-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -153,7 +153,7 @@ export function ImportMembersDialog() {
                     {parsedData.slice(0, 5).map((row, i) => (
                       <TableRow key={i}>
                         {Object.values(row).map((val: any, j: number) => (
-                          <TableCell key={j} className="text-xs">{val}</TableCell>
+                          <TableCell key={j} className="text-xs whitespace-nowrap">{val}</TableCell>
                         ))}
                       </TableRow>
                     ))}
