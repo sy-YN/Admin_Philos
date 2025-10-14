@@ -122,7 +122,7 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
       </TableHeader>
       <TableBody>
         {members.map((member) => (
-          <TableRow key={member.id}>
+          <TableRow key={member.uid}>
             <TableCell>
               <div className="font-medium">{member.displayName}</div>
               <div className="text-sm text-muted-foreground">{member.email}</div>
