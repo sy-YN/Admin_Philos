@@ -20,6 +20,8 @@ import { collection, setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useUser } from '@/firebase';
+import type { Member } from '@/types/member';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function AddMemberDialog() {
   const { user } = useUser();
@@ -32,7 +34,7 @@ export function AddMemberDialog() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [department, setDepartment] = useState('');
-  const [role, setRole] = useState('employee');
+  const [role, setRole] = useState<Member['role']>('employee');
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +73,6 @@ export function AddMemberDialog() {
       
       const userDocRef = doc(firestore, 'users', newUser.uid);
       
-      // setDocはPromiseを返すので、awaitで完了を待つ
       await setDoc(userDocRef, newMemberData);
 
       toast({
@@ -192,18 +193,21 @@ export function AddMemberDialog() {
               <Label htmlFor="role" className="text-right">
                 権限
               </Label>
-               <select
-                 id="role"
-                 value={role}
-                 onChange={(e) => setRole(e.target.value)}
-                 className="col-span-3 flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                 disabled={isLoading}
-               >
-                 <option value="employee">employee</option>
-                 <option value="manager">manager</option>
-                 <option value="executive">executive</option>
-                 <option value="admin">admin</option>
-               </select>
+               <Select 
+                value={role} 
+                onValueChange={(value) => setRole(value as Member['role'])}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="権限を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">employee</SelectItem>
+                  <SelectItem value="manager">manager</SelectItem>
+                  <SelectItem value="executive">executive</SelectItem>
+                  <SelectItem value="admin">admin</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

@@ -15,10 +15,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Edit } from 'lucide-react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import type { Member } from '@/types/member';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface EditMemberDialogProps {
   member: Member;
@@ -30,7 +31,6 @@ export function EditMemberDialog({ member }: EditMemberDialogProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  // Initialize state with the member's current data
   const [displayName, setDisplayName] = useState(member.displayName);
   const [department, setDepartment] = useState(member.department || '');
   const [role, setRole] = useState(member.role);
@@ -52,12 +52,10 @@ export function EditMemberDialog({ member }: EditMemberDialogProps) {
     const userDocRef = doc(firestore, 'users', member.uid);
 
     try {
-      const updatedData = {
+      const updatedData: Partial<Member> = {
         displayName,
         department,
         role,
-        // We don't update createdAt, but we could add an `updatedAt` field
-        // updatedAt: serverTimestamp(),
       };
       
       await updateDoc(userDocRef, updatedData);
@@ -84,7 +82,7 @@ export function EditMemberDialog({ member }: EditMemberDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="w-full text-left">Edit</button>
+        <button className="w-full text-left">編集</button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleEditMember}>
@@ -136,18 +134,21 @@ export function EditMemberDialog({ member }: EditMemberDialogProps) {
               <Label htmlFor="role" className="text-right">
                 権限
               </Label>
-               <select
-                 id="role"
-                 value={role}
-                 onChange={(e) => setRole(e.target.value as Member['role'])}
-                 className="col-span-3 flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                 disabled={isLoading}
-               >
-                 <option value="employee">employee</option>
-                 <option value="manager">manager</option>
-                 <option value="executive">executive</option>
-                 <option value="admin">admin</option>
-               </select>
+              <Select 
+                value={role} 
+                onValueChange={(value) => setRole(value as Member['role'])}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="権限を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">employee</SelectItem>
+                  <SelectItem value="manager">manager</SelectItem>
+                  <SelectItem value="executive">executive</SelectItem>
+                  <SelectItem value="admin">admin</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
