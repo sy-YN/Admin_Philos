@@ -108,7 +108,7 @@ export function ImportMembersDialog() {
           </span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>メンバーをCSVで一括登録</DialogTitle>
           <DialogDescription>
