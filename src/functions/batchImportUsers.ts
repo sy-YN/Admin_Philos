@@ -1,7 +1,7 @@
 
 import { https, logger } from 'firebase-functions';
 import { auth, db } from '../lib/firebase-admin';
-import { serverTimestamp } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import type {
   NewUserPayload,
   UserImportResult,
@@ -57,8 +57,8 @@ export const batchImportUsers = https.onRequest(async (req, res) => {
           displayName: user.displayName,
           department: user.department || null,
           role: user.role,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         });
         
         results.push({ email: user.email, success: true });
