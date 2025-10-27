@@ -115,7 +115,7 @@ export function ImportMembersDialog() {
             CSVファイルをアップロードして、複数のメンバーを一度に登録します。
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="py-4 space-y-4">
           <Alert variant="default" className="bg-amber-50 border-amber-200">
              <AlertTriangle className="h-4 w-4 !text-amber-600" />
             <AlertTitle className="text-amber-800">CSVファイルの形式</AlertTitle>
@@ -134,7 +134,7 @@ export function ImportMembersDialog() {
             </AlertDescription>
           </Alert>
 
-          <div className="grid gap-2">
+          <div className="space-y-2">
             <Label htmlFor="csv-file">CSVファイル</Label>
             <Input id="csv-file" type="file" accept=".csv" onChange={handleFileChange} />
              {fileError && <p className="text-sm text-destructive">{fileError}</p>}
@@ -143,7 +143,7 @@ export function ImportMembersDialog() {
           {parsedData.length > 0 && !fileError && (
             <div>
               <h4 className="text-sm font-medium mb-2">インポートプレビュー（最初の5件）</h4>
-              <ScrollArea className="max-h-60 rounded-md border">
+              <ScrollArea className="max-h-60 w-full rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>

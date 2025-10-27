@@ -1,58 +1,15 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for user profiles.
- *
- * Data Structure:
- * - All user data is stored under the /users/{userId} path, where {userId} corresponds to the Firebase Auth UID.
- *
- * Key Security Decisions:
- * - Users can only read and write their own profile data.
- * - Listing all users is disallowed to protect user privacy.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * @description Controls access to user profile data.
-     * @path /databases/{database}/documents/users/{userId}
-     * @allow (read) - Authenticated user can get their own profile.
-     * @allow (create) - Authenticated user can create their own profile (self-registration).
-     * @allow (update) - Authenticated user can update their own profile.
-     * @allow (delete) - Authenticated user can delete their own profile.
-     * @deny (list) - Listing all users is prohibited.
-     * @deny (read) - Non-authenticated user cannot read user profiles
-     * @deny (write) - Non-authenticated user cannot write user profiles
-     * @principle Enforces document ownership for reads and writes.
-     */
-    match /users/{userId} {
-      // Helper function to check if the request is from the owner of the user profile.
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      // Helper function to check if the request is from an existing owner of the user profile.
-      function isExistingOwner(userId) {
-        return isOwner(userId) && getAfter(userId) != null;
-      }
-
-      function getAfter(userId) {
-        return get(/databases/$(database)/documents/users/$(userId)).data
-      }
-
-      // Read rules
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-
-      // Write rules
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+    // "posts"コレクションへの読み書きを許可
+    match /posts/{postId} {
+      allow read, write: if true;
     }
-  }
-
-  // Define helper functions outside the match block for global use.
-  function isSignedIn() {
-    return request.auth != null;
+    
+     match /users/{id} {
+      allow read, write: if true;
+    }
+    
+    
   }
 }
