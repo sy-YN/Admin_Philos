@@ -20,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Papa from 'papaparse';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { ScrollArea } from '../ui/scroll-area';
+import { NewUserPayload } from '@/types/functions';
 
 const REQUIRED_COLUMNS = ['email', 'password', 'displayName', 'role'];
 
@@ -29,7 +30,7 @@ export function ImportMembersDialog() {
   const [isLoading, setIsLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [parsedData, setParsedData] = useState<any[]>([]);
+  const [parsedData, setParsedData] = useState<NewUserPayload[]>([]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -61,7 +62,12 @@ export function ImportMembersDialog() {
           setFileError(`必須の列が見つかりません: ${missingColumns.join(', ')}`);
           setParsedData([]);
         } else {
-          setParsedData(results.data);
+           // Ensure the role is one of the allowed values, default to 'employee' if invalid
+          const validatedData = (results.data as any[]).map(row => ({
+            ...row,
+            role: ['admin', 'executive', 'manager', 'employee'].includes(row.role) ? row.role : 'employee'
+          }));
+          setParsedData(validatedData);
         }
       },
       error: (error) => {
@@ -81,21 +87,52 @@ export function ImportMembersDialog() {
       return;
     }
     setIsLoading(true);
-    // TODO: Implement the actual import logic by calling a Firebase Function
-    console.log('Importing data:', parsedData);
+    
+    try {
+      const response = await fetch('/api/batchImportUsers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ users: parsedData }),
+      });
 
-    // Simulate an async operation
-    await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!response.ok) {
+        throw new Error(`サーバーエラー: ${response.statusText}`);
+      }
 
-    toast({
-      title: 'インポート処理を開始しました',
-      description: 'バックグラウンドで処理が実行されます。完了時に通知されます。',
-    });
+      const result = await response.json();
 
-    setIsLoading(false);
-    setOpen(false);
-    setFile(null);
-    setParsedData([]);
+      toast({
+        title: 'インポート処理完了',
+        description: `成功: ${result.successCount}件, 失敗: ${result.errorCount}件。詳細はコンソールを確認してください。`,
+        variant: result.errorCount > 0 ? 'destructive' : 'default',
+        duration: 9000,
+      });
+
+      console.log('インポート結果:', result);
+      if(result.errorCount > 0) {
+        console.error('失敗したユーザーリスト:', result.results.filter((r:any) => !r.success));
+      }
+
+      setOpen(false);
+      setFile(null);
+      setParsedData([]);
+
+    } catch (error) {
+       let errorMessage = 'インポート処理中に不明なエラーが発生しました。';
+        if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+       toast({
+        title: 'インポート失敗',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      console.error('Import failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

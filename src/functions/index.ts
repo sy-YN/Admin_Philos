@@ -7,4 +7,4 @@ initializeApp();
 export * from './server';
 
 // 今後、他のFunctionsを追加する場合はここにインポートを追加していく
-// export * from './batchImportUsers';
+export * from './batchImportUsers';

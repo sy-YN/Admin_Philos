@@ -1,3 +1,4 @@
+
 {
   "hosting": {
     "source": ".",
@@ -7,15 +8,28 @@
     },
     "rewrites": [
       {
+        "source": "/api/batchImportUsers",
+        "function": "batchImportUsers"
+      },
+      {
         "source": "**",
         "function": "server"
       }
     ]
   },
-  "functions": {
-    "source": "lib/functions",
-    "runtime": "nodejs20"
-  },
+  "functions": [
+    {
+      "source": "lib/functions",
+      "runtime": "nodejs20",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ],
   "firestore": {
     "rules": "firestore.rules"
   }
