@@ -1,15 +1,28 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // "posts"コレクションへの読み書きを許可
-    match /posts/{postId} {
-      allow read, write: if true;
+
+    match /videos/{videoId} {
+      allow read: if true;
+      allow write: if false; // 動画自体の変更はさせない
+
+      // commentsサブコレクション
+      match /comments/{commentId} {
+        // 読み取りは誰でもOK
+        allow read: if true;
+        //【一時的な開発用ルール】書き込みを誰でも許可
+        allow write: if true;
+
+        // likesサブコレクション
+        match /likes/{userId} {
+           //【一時的な開発用ルール】書き込みを誰でも許可
+          allow write: if true;
+        }
+      }
     }
-    
-     match /users/{id} {
-      allow read, write: if true;
-    }
-    
-    
+    match /users/{id} {
+			allow read, write: if true;
+  	}
   }
 }
