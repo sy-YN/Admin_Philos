@@ -84,14 +84,11 @@ export function ImportMembersDialog() {
         const rawHeaders = results.meta.fields || [];
 
         // Map raw headers to canonical keys
-        const headerToCanonicalKey: { [rawHeader: string]: keyof NewUserPayload | undefined } = {};
         const foundCanonicalKeys = new Set<keyof NewUserPayload>();
-
         rawHeaders.forEach(rawHeader => {
           const normalizedHeader = rawHeader.toLowerCase().replace(/\s/g, '');
           const canonicalKey = HEADER_MAPPING[normalizedHeader];
           if (canonicalKey) {
-            headerToCanonicalKey[rawHeader] = canonicalKey;
             foundCanonicalKeys.add(canonicalKey);
           }
         });
@@ -109,7 +106,8 @@ export function ImportMembersDialog() {
         const normalizedData = (results.data as any[]).map(row => {
           const newRow: Partial<NewUserPayload> = {};
           for (const rawHeader in row) {
-            const canonicalKey = headerToCanonicalKey[rawHeader];
+            const normalizedHeader = rawHeader.toLowerCase().replace(/\s/g, '');
+            const canonicalKey = HEADER_MAPPING[normalizedHeader];
             if (canonicalKey) {
               (newRow as any)[canonicalKey] = row[rawHeader];
             }
