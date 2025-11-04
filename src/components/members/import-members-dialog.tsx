@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -19,13 +20,14 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Papa from 'papaparse';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { ScrollArea } from '../ui/scroll-area';
-import { NewUserPayload } from '@/types/functions';
+import type { NewUserPayload, UserImportResult, BatchImportUsersResponse } from '@/types/functions';
 
-// The exact headers required in the CSV file. Case-sensitive.
-const REQUIRED_HEADERS: (keyof NewUserPayload)[] = ['email', 'password', 'displayName', 'employeeId', 'company', 'role'];
-const OPTIONAL_HEADERS: (keyof NewUserPayload)[] = ['department'];
+// CSVで必須のヘッダーを定義
+const REQUIRED_HEADERS: (keyof NewUserPayload)[] = ['email', 'password', 'displayName', 'role'];
+// オプションのヘッダーを定義
+const OPTIONAL_HEADERS: (keyof NewUserPayload)[] = ['employeeId', 'company', 'department'];
 const ALL_VALID_HEADERS = [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS];
-
+const VALID_ROLES = ['admin', 'executive', 'manager', 'employee'];
 
 export function ImportMembersDialog() {
   const { toast } = useToast();
@@ -35,32 +37,33 @@ export function ImportMembersDialog() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [parsedData, setParsedData] = useState<NewUserPayload[]>([]);
 
+  const resetState = () => {
+    setFile(null);
+    setFileError(null);
+    setParsedData([]);
+    setIsLoading(false);
+  };
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    resetState();
     const selectedFile = event.target.files?.[0];
+
     if (!selectedFile) {
-      setFile(null);
-      setFileError(null);
-      setParsedData([]);
       return;
     }
 
     if (selectedFile.type !== 'text/csv') {
-      setFile(null);
       setFileError('CSVファイルを選択してください。');
-      setParsedData([]);
       return;
     }
 
     setFile(selectedFile);
-    setFileError(null);
 
     Papa.parse<NewUserPayload>(selectedFile, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
         const csvHeaders = results.meta.fields || [];
-
-        // Check if all required headers are present.
         const missingHeaders = REQUIRED_HEADERS.filter(header => !csvHeaders.includes(header));
 
         if (missingHeaders.length > 0) {
@@ -68,10 +71,10 @@ export function ImportMembersDialog() {
           setParsedData([]);
           return;
         }
-        
-        // Data is parsed with the correct keys directly from the header.
-        // No need for re-mapping if the headers are correct.
-        setParsedData(results.data);
+
+        // 余分な空行などを除外
+        const validData = results.data.filter(row => row.email && row.displayName);
+        setParsedData(validData);
         setFileError(null);
       },
       error: (error) => {
@@ -92,55 +95,47 @@ export function ImportMembersDialog() {
     }
     setIsLoading(true);
 
-    // CRITICAL FIX: Sanitize the data before sending it to the backend.
-    // Ensure only known properties from NewUserPayload are sent.
+    // バックエンドに送る前に、定義されたヘッダーのキーを持つデータのみに整形する
     const sanitizedUsers = parsedData.map(row => {
-        const sanitizedRow: Partial<NewUserPayload> = {};
-        for (const key of ALL_VALID_HEADERS) {
-            if (row[key] !== undefined) {
-                sanitizedRow[key] = row[key];
-            }
+      const sanitizedRow: Partial<NewUserPayload> = {};
+      for (const key of ALL_VALID_HEADERS) {
+        // rowにキーが存在する場合のみ、新しいオブジェクトにコピーする
+        if (row[key as keyof NewUserPayload] !== undefined && row[key as keyof NewUserPayload] !== null) {
+          sanitizedRow[key as keyof NewUserPayload] = row[key as keyof NewUserPayload];
         }
-        return sanitizedRow as NewUserPayload;
+      }
+      return sanitizedRow as NewUserPayload;
     });
-    
+
     try {
       const response = await fetch('/api/batchImportUsers', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ users: sanitizedUsers }),
       });
 
-      const result = await response.json();
+      const result: BatchImportUsersResponse = await response.json();
 
       if (!response.ok) {
-        const errorMessage = result?.error || response.statusText || '不明なサーバーエラーが発生しました。';
-        throw new Error(`サーバーエラー: ${errorMessage}`);
+        throw new Error(result.results[0]?.error || '不明なサーバーエラーが発生しました。');
       }
 
       toast({
         title: 'インポート処理完了',
-        description: `成功: ${result.successCount}件, 失敗: ${result.errorCount}件。詳細はデベロッパーコンソールを確認してください。`,
+        description: `成功: ${result.successCount}件, 失敗: ${result.errorCount}件。`,
         variant: result.errorCount > 0 ? 'destructive' : 'default',
         duration: 9000,
       });
 
-      console.log('インポート結果:', result);
-      if(result.errorCount > 0) {
-        console.error('失敗したユーザーリスト:', result.results.filter((r:any) => !r.success));
+      if (result.errorCount > 0) {
+        console.error('失敗したユーザーリスト:', result.results.filter(r => !r.success));
       }
 
       setOpen(false);
-      setFile(null);
-      setParsedData([]);
+      resetState();
 
     } catch (error) {
-       let errorMessage = 'インポート処理中に不明なエラーが発生しました。';
-        if (error instanceof Error) {
-            errorMessage = error.message;
-        }
+       const errorMessage = error instanceof Error ? error.message : 'インポート処理中に不明なエラーが発生しました。';
        toast({
         title: 'インポート失敗',
         description: errorMessage,
@@ -157,9 +152,7 @@ export function ImportMembersDialog() {
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="h-8 gap-1">
           <Upload className="h-3.5 w-3.5" />
-          <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-            インポート
-          </span>
+          <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">インポート</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-5xl">
@@ -175,19 +168,14 @@ export function ImportMembersDialog() {
             <AlertTitle className="text-amber-800">CSVファイルの形式</AlertTitle>
             <AlertDescription className="text-amber-700">
               <p className="mb-2">
-                1行目はヘッダー行とし、以下の列名を**英語で正確に**含めてください:
-                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">email</code>,
-                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">password</code>,
-                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">displayName</code>,
-                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">employeeId</code>,
-                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">company</code>,
-                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">role</code>.
+                1行目はヘッダー行とし、以下の列名を**英語で正確に**含めてください。
               </p>
-              <p className="mb-2">
-                `role`には `admin`, `executive`, `manager`, `employee` のいずれかを指定してください。
+              <p className="font-mono text-xs bg-amber-100 p-2 rounded-sm text-amber-900">
+                <span className="font-bold">必須:</span> {REQUIRED_HEADERS.join(', ')} <br/>
+                <span className="font-bold">任意:</span> {OPTIONAL_HEADERS.join(', ')}
               </p>
-              <p>
-                オプションで <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">department</code> を含めることもできます。
+               <p className="mt-2">
+                `role`には `{VALID_ROLES.join(', ')}` のいずれかを指定してください。
               </p>
             </AlertDescription>
           </Alert>
@@ -205,21 +193,27 @@ export function ImportMembersDialog() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {Object.keys(parsedData[0]).map(key => <TableHead key={key}>{key}</TableHead>)}
+                      {ALL_VALID_HEADERS.map(key => (
+                         parsedData[0].hasOwnProperty(key) && <TableHead key={key}>{key}</TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {parsedData.slice(0, 5).map((row, i) => (
                       <TableRow key={i}>
-                        {Object.entries(row).map(([key, value]) => (
-                          <TableCell key={key} className="text-xs whitespace-nowrap">{key === 'password' && value ? '******' : value}</TableCell>
+                        {ALL_VALID_HEADERS.map(key => (
+                           row.hasOwnProperty(key) && (
+                            <TableCell key={key} className="text-xs whitespace-nowrap">
+                              {key === 'password' && row[key] ? '******' : row[key as keyof NewUserPayload]}
+                            </TableCell>
+                           )
                         ))}
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </ScrollArea>
-              <p className="text-xs text-muted-foreground mt-2">{parsedData.length}件のレコードが検出されました。</p>
+              <p className="text-xs text-muted-foreground mt-2">{parsedData.length}件の有効なレコードが検出されました。</p>
             </div>
           )}
         </div>
@@ -229,7 +223,7 @@ export function ImportMembersDialog() {
             onClick={handleImport}
             disabled={isLoading || parsedData.length === 0 || !!fileError}
           >
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isLoading ? 'インポート中...' : `${parsedData.length}件をインポート`}
           </Button>
         </DialogFooter>
@@ -237,3 +231,5 @@ export function ImportMembersDialog() {
     </Dialog>
   );
 }
+
+    

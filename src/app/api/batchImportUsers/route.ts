@@ -17,7 +17,7 @@ const VALID_ROLES: Member['role'][] = ['admin', 'executive', 'manager', 'employe
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json() as BatchImportUsersRequest;
+    const body: BatchImportUsersRequest = await req.json();
     const { users } = body;
 
     if (!users || !Array.isArray(users)) {
@@ -26,23 +26,23 @@ export async function POST(req: Request) {
 
     const importPromises = users.map(async (user: NewUserPayload): Promise<UserImportResult> => {
       try {
-        if (!user.email || !user.password || !user.displayName) {
-          throw new Error('必須項目（email, password, displayName）が不足しています。');
+        // 1. Backend validation
+        if (!user.email || !user.password || !user.displayName || !user.role) {
+          throw new Error('必須項目（email, password, displayName, role）が不足しています。');
         }
-        // CRITICAL FIX: Add validation for the 'role' field.
-        if (!user.role || !VALID_ROLES.includes(user.role)) {
+        if (!VALID_ROLES.includes(user.role)) {
           throw new Error(`無効な権限が指定されました: "${user.role}"。有効な権限: ${VALID_ROLES.join(', ')}`);
         }
 
-        // 1. Create user in Firebase Authentication
+        // 2. Create user in Firebase Authentication
         const userRecord = await auth.createUser({
           email: user.email,
           password: user.password,
           displayName: user.displayName,
-          emailVerified: true,
+          emailVerified: true, // Automatically verify email for imported users
         });
 
-        // 2. Prepare user data for Firestore
+        // 3. Prepare user data for Firestore
         const userDocRef = db.collection('users').doc(userRecord.uid);
         const avatarUrl = `https://picsum.photos/seed/${userRecord.uid}/100/100`;
 
@@ -50,24 +50,27 @@ export async function POST(req: Request) {
           uid: userRecord.uid,
           email: user.email,
           displayName: user.displayName,
+          role: user.role,
           employeeId: user.employeeId || '',
           company: user.company || '',
           department: user.department || '',
-          role: user.role,
           avatarUrl: avatarUrl,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         };
 
-        // 3. Save user data to Firestore
+        // 4. Save user data to Firestore
         await userDocRef.set(firestoreData);
         
-        console.log(`Successfully imported user: ${user.email}`);
         return { email: user.email, success: true };
 
       } catch (error: any) {
-        console.error(`Failed to import user: ${user.email || 'unknown'}`, { error: error.message });
-        return { email: user.email || 'unknown', success: false, error: error.message };
+        // Return a detailed error for this specific user
+        return { 
+          email: user.email || 'unknown', 
+          success: false, 
+          error: error.message || '不明なエラーが発生しました。' 
+        };
       }
     });
 
@@ -83,10 +86,23 @@ export async function POST(req: Request) {
       results,
     };
     
-    return NextResponse.json(response);
+    // Determine status code based on whether any errors occurred
+    const status = errorCount > 0 && successCount === 0 ? 400 : 200;
+    
+    return NextResponse.json(response, { status });
 
   } catch (error: any) {
-    console.error('Unhandled error in batchImportUsers API route', { error: error.message, stack: error.stack });
-    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
+    console.error('Unhandled error in batchImportUsers API route:', { 
+      message: error.message, 
+      stack: error.stack 
+    });
+    return NextResponse.json({ 
+      total: 0,
+      successCount: 0,
+      errorCount: 0,
+      results: [{ email: 'unknown', success: false, error: 'サーバーで予期せぬエラーが発生しました。' }]
+    }, { status: 500 });
   }
 }
+
+    
