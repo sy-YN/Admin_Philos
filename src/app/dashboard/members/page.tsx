@@ -35,7 +35,7 @@ export default function MembersPage() {
       return;
     }
 
-    const headers = ['uid', 'displayName', 'email', 'role', 'employeeId', 'company', 'department', 'avatarUrl', 'createdAt', 'updatedAt'];
+    const headers = ['uid', 'displayName', 'email', 'role', 'employeeId', 'company', 'department', 'createdAt', 'updatedAt'];
     const headerString = headers.join(',');
 
     const replacer = (key: string, value: any) => value === null || value === undefined ? '' : value;
@@ -55,7 +55,6 @@ export default function MembersPage() {
         employeeId: row.employeeId || '',
         company: row.company || '',
         department: row.department || '',
-        avatarUrl: row.avatarUrl || '',
         createdAt: formatTimestamp(row.createdAt),
         updatedAt: formatTimestamp(row.updatedAt)
       };
