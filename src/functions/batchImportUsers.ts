@@ -8,6 +8,9 @@ import type {
   BatchImportUsersRequest,
   BatchImportUsersResponse,
 } from '../types/functions';
+import { Member } from '@/types/member';
+
+const VALID_ROLES: Member['role'][] = ['admin', 'executive', 'manager', 'employee'];
 
 // CORSを有効にするため、onCallではなくonRequestを使用
 export const batchImportUsers = https.onRequest(async (req, res) => {
@@ -41,6 +44,11 @@ export const batchImportUsers = https.onRequest(async (req, res) => {
 
     const importPromises = users.map(async (user: NewUserPayload) => {
       try {
+        // Role validation
+        if (!user.role || !VALID_ROLES.includes(user.role)) {
+            throw new Error(`Invalid role specified: "${user.role}". Must be one of: ${VALID_ROLES.join(', ')}`);
+        }
+
         // 1. Firebase Authenticationにユーザーを作成
         const userRecord = await auth.createUser({
           email: user.email,
@@ -58,7 +66,7 @@ export const batchImportUsers = https.onRequest(async (req, res) => {
           employeeId: user.employeeId || null,
           company: user.company || null,
           department: user.department || null,
-          role: 'admin', // Role is always admin
+          role: user.role,
           avatarUrl: '', // auto-generated later
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),

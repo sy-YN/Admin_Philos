@@ -19,13 +19,15 @@ import { Loader2 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import type { Member } from '@/types/member';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface EditMemberDialogProps {
   member: Member;
   onSuccess?: () => void;
+  children: React.ReactNode;
 }
 
-export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
+export function EditMemberDialog({ member, onSuccess, children }: EditMemberDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -35,6 +37,8 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
   const [employeeId, setEmployeeId] = useState(member.employeeId || '');
   const [company, setCompany] = useState(member.company || '');
   const [department, setDepartment] = useState(member.department || '');
+  const [role, setRole] = useState<Member['role']>(member.role);
+
 
   const handleEditMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +62,7 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
         employeeId,
         company,
         department,
-        role: 'admin', // Keep role as admin
+        role,
         updatedAt: serverTimestamp(),
       };
       
@@ -86,15 +90,15 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="w-full text-left">
-        編集
+      <DialogTrigger asChild>
+        {children}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleEditMember}>
           <DialogHeader>
             <DialogTitle>メンバー情報を編集</DialogTitle>
             <DialogDescription>
-              メンバーの詳細情報を更新します。メールアドレスと権限は変更できません。
+              メンバーの詳細情報を更新します。メールアドレスは変更できません。
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -163,11 +167,21 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
               <Label className="text-right">
                 権限
               </Label>
-              <Input
-                value={member.role}
-                className="col-span-3"
-                disabled
-              />
+               <Select
+                  value={role}
+                  onValueChange={(value) => setRole(value as Member['role'])}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="権限を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">管理者 (admin)</SelectItem>
+                    <SelectItem value="executive">経営層 (executive)</SelectItem>
+                    <SelectItem value="manager">マネージャー (manager)</SelectItem>
+                    <SelectItem value="employee">従業員 (employee)</SelectItem>
+                  </SelectContent>
+                </Select>
             </div>
           </div>
           <DialogFooter>

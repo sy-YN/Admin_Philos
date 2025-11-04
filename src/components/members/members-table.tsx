@@ -123,9 +123,11 @@ function MemberTableRow({ member }: { member: Member }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>操作</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-               <EditMemberDialog member={member} onSuccess={() => setIsMenuOpen(false)} />
-            </DropdownMenuItem>
+            <EditMemberDialog member={member} onSuccess={() => setIsMenuOpen(false)}>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                編集
+              </DropdownMenuItem>
+            </EditMemberDialog>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                  <DropdownMenuItem 

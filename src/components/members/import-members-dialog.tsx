@@ -22,7 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { ScrollArea } from '../ui/scroll-area';
 import { NewUserPayload } from '@/types/functions';
 
-const REQUIRED_COLUMNS = ['email', 'password', 'displayName', 'employeeId', 'company'];
+const REQUIRED_COLUMNS = ['email', 'password', 'displayName', 'employeeId', 'company', 'role'];
 
 export function ImportMembersDialog() {
   const { toast } = useToast();
@@ -61,10 +61,8 @@ export function ImportMembersDialog() {
           setFileError(`必須の列が見つかりません: ${missingColumns.join(', ')}`);
           setParsedData([]);
         } else {
-          const validatedData = (results.data as any[]).map(row => ({
-            ...row,
-            role: 'admin' as const, // Always set role to admin
-          }));
+          // Add any additional validation here if needed
+          const validatedData = results.data as NewUserPayload[];
           setParsedData(validatedData);
         }
       },
@@ -147,7 +145,7 @@ export function ImportMembersDialog() {
         <DialogHeader>
           <DialogTitle>メンバーをCSVで一括登録</DialogTitle>
           <DialogDescription>
-            CSVファイルをアップロードして、複数の管理者を一度に登録します。権限は「admin」で固定されます。
+            CSVファイルをアップロードして、複数のメンバーを一度に登録します。
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -161,7 +159,11 @@ export function ImportMembersDialog() {
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">password</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">displayName</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">employeeId</code>,
-                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">company</code>.
+                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">company</code>,
+                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">role</code>.
+              </p>
+              <p className="mb-2">
+                `role`には `admin`, `executive`, `manager`, `employee` のいずれかを指定してください。
               </p>
               <p>
                 オプションで <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">department</code> を含めることもできます。
@@ -178,7 +180,7 @@ export function ImportMembersDialog() {
           {parsedData.length > 0 && !fileError && (
             <div>
               <h4 className="text-sm font-medium mb-2">インポートプレビュー（最初の5件）</h4>
-              <ScrollArea className="max-h-60 w-full rounded-md border">
+              <ScrollArea className="h-60 w-full rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -188,8 +190,8 @@ export function ImportMembersDialog() {
                   <TableBody>
                     {parsedData.slice(0, 5).map((row, i) => (
                       <TableRow key={i}>
-                        {Object.values(row).map((val: any, j: number) => (
-                          <TableCell key={j} className="text-xs whitespace-nowrap">{val}</TableCell>
+                        {Object.entries(row).map(([key, value]) => (
+                          <TableCell key={key} className="text-xs whitespace-nowrap">{value}</TableCell>
                         ))}
                       </TableRow>
                     ))}

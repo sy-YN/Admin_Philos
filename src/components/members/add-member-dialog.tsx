@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,6 +20,7 @@ import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import type { Member } from '@/types/member';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 export function AddMemberDialog() {
   const { user } = useUser();
@@ -36,9 +37,9 @@ export function AddMemberDialog() {
   const [employeeId, setEmployeeId] = useState('');
   const [company, setCompany] = useState('');
   const [department, setDepartment] = useState('');
+  const [role, setRole] = useState<Member['role'] | ''>(user ? '' : 'admin');
   
   const isFirstAdmin = !user;
-  const role: Member['role'] = 'admin'; // Role is always admin
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,11 +55,21 @@ export function AddMemberDialog() {
       return;
     }
     
+    if (!role) {
+      toast({
+        title: 'エラー',
+        description: '権限を選択してください。',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
-      const newMemberData = {
+      const newMemberData: Omit<Member, 'updatedAt' | 'createdAt'> & { updatedAt: any, createdAt: any } = {
         uid: newUser.uid,
         email,
         displayName,
@@ -77,7 +88,7 @@ export function AddMemberDialog() {
 
       toast({
         title: '成功',
-        description: `新しい管理者「${displayName}」が追加されました。`,
+        description: `新しいメンバー「${displayName}」が追加されました。`,
       });
       
       setEmail('');
@@ -86,6 +97,7 @@ export function AddMemberDialog() {
       setEmployeeId('');
       setCompany('');
       setDepartment('');
+      setRole('');
       setOpen(false);
 
     } catch (error: any) {
@@ -128,9 +140,9 @@ export function AddMemberDialog() {
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleAddMember}>
           <DialogHeader>
-            <DialogTitle>{isFirstAdmin ? '最初の管理者アカウントを作成' : '新しい管理者を追加'}</DialogTitle>
+            <DialogTitle>{isFirstAdmin ? '最初の管理者アカウントを作成' : '新しいメンバーを追加'}</DialogTitle>
             <DialogDescription>
-              {isFirstAdmin ? 'このアカウントで管理画面にログインします。' : '新しい管理者の詳細情報を入力してください。'}
+              {isFirstAdmin ? 'このアカウントで管理画面にログインします。' : '新しいメンバーの詳細情報を入力してください。'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -213,14 +225,32 @@ export function AddMemberDialog() {
               />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">
+              <Label htmlFor="role" className="text-right">
                 権限
               </Label>
-               <Input
-                value="管理者 (admin)"
-                className="col-span-3"
-                disabled
-              />
+              {isFirstAdmin ? (
+                <Input
+                  value="管理者 (admin)"
+                  className="col-span-3"
+                  disabled
+                />
+              ) : (
+                <Select
+                  value={role}
+                  onValueChange={(value) => setRole(value as Member['role'])}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="権限を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">管理者 (admin)</SelectItem>
+                    <SelectItem value="executive">経営層 (executive)</SelectItem>
+                    <SelectItem value="manager">マネージャー (manager)</SelectItem>
+                    <SelectItem value="employee">従業員 (employee)</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
           <DialogFooter>
