@@ -65,11 +65,18 @@ export async function POST(req: Request) {
         return { email: user.email, success: true };
 
       } catch (error: any) {
+        let errorMessage = '不明なエラーが発生しました。';
+        if (error.code === 'auth/insufficient-permission') {
+            errorMessage = 'Firebaseの操作権限が不足しています。サービスアカウントに必要なIAMロールが付与されているか確認してください。';
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        
         // Return a detailed error for this specific user
         return { 
           email: user.email || 'unknown', 
           success: false, 
-          error: error.message || '不明なエラーが発生しました。' 
+          error: errorMessage
         };
       }
     });
@@ -99,10 +106,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       total: 0,
       successCount: 0,
-      errorCount: 0,
+      errorCount: 1,
       results: [{ email: 'unknown', success: false, error: 'サーバーで予期せぬエラーが発生しました。' }]
     }, { status: 500 });
   }
 }
-
-    
