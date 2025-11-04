@@ -20,11 +20,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid request body. "users" array is required.' }, { status: 400 });
     }
 
-    const results: UserImportResult[] = [];
-    let successCount = 0;
-    let errorCount = 0;
-
-    const importPromises = users.map(async (user: NewUserPayload) => {
+    const importPromises = users.map(async (user: NewUserPayload): Promise<UserImportResult> => {
       try {
         if (!user.email || !user.password || !user.displayName) {
           throw new Error('必須項目（email, password, displayName）が不足しています。');
@@ -65,18 +61,19 @@ export async function POST(req: Request) {
         // 3. Save user data to Firestore
         await userDocRef.set(firestoreData);
         
-        results.push({ email: user.email, success: true });
-        successCount++;
         console.log(`Successfully imported user: ${user.email}`);
+        return { email: user.email, success: true };
 
       } catch (error: any) {
-        results.push({ email: user.email, success: false, error: error.message });
-        errorCount++;
         console.error(`Failed to import user: ${user.email}`, { error: error.message });
+        return { email: user.email, success: false, error: error.message };
       }
     });
 
-    await Promise.all(importPromises);
+    const results = await Promise.all(importPromises);
+    
+    const successCount = results.filter(r => r.success).length;
+    const errorCount = results.length - successCount;
 
     const response: BatchImportUsersResponse = {
       total: users.length,
