@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 import * as admin from 'firebase-admin';
 
@@ -10,10 +11,14 @@ if (!admin.apps.length) {
   } catch (error: any) {
      console.warn('Firebase admin initialization failed with default credentials. Falling back to service account key.');
      try {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
+        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+          admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+          });
+        } else {
+            console.error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.');
+        }
      } catch(e) {
         console.error('Firebase admin initialization error with service account key:', e);
      }
