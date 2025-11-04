@@ -22,7 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { ScrollArea } from '../ui/scroll-area';
 import { NewUserPayload } from '@/types/functions';
 
-const REQUIRED_COLUMNS = ['email', 'password', 'displayName', 'role'];
+const REQUIRED_COLUMNS = ['email', 'password', 'displayName', 'employeeId', 'company'];
 
 export function ImportMembersDialog() {
   const { toast } = useToast();
@@ -51,7 +51,6 @@ export function ImportMembersDialog() {
     setFile(selectedFile);
     setFileError(null);
 
-    // Parse CSV file
     Papa.parse(selectedFile, {
       header: true,
       skipEmptyLines: true,
@@ -62,10 +61,9 @@ export function ImportMembersDialog() {
           setFileError(`必須の列が見つかりません: ${missingColumns.join(', ')}`);
           setParsedData([]);
         } else {
-           // Ensure the role is one of the allowed values, default to 'employee' if invalid
           const validatedData = (results.data as any[]).map(row => ({
             ...row,
-            role: ['admin', 'executive', 'manager', 'employee'].includes(row.role) ? row.role : 'employee'
+            role: 'admin' as const, // Always set role to admin
           }));
           setParsedData(validatedData);
         }
@@ -149,7 +147,7 @@ export function ImportMembersDialog() {
         <DialogHeader>
           <DialogTitle>メンバーをCSVで一括登録</DialogTitle>
           <DialogDescription>
-            CSVファイルをアップロードして、複数のメンバーを一度に登録します。
+            CSVファイルをアップロードして、複数の管理者を一度に登録します。権限は「admin」で固定されます。
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -162,11 +160,11 @@ export function ImportMembersDialog() {
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">email</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">password</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">displayName</code>,
-                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">role</code>.
+                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">employeeId</code>,
+                <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">company</code>.
               </p>
               <p>
                 オプションで <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">department</code> を含めることもできます。
-                `role` には `admin`, `executive`, `manager`, `employee` のいずれかを指定してください。
               </p>
             </AlertDescription>
           </Alert>

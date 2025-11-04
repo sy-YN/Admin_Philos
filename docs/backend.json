@@ -10,18 +10,30 @@
           "type": "string",
           "description": "Unique identifier from Firebase Authentication."
         },
+        "displayName": {
+          "type": "string",
+          "description": "User's full name."
+        },
+        "employeeId": {
+          "type": "string",
+          "description": "The user's employee ID number."
+        },
+        "company": {
+          "type": "string",
+          "description": "The company the user belongs to."
+        },
+        "department": {
+          "type": "string",
+          "description": "The department the user belongs to."
+        },
         "email": {
           "type": "string",
           "description": "User's email address.",
           "format": "email"
         },
-        "displayName": {
-          "type": "string",
-          "description": "User's full name."
-        },
-        "department": {
-          "type": "string",
-          "description": "The department the user belongs to."
+        "avatarUrl": {
+            "type": "string",
+            "description": "URL for the user's avatar image."
         },
         "role": {
           "type": "string",

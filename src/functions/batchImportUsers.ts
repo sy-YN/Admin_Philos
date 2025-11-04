@@ -13,7 +13,7 @@ import type {
 export const batchImportUsers = https.onRequest(async (req, res) => {
   // CORSヘッダーを設定
   res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-control-allow-methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
 
   // pre-flightリクエスト（OPTIONS）への対応
@@ -46,7 +46,7 @@ export const batchImportUsers = https.onRequest(async (req, res) => {
           email: user.email,
           password: user.password,
           displayName: user.displayName,
-          emailVerified: true, // or false, depending on your flow
+          emailVerified: true,
         });
 
         // 2. Firestoreにユーザーデータを保存
@@ -55,8 +55,11 @@ export const batchImportUsers = https.onRequest(async (req, res) => {
           uid: userRecord.uid,
           email: user.email,
           displayName: user.displayName,
+          employeeId: user.employeeId || null,
+          company: user.company || null,
           department: user.department || null,
-          role: user.role,
+          role: 'admin', // Role is always admin
+          avatarUrl: '', // auto-generated later
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         });

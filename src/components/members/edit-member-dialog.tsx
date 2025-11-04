@@ -19,7 +19,6 @@ import { Loader2 } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import type { Member } from '@/types/member';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface EditMemberDialogProps {
   member: Member;
@@ -33,8 +32,9 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
   const firestore = useFirestore();
 
   const [displayName, setDisplayName] = useState(member.displayName);
+  const [employeeId, setEmployeeId] = useState(member.employeeId || '');
+  const [company, setCompany] = useState(member.company || '');
   const [department, setDepartment] = useState(member.department || '');
-  const [role, setRole] = useState(member.role);
 
   const handleEditMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,8 +55,10 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
     try {
       const updatedData = {
         displayName,
+        employeeId,
+        company,
         department,
-        role,
+        role: 'admin', // Keep role as admin
         updatedAt: serverTimestamp(),
       };
       
@@ -92,7 +94,7 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
           <DialogHeader>
             <DialogTitle>メンバー情報を編集</DialogTitle>
             <DialogDescription>
-              メンバーの詳細情報を更新します。メールアドレスは変更できません。
+              メンバーの詳細情報を更新します。メールアドレスと権限は変更できません。
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -121,9 +123,33 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
                 disabled={isLoading}
               />
             </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="employeeId" className="text-right">
+                社員番号
+              </Label>
+              <Input
+                id="employeeId"
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                className="col-span-3"
+                disabled={isLoading}
+              />
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="company" className="text-right">
+                所属会社
+              </Label>
+              <Input
+                id="company"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                className="col-span-3"
+                disabled={isLoading}
+              />
+            </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="department" className="text-right">
-                所属
+                所属部署
               </Label>
               <Input
                 id="department"
@@ -134,24 +160,14 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
               />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="role" className="text-right">
+              <Label className="text-right">
                 権限
               </Label>
-              <Select 
-                value={role} 
-                onValueChange={(value) => setRole(value as Member['role'])}
-                disabled={isLoading}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="権限を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employee">employee</SelectItem>
-                  <SelectItem value="manager">manager</SelectItem>
-                  <SelectItem value="executive">executive</SelectItem>
-                  <SelectItem value="admin">admin</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                value={member.role}
+                className="col-span-3"
+                disabled
+              />
             </div>
           </div>
           <DialogFooter>

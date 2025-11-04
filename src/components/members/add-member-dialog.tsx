@@ -20,11 +20,10 @@ import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import type { Member } from '@/types/member';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function AddMemberDialog() {
   const { user } = useUser();
-  const auth = useAuth(); // Use the central auth instance
+  const auth = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -34,20 +33,12 @@ export function AddMemberDialog() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [company, setCompany] = useState('');
   const [department, setDepartment] = useState('');
-  const [role, setRole] = useState<Member['role']>('employee');
   
-  // If no logged-in user (creating the first admin), fix the role to 'admin'
   const isFirstAdmin = !user;
-
-  useEffect(() => {
-    if (isFirstAdmin) {
-      setRole('admin');
-    } else {
-      setRole('employee');
-    }
-  }, [isFirstAdmin, open]);
-
+  const role: Member['role'] = 'admin'; // Role is always admin
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,42 +55,40 @@ export function AddMemberDialog() {
     }
     
     try {
-      // 1. Create user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
-      // 2. Create user document in Firestore
-      const newMemberData: Omit<Member, 'createdAt' | 'updatedAt'> = {
+      const newMemberData = {
         uid: newUser.uid,
         email,
         displayName,
+        employeeId,
+        company,
         department,
-        role: isFirstAdmin ? 'admin' : role, // Lock to admin for the first user
+        role,
+        avatarUrl: '', // auto-generated later
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       };
       
       const userDocRef = doc(firestore, 'users', newUser.uid);
       
-      await setDoc(userDocRef, {
-        ...newMemberData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      await setDoc(userDocRef, newMemberData);
 
       toast({
         title: '成功',
-        description: `新しいメンバー「${displayName}」が追加されました。`,
+        description: `新しい管理者「${displayName}」が追加されました。`,
       });
       
-      // Reset form and close dialog
       setEmail('');
       setPassword('');
       setDisplayName('');
+      setEmployeeId('');
+      setCompany('');
       setDepartment('');
-      setRole('employee');
       setOpen(false);
 
     } catch (error: any) {
-      // Handle specific auth errors and show a user-friendly message
       let description = 'メンバーの追加中にエラーが発生しました。';
       if (error.code === 'auth/email-already-in-use') {
         description = 'このメールアドレスは既に使用されています。';
@@ -139,9 +128,9 @@ export function AddMemberDialog() {
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleAddMember}>
           <DialogHeader>
-            <DialogTitle>{isFirstAdmin ? '最初の管理者アカウントを作成' : '新しいメンバーを追加'}</DialogTitle>
+            <DialogTitle>{isFirstAdmin ? '最初の管理者アカウントを作成' : '新しい管理者を追加'}</DialogTitle>
             <DialogDescription>
-              {isFirstAdmin ? 'このアカウントで管理画面にログインします。' : '新しいメンバーの詳細情報を入力してください。'}
+              {isFirstAdmin ? 'このアカウントで管理画面にログインします。' : '新しい管理者の詳細情報を入力してください。'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -158,9 +147,9 @@ export function AddMemberDialog() {
                 disabled={isLoading}
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
+             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email" className="text-right">
-                メールアドレス
+                メール
               </Label>
               <Input
                 id="email"
@@ -188,8 +177,32 @@ export function AddMemberDialog() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="employeeId" className="text-right">
+                社員番号
+              </Label>
+              <Input
+                id="employeeId"
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                className="col-span-3"
+                disabled={isLoading}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="company" className="text-right">
+                所属会社
+              </Label>
+              <Input
+                id="company"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                className="col-span-3"
+                disabled={isLoading}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="department" className="text-right">
-                所属
+                所属部署
               </Label>
               <Input
                 id="department"
@@ -199,29 +212,16 @@ export function AddMemberDialog() {
                 disabled={isLoading}
               />
             </div>
-            {/* Show role selection only if it's not the first admin */}
-            {!isFirstAdmin && (
              <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="role" className="text-right">
+              <Label className="text-right">
                 権限
               </Label>
-               <Select 
-                value={role} 
-                onValueChange={(value) => setRole(value as Member['role'])}
-                disabled={isLoading}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="権限を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employee">employee</SelectItem>
-                  <SelectItem value="manager">manager</SelectItem>
-                  <SelectItem value="executive">executive</SelectItem>
-                  <SelectItem value="admin">admin</SelectItem>
-                </SelectContent>
-              </Select>
+               <Input
+                value="管理者 (admin)"
+                className="col-span-3"
+                disabled
+              />
             </div>
-            )}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isLoading}>

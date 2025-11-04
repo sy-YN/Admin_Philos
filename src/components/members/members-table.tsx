@@ -60,9 +60,8 @@ function MemberTableRow({ member }: { member: Member }) {
       return;
     }
     
-    // 注意: これはデータベース上のドキュメントを削除するだけです。
-    // Firebase Authentication上のユーザーアカウント自体は削除されません。
-    // アカウントの完全な削除には、Firebase Functionsなどのサーバーサイドの仕組みが必要です。
+    // This only deletes the database document.
+    // Full user deletion (including Firebase Auth) requires a server-side mechanism like Firebase Functions.
     try {
       await deleteDoc(doc(firestore, "users", uid));
       toast({
@@ -82,7 +81,6 @@ function MemberTableRow({ member }: { member: Member }) {
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
     try {
-      // FirestoreのTimestamp型か、JSのDate型かを判定して変換
       const jsDate = date.toDate ? date.toDate() : new Date(date);
       if (isNaN(jsDate.getTime())) {
         return '無効な日付';
@@ -100,17 +98,20 @@ function MemberTableRow({ member }: { member: Member }) {
         <div className="font-medium">{member.displayName}</div>
         <div className="text-sm text-muted-foreground">{member.email}</div>
       </TableCell>
+      <TableCell className="hidden sm:table-cell">
+        {member.employeeId || 'N/A'}
+      </TableCell>
+       <TableCell className="hidden md:table-cell">
+        {member.company || 'N/A'}
+      </TableCell>
+      <TableCell className="hidden lg:table-cell">
+        {member.department || 'N/A'}
+      </TableCell>
       <TableCell>
         <Badge variant="secondary">{member.role}</Badge>
       </TableCell>
       <TableCell className="hidden md:table-cell">
-        {member.department || 'N/A'}
-      </TableCell>
-      <TableCell className="hidden md:table-cell">
         {formatDate(member.createdAt)}
-      </TableCell>
-      <TableCell className="hidden md:table-cell">
-        {formatDate(member.updatedAt)}
       </TableCell>
       <TableCell>
         <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -181,11 +182,12 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>氏名</TableHead>
+          <TableHead>氏名/メール</TableHead>
+          <TableHead className="hidden sm:table-cell">社員番号</TableHead>
+          <TableHead className="hidden md:table-cell">所属会社</TableHead>
+          <TableHead className="hidden lg:table-cell">所属部署</TableHead>
           <TableHead>権限</TableHead>
-          <TableHead className="hidden md:table-cell">所属</TableHead>
           <TableHead className="hidden md:table-cell">登録日</TableHead>
-          <TableHead className="hidden md:table-cell">更新日</TableHead>
           <TableHead>
             <span className="sr-only">Actions</span>
           </TableHead>
