@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -25,6 +24,7 @@ import { NewUserPayload } from '@/types/functions';
 // The exact headers required in the CSV file. Case-sensitive.
 const REQUIRED_HEADERS: (keyof NewUserPayload)[] = ['email', 'password', 'displayName', 'employeeId', 'company', 'role'];
 const OPTIONAL_HEADERS: (keyof NewUserPayload)[] = ['department'];
+const ALL_VALID_HEADERS = [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS];
 
 
 export function ImportMembersDialog() {
@@ -91,6 +91,18 @@ export function ImportMembersDialog() {
       return;
     }
     setIsLoading(true);
+
+    // CRITICAL FIX: Sanitize the data before sending it to the backend.
+    // Ensure only known properties from NewUserPayload are sent.
+    const sanitizedUsers = parsedData.map(row => {
+        const sanitizedRow: Partial<NewUserPayload> = {};
+        for (const key of ALL_VALID_HEADERS) {
+            if (row[key] !== undefined) {
+                sanitizedRow[key] = row[key];
+            }
+        }
+        return sanitizedRow as NewUserPayload;
+    });
     
     try {
       const response = await fetch('/api/batchImportUsers', {
@@ -98,7 +110,7 @@ export function ImportMembersDialog() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ users: parsedData }),
+        body: JSON.stringify({ users: sanitizedUsers }),
       });
 
       const result = await response.json();
