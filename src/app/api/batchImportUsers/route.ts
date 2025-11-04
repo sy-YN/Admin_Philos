@@ -1,10 +1,8 @@
 
-// The import of firebase-admin ensures that the SDK is initialized.
-import '@/lib/firebase-admin';
-
 import { NextResponse } from 'next/server';
-import { auth, db } from '@/lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import * as admin from 'firebase-admin';
+import type { ServiceAccount } from 'firebase-admin';
+
 import type {
   NewUserPayload,
   UserImportResult,
@@ -13,10 +11,37 @@ import type {
 } from '@/types/functions';
 import type { Member } from '@/types/member';
 
+// Helper function to initialize Firebase Admin SDK
+const initializeAdminApp = () => {
+  if (admin.apps.length > 0) {
+    return admin.app();
+  }
+
+  try {
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (!serviceAccountKey) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set in .env file.');
+    }
+    const serviceAccount: ServiceAccount = JSON.parse(serviceAccountKey);
+    return admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  } catch (error: any) {
+    console.error('Firebase Admin SDK Initialization Error:', error.stack);
+    throw new Error('Failed to initialize Firebase Admin SDK. Please check your service account credentials.');
+  }
+};
+
+
 const VALID_ROLES: Member['role'][] = ['admin', 'executive', 'manager', 'employee'];
 
 export async function POST(req: Request) {
   try {
+    // Initialize Firebase Admin on each request
+    const adminApp = initializeAdminApp();
+    const auth = adminApp.auth();
+    const db = adminApp.firestore();
+
     const body: BatchImportUsersRequest = await req.json();
     const { users } = body;
 
@@ -39,14 +64,14 @@ export async function POST(req: Request) {
           email: user.email,
           password: user.password,
           displayName: user.displayName,
-          emailVerified: true, // Automatically verify email for imported users
+          emailVerified: true,
         });
 
         // 3. Prepare user data for Firestore
         const userDocRef = db.collection('users').doc(userRecord.uid);
         const avatarUrl = `https://picsum.photos/seed/${userRecord.uid}/100/100`;
 
-        const firestoreData: Omit<Member, 'updatedAt'|'createdAt'> & {createdAt: FieldValue, updatedAt: FieldValue} = {
+        const firestoreData = {
           uid: userRecord.uid,
           email: user.email,
           displayName: user.displayName,
@@ -55,8 +80,8 @@ export async function POST(req: Request) {
           company: user.company || '',
           department: user.department || '',
           avatarUrl: avatarUrl,
-          createdAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
         // 4. Save user data to Firestore
@@ -65,14 +90,11 @@ export async function POST(req: Request) {
         return { email: user.email, success: true };
 
       } catch (error: any) {
-        let errorMessage = '不明なエラーが発生しました。';
+        let errorMessage = error.message || '不明なエラーが発生しました。';
         if (error.code === 'auth/insufficient-permission') {
             errorMessage = 'Firebaseの操作権限が不足しています。サービスアカウントに必要なIAMロールが付与されているか確認してください。';
-        } else if (error.message) {
-            errorMessage = error.message;
         }
         
-        // Return a detailed error for this specific user
         return { 
           email: user.email || 'unknown', 
           success: false, 
@@ -93,7 +115,6 @@ export async function POST(req: Request) {
       results,
     };
     
-    // Determine status code based on whether any errors occurred
     const status = errorCount > 0 && successCount === 0 ? 400 : 200;
     
     return NextResponse.json(response, { status });
@@ -103,11 +124,12 @@ export async function POST(req: Request) {
       message: error.message, 
       stack: error.stack 
     });
+    // This is the crucial part: always return a JSON response, even on catastrophic failure
     return NextResponse.json({ 
       total: 0,
       successCount: 0,
       errorCount: 1,
-      results: [{ email: 'unknown', success: false, error: 'サーバーで予期せぬエラーが発生しました。' }]
+      results: [{ email: 'unknown', success: false, error: `サーバーで予期せぬエラーが発生しました: ${error.message}` }]
     }, { status: 500 });
   }
 }
