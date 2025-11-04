@@ -86,8 +86,8 @@ export function EditMemberDialog({ member, onSuccess }: EditMemberDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button className="w-full text-left">編集</button>
+      <DialogTrigger className="w-full text-left">
+        編集
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleEditMember}>

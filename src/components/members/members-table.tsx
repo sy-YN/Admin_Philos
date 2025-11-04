@@ -122,7 +122,7 @@ function MemberTableRow({ member }: { member: Member }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuLabel>操作</DropdownMenuLabel>
             <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                <EditMemberDialog member={member} onSuccess={() => setIsMenuOpen(false)} />
             </DropdownMenuItem>
@@ -132,7 +132,7 @@ function MemberTableRow({ member }: { member: Member }) {
                     onSelect={(e) => e.preventDefault()}
                     className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                   >
-                    Delete
+                    削除
                  </DropdownMenuItem>
               </AlertDialogTrigger>
               <AlertDialogContent>
