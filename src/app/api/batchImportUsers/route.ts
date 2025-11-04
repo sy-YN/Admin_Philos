@@ -1,8 +1,9 @@
 
 // The import of firebase-admin ensures that the SDK is initialized.
-import { auth, db } from '@/lib/firebase-admin';
+import '@/lib/firebase-admin';
 
 import { NextResponse } from 'next/server';
+import { auth, db } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import type {
   NewUserPayload,
