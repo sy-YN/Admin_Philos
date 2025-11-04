@@ -24,6 +24,32 @@ import { NewUserPayload } from '@/types/functions';
 
 const REQUIRED_COLUMNS = ['email', 'password', 'displayName', 'employeeId', 'company', 'role'];
 
+// Maps possible header variations to the canonical key used in the application.
+const HEADER_MAPPING: { [key: string]: keyof NewUserPayload } = {
+  // email
+  'email': 'email',
+  'メールアドレス': 'email',
+  // password
+  'password': 'password',
+  'パスワード': 'password',
+  // displayName
+  'displayname': 'displayName',
+  '氏名': 'displayName',
+  // employeeId
+  'employeeid': 'employeeId',
+  '社員番号': 'employeeId',
+  // company
+  'company': 'company',
+  '所属会社': 'company',
+  // department
+  'department': 'department',
+  '所属部署': 'department',
+  // role
+  'role': 'role',
+  '権限': 'role'
+};
+
+
 export function ImportMembersDialog() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -54,27 +80,37 @@ export function ImportMembersDialog() {
     Papa.parse(selectedFile, {
       header: true,
       skipEmptyLines: true,
-      transformHeader: (header) => {
-        const lowerCaseHeader = header.toLowerCase().replace(/\s/g, '');
-        if (lowerCaseHeader === 'displayname' || lowerCaseHeader === '氏名') return 'displayName';
-        if (lowerCaseHeader === 'employeeid' || lowerCaseHeader === '社員番号') return 'employeeId';
-        if (lowerCaseHeader === 'company' || lowerCaseHeader === '所属会社') return 'company';
-        if (lowerCaseHeader === 'department' || lowerCaseHeader === '所属部署') return 'department';
-        if (lowerCaseHeader === 'email' || lowerCaseHeader === 'メールアドレス') return 'email';
-        if (lowerCaseHeader === 'password' || lowerCaseHeader === 'パスワード') return 'password';
-        if (lowerCaseHeader === 'role' || lowerCaseHeader === '権限') return 'role';
-        return lowerCaseHeader;
-      },
       complete: (results) => {
-        const headers = results.meta.fields || [];
-        const missingColumns = REQUIRED_COLUMNS.filter(col => !headers.includes(col));
+        const rawHeaders = results.meta.fields || [];
+        const lowerCaseHeaders = rawHeaders.map(h => h.toLowerCase().replace(/\s/g, ''));
+        
+        // Check for required columns
+        const missingColumns = REQUIRED_COLUMNS.filter(reqCol => {
+          // Find if any alias for the required column exists in the CSV headers
+          const aliases = Object.keys(HEADER_MAPPING).filter(key => HEADER_MAPPING[key] === reqCol);
+          return !aliases.some(alias => lowerCaseHeaders.includes(alias));
+        });
+
         if (missingColumns.length > 0) {
           setFileError(`必須の列が見つかりません: ${missingColumns.join(', ')}`);
           setParsedData([]);
-        } else {
-          const validatedData = results.data as NewUserPayload[];
-          setParsedData(validatedData);
+          return;
         }
+
+        // Normalize data keys to canonical keys
+        const normalizedData = (results.data as any[]).map(row => {
+          const newRow: Partial<NewUserPayload> = {};
+          for (const rawHeader of rawHeaders) {
+            const lowerCaseHeader = rawHeader.toLowerCase().replace(/\s/g, '');
+            const canonicalKey = HEADER_MAPPING[lowerCaseHeader];
+            if (canonicalKey) {
+              (newRow as any)[canonicalKey] = row[rawHeader];
+            }
+          }
+          return newRow as NewUserPayload;
+        });
+        
+        setParsedData(normalizedData);
       },
       error: (error) => {
         setFileError(`CSVの解析に失敗しました: ${error.message}`);
@@ -112,7 +148,7 @@ export function ImportMembersDialog() {
 
       toast({
         title: 'インポート処理完了',
-        description: `成功: ${result.successCount}件, 失敗: ${result.errorCount}件。詳細はコンソールを確認してください。`,
+        description: `成功: ${result.successCount}件, 失敗: ${result.errorCount}件。詳細はデベロッパーコンソールを確認してください。`,
         variant: result.errorCount > 0 ? 'destructive' : 'default',
         duration: 9000,
       });
@@ -172,6 +208,7 @@ export function ImportMembersDialog() {
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">employeeId</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">company</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">role</code>.
+                <span className="text-xs">(ヘッダーの大文字・小文字は区別しません)</span>
               </p>
               <p className="mb-2">
                 `role`には `admin`, `executive`, `manager`, `employee` のいずれかを指定してください。
@@ -227,3 +264,5 @@ export function ImportMembersDialog() {
     </Dialog>
   );
 }
+
+    
