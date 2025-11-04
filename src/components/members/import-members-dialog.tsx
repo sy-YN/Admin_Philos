@@ -57,13 +57,13 @@ export function ImportMembersDialog() {
       transformHeader: (header) => {
         const lowerCaseHeader = header.toLowerCase().replace(/\s/g, '');
         if (lowerCaseHeader === 'displayname' || lowerCaseHeader === '氏名') return 'displayName';
-        if (lowerCaseHeader === 'employeeid' || lowerCaseHeader === 'employeeld' || lowerCaseHeader === '社員番号') return 'employeeId';
+        if (lowerCaseHeader === 'employeeid' || lowerCaseHeader === '社員番号') return 'employeeId';
         if (lowerCaseHeader === 'company' || lowerCaseHeader === '所属会社') return 'company';
         if (lowerCaseHeader === 'department' || lowerCaseHeader === '所属部署') return 'department';
         if (lowerCaseHeader === 'email' || lowerCaseHeader === 'メールアドレス') return 'email';
         if (lowerCaseHeader === 'password' || lowerCaseHeader === 'パスワード') return 'password';
         if (lowerCaseHeader === 'role' || lowerCaseHeader === '権限') return 'role';
-        return header;
+        return lowerCaseHeader;
       },
       complete: (results) => {
         const headers = results.meta.fields || [];
@@ -103,13 +103,12 @@ export function ImportMembersDialog() {
         body: JSON.stringify({ users: parsedData }),
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const errorMessage = errorData?.error || response.statusText || '不明なサーバーエラーが発生しました。';
+        const errorMessage = result?.error || response.statusText || '不明なサーバーエラーが発生しました。';
         throw new Error(`サーバーエラー: ${errorMessage}`);
       }
-
-      const result = await response.json();
 
       toast({
         title: 'インポート処理完了',
