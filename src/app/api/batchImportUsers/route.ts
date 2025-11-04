@@ -17,7 +17,8 @@ const VALID_ROLES: Member['role'][] = ['admin', 'executive', 'manager', 'employe
 
 export async function POST(req: Request) {
   try {
-    const { users } = (await req.json()) as BatchImportUsersRequest;
+    const body = await req.json();
+    const { users } = body as BatchImportUsersRequest;
 
     if (!users || !Array.isArray(users)) {
       return NextResponse.json({ error: 'Invalid request body. "users" array is required.' }, { status: 400 });
