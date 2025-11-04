@@ -35,7 +35,7 @@ export default function MembersPage() {
       return;
     }
 
-    const headers = ['uid', 'displayName', 'email', 'role', 'department', 'createdAt', 'updatedAt'];
+    const headers = ['uid', 'displayName', 'email', 'role', 'employeeId', 'company', 'department', 'avatarUrl', 'createdAt', 'updatedAt'];
     const headerString = headers.join(',');
 
     const replacer = (key: string, value: any) => value === null || value === undefined ? '' : value;
@@ -52,7 +52,10 @@ export default function MembersPage() {
         displayName: row.displayName,
         email: row.email,
         role: row.role,
+        employeeId: row.employeeId || '',
+        company: row.company || '',
         department: row.department || '',
+        avatarUrl: row.avatarUrl || '',
         createdAt: formatTimestamp(row.createdAt),
         updatedAt: formatTimestamp(row.updatedAt)
       };
@@ -88,7 +91,7 @@ export default function MembersPage() {
           <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExport}>
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Export
+              エクスポート
             </span>
           </Button>
           <AddMemberDialog />
