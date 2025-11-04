@@ -22,12 +22,15 @@ const initializeAdminApp = () => {
     if (!serviceAccountKey) {
       throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set in .env file.');
     }
+    // Directly parse the string from the environment variable
     const serviceAccount: ServiceAccount = JSON.parse(serviceAccountKey);
+    
     return admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
   } catch (error: any) {
     console.error('Firebase Admin SDK Initialization Error:', error.stack);
+    // Re-throw a more specific error to be caught in the main handler
     throw new Error('Failed to initialize Firebase Admin SDK. Please check your service account credentials.');
   }
 };
