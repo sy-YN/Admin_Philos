@@ -17,10 +17,6 @@ const VALID_ROLES: Member['role'][] = ['admin', 'executive', 'manager', 'employe
 
 export async function POST(req: Request) {
   try {
-    //
-    // CRITICAL FIX: Await the JSON body from the request.
-    // Without this, `body` is a ReadableStream, not the JSON payload.
-    //
     const body = await req.json() as BatchImportUsersRequest;
     const { users } = body;
 
@@ -33,6 +29,7 @@ export async function POST(req: Request) {
         if (!user.email || !user.password || !user.displayName) {
           throw new Error('必須項目（email, password, displayName）が不足しています。');
         }
+        // CRITICAL FIX: Add validation for the 'role' field.
         if (!user.role || !VALID_ROLES.includes(user.role)) {
           throw new Error(`無効な権限が指定されました: "${user.role}"。有効な権限: ${VALID_ROLES.join(', ')}`);
         }
@@ -49,22 +46,18 @@ export async function POST(req: Request) {
         const userDocRef = db.collection('users').doc(userRecord.uid);
         const avatarUrl = `https://picsum.photos/seed/${userRecord.uid}/100/100`;
 
-        const firestoreData: any = {
+        const firestoreData: Omit<Member, 'updatedAt'|'createdAt'> & {createdAt: FieldValue, updatedAt: FieldValue} = {
           uid: userRecord.uid,
           email: user.email,
           displayName: user.displayName,
-          employeeId: user.employeeId || null,
-          company: user.company || null,
+          employeeId: user.employeeId || '',
+          company: user.company || '',
+          department: user.department || '',
           role: user.role,
           avatarUrl: avatarUrl,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         };
-
-        // Only add department if it exists and is not an empty string
-        if (user.department) {
-          firestoreData.department = user.department;
-        }
 
         // 3. Save user data to Firestore
         await userDocRef.set(firestoreData);
@@ -73,8 +66,8 @@ export async function POST(req: Request) {
         return { email: user.email, success: true };
 
       } catch (error: any) {
-        console.error(`Failed to import user: ${user.email}`, { error: error.message });
-        return { email: user.email, success: false, error: error.message };
+        console.error(`Failed to import user: ${user.email || 'unknown'}`, { error: error.message });
+        return { email: user.email || 'unknown', success: false, error: error.message };
       }
     });
 
