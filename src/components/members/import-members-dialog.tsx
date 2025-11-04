@@ -22,32 +22,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { ScrollArea } from '../ui/scroll-area';
 import { NewUserPayload } from '@/types/functions';
 
-// Maps possible header variations (lowercase, no spaces) to the canonical key used in the application.
-const HEADER_MAPPING: { [key: string]: keyof NewUserPayload } = {
-  // email
-  'email': 'email',
-  'メールアドレス': 'email',
-  // password
-  'password': 'password',
-  'パスワード': 'password',
-  // displayName
-  'displayname': 'displayName',
-  '氏名': 'displayName',
-  // employeeId
-  'employeeid': 'employeeId',
-  '社員番号': 'employeeId',
-  // company
-  'company': 'company',
-  '所属会社': 'company',
-  // department
-  'department': 'department',
-  '所属部署': 'department',
-  // role
-  'role': 'role',
-  '権限': 'role'
-};
-
-const REQUIRED_CANONICAL_KEYS: (keyof NewUserPayload)[] = ['email', 'password', 'displayName', 'employeeId', 'company', 'role'];
+// The exact headers required in the CSV file. Case-sensitive.
+const REQUIRED_HEADERS: (keyof NewUserPayload)[] = ['email', 'password', 'displayName', 'employeeId', 'company', 'role'];
+const OPTIONAL_HEADERS: (keyof NewUserPayload)[] = ['department'];
 
 
 export function ImportMembersDialog() {
@@ -77,45 +54,24 @@ export function ImportMembersDialog() {
     setFile(selectedFile);
     setFileError(null);
 
-    Papa.parse(selectedFile, {
+    Papa.parse<NewUserPayload>(selectedFile, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const rawHeaders = results.meta.fields || [];
+        const csvHeaders = results.meta.fields || [];
 
-        // Map raw headers to canonical keys
-        const foundCanonicalKeys = new Set<keyof NewUserPayload>();
-        rawHeaders.forEach(rawHeader => {
-          const normalizedHeader = rawHeader.toLowerCase().replace(/\s/g, '');
-          const canonicalKey = HEADER_MAPPING[normalizedHeader];
-          if (canonicalKey) {
-            foundCanonicalKeys.add(canonicalKey);
-          }
-        });
+        // Check if all required headers are present.
+        const missingHeaders = REQUIRED_HEADERS.filter(header => !csvHeaders.includes(header));
 
-        // Check for required columns using canonical keys
-        const missingKeys = REQUIRED_CANONICAL_KEYS.filter(key => !foundCanonicalKeys.has(key));
-
-        if (missingKeys.length > 0) {
-          setFileError(`必須の列が見つかりません: ${missingKeys.join(', ')}`);
+        if (missingHeaders.length > 0) {
+          setFileError(`必須の列が見つかりません: ${missingHeaders.join(', ')}`);
           setParsedData([]);
           return;
         }
-
-        // Normalize data to use canonical keys
-        const normalizedData = (results.data as any[]).map(row => {
-          const newRow: Partial<NewUserPayload> = {};
-          for (const rawHeader in row) {
-            const normalizedHeader = rawHeader.toLowerCase().replace(/\s/g, '');
-            const canonicalKey = HEADER_MAPPING[normalizedHeader];
-            if (canonicalKey) {
-              (newRow as any)[canonicalKey] = row[rawHeader];
-            }
-          }
-          return newRow as NewUserPayload;
-        });
-
-        setParsedData(normalizedData);
+        
+        // Data is parsed with the correct keys directly from the header.
+        // No need for re-mapping if the headers are correct.
+        setParsedData(results.data);
         setFileError(null);
       },
       error: (error) => {
@@ -207,14 +163,13 @@ export function ImportMembersDialog() {
             <AlertTitle className="text-amber-800">CSVファイルの形式</AlertTitle>
             <AlertDescription className="text-amber-700">
               <p className="mb-2">
-                1行目はヘッダー行にしてください。以下の列が**必須**です:
+                1行目はヘッダー行とし、以下の列名を**英語で正確に**含めてください:
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">email</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">password</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">displayName</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">employeeId</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">company</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">role</code>.
-                <span className="text-xs">(ヘッダーの日本語名、大文字・小文字は区別しません)</span>
               </p>
               <p className="mb-2">
                 `role`には `admin`, `executive`, `manager`, `employee` のいずれかを指定してください。
