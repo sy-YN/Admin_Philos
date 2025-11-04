@@ -8,7 +8,7 @@ import type {
   BatchImportUsersRequest,
   BatchImportUsersResponse,
 } from '@/types/functions';
-import { Member } from '@/types/member';
+import type { Member } from '@/types/member';
 
 const VALID_ROLES: Member['role'][] = ['admin', 'executive', 'manager', 'employee'];
 
@@ -26,20 +26,26 @@ export async function POST(req: Request) {
 
     const importPromises = users.map(async (user: NewUserPayload) => {
       try {
+        // --- Start: Added Validation ---
+        if (!user.email || !user.password || !user.displayName) {
+          throw new Error('必須項目（email, password, displayName）が不足しています。');
+        }
+        // --- End: Added Validation ---
+
         // Role validation
         if (!user.role || !VALID_ROLES.includes(user.role)) {
-          throw new Error(`Invalid role specified: "${user.role}". Must be one of: ${VALID_ROLES.join(', ')}`);
+          throw new Error(`無効な権限が指定されました: "${user.role}"。有効な権限: ${VALID_ROLES.join(', ')}`);
         }
 
-        // 1. Firebase Authenticationにユーザーを作成
+        // 1. Create user in Firebase Authentication
         const userRecord = await auth.createUser({
           email: user.email,
           password: user.password,
           displayName: user.displayName,
-          emailVerified: true,
+          emailVerified: true, // Assuming email is verified for simplicity
         });
 
-        // 2. Firestoreにユーザーデータを保存
+        // 2. Save user data to Firestore
         const userDocRef = db.collection('users').doc(userRecord.uid);
         const avatarUrl = `https://picsum.photos/seed/${userRecord.uid}/100/100`;
 
