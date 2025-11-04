@@ -5,23 +5,20 @@ import * as admin from 'firebase-admin';
 // Check if the app is already initialized to prevent errors
 if (!admin.apps.length) {
   try {
-    // When running in a GCP environment (like Cloud Functions, App Engine),
-    // the SDK can automatically detect the service account credentials.
-    admin.initializeApp();
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (serviceAccountKey) {
+      // If service account key is provided in env, use it.
+      const serviceAccount = JSON.parse(serviceAccountKey);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+    } else {
+      // Otherwise, try to initialize with default credentials.
+      // This works in GCP environments like Cloud Functions, App Engine, etc.
+      admin.initializeApp();
+    }
   } catch (error: any) {
-     console.warn('Firebase admin initialization failed with default credentials. Falling back to service account key.');
-     try {
-        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-          admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-          });
-        } else {
-            console.error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.');
-        }
-     } catch(e) {
-        console.error('Firebase admin initialization error with service account key:', e);
-     }
+    console.error('Firebase admin initialization error:', error);
   }
 }
 
