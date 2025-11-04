@@ -22,9 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { ScrollArea } from '../ui/scroll-area';
 import { NewUserPayload } from '@/types/functions';
 
-const REQUIRED_COLUMNS = ['email', 'password', 'displayName', 'employeeId', 'company', 'role'];
-
-// Maps possible header variations to the canonical key used in the application.
+// Maps possible header variations (lowercase, no spaces) to the canonical key used in the application.
 const HEADER_MAPPING: { [key: string]: keyof NewUserPayload } = {
   // email
   'email': 'email',
@@ -48,6 +46,8 @@ const HEADER_MAPPING: { [key: string]: keyof NewUserPayload } = {
   'role': 'role',
   '権限': 'role'
 };
+
+const REQUIRED_CANONICAL_KEYS: (keyof NewUserPayload)[] = ['email', 'password', 'displayName', 'employeeId', 'company', 'role'];
 
 
 export function ImportMembersDialog() {
@@ -82,35 +82,43 @@ export function ImportMembersDialog() {
       skipEmptyLines: true,
       complete: (results) => {
         const rawHeaders = results.meta.fields || [];
-        const lowerCaseHeaders = rawHeaders.map(h => h.toLowerCase().replace(/\s/g, ''));
-        
-        // Check for required columns
-        const missingColumns = REQUIRED_COLUMNS.filter(reqCol => {
-          // Find if any alias for the required column exists in the CSV headers
-          const aliases = Object.keys(HEADER_MAPPING).filter(key => HEADER_MAPPING[key] === reqCol);
-          return !aliases.some(alias => lowerCaseHeaders.includes(alias));
+
+        // Map raw headers to canonical keys
+        const headerToCanonicalKey: { [rawHeader: string]: keyof NewUserPayload | undefined } = {};
+        const foundCanonicalKeys = new Set<keyof NewUserPayload>();
+
+        rawHeaders.forEach(rawHeader => {
+          const normalizedHeader = rawHeader.toLowerCase().replace(/\s/g, '');
+          const canonicalKey = HEADER_MAPPING[normalizedHeader];
+          if (canonicalKey) {
+            headerToCanonicalKey[rawHeader] = canonicalKey;
+            foundCanonicalKeys.add(canonicalKey);
+          }
         });
 
-        if (missingColumns.length > 0) {
-          setFileError(`必須の列が見つかりません: ${missingColumns.join(', ')}`);
+        // Check for required columns using canonical keys
+        const missingKeys = REQUIRED_CANONICAL_KEYS.filter(key => !foundCanonicalKeys.has(key));
+
+        if (missingKeys.length > 0) {
+          setFileError(`必須の列が見つかりません: ${missingKeys.join(', ')}`);
           setParsedData([]);
           return;
         }
 
-        // Normalize data keys to canonical keys
+        // Normalize data to use canonical keys
         const normalizedData = (results.data as any[]).map(row => {
           const newRow: Partial<NewUserPayload> = {};
-          for (const rawHeader of rawHeaders) {
-            const lowerCaseHeader = rawHeader.toLowerCase().replace(/\s/g, '');
-            const canonicalKey = HEADER_MAPPING[lowerCaseHeader];
+          for (const rawHeader in row) {
+            const canonicalKey = headerToCanonicalKey[rawHeader];
             if (canonicalKey) {
               (newRow as any)[canonicalKey] = row[rawHeader];
             }
           }
           return newRow as NewUserPayload;
         });
-        
+
         setParsedData(normalizedData);
+        setFileError(null);
       },
       error: (error) => {
         setFileError(`CSVの解析に失敗しました: ${error.message}`);
@@ -208,7 +216,7 @@ export function ImportMembersDialog() {
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">employeeId</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">company</code>,
                 <code className="font-mono bg-amber-100 p-1 rounded-sm text-amber-900 mx-1">role</code>.
-                <span className="text-xs">(ヘッダーの大文字・小文字は区別しません)</span>
+                <span className="text-xs">(ヘッダーの日本語名、大文字・小文字は区別しません)</span>
               </p>
               <p className="mb-2">
                 `role`には `admin`, `executive`, `manager`, `employee` のいずれかを指定してください。
@@ -264,5 +272,3 @@ export function ImportMembersDialog() {
     </Dialog>
   );
 }
-
-    
