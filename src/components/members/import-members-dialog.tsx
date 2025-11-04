@@ -54,6 +54,17 @@ export function ImportMembersDialog() {
     Papa.parse(selectedFile, {
       header: true,
       skipEmptyLines: true,
+      transformHeader: (header) => {
+        const lowerCaseHeader = header.toLowerCase().replace(/\s/g, '');
+        if (lowerCaseHeader === 'displayname' || lowerCaseHeader === '氏名') return 'displayName';
+        if (lowerCaseHeader === 'employeeid' || lowerCaseHeader === 'employeeld' || lowerCaseHeader === '社員番号') return 'employeeId';
+        if (lowerCaseHeader === 'company' || lowerCaseHeader === '所属会社') return 'company';
+        if (lowerCaseHeader === 'department' || lowerCaseHeader === '所属部署') return 'department';
+        if (lowerCaseHeader === 'email' || lowerCaseHeader === 'メールアドレス') return 'email';
+        if (lowerCaseHeader === 'password' || lowerCaseHeader === 'パスワード') return 'password';
+        if (lowerCaseHeader === 'role' || lowerCaseHeader === '権限') return 'role';
+        return header;
+      },
       complete: (results) => {
         const headers = results.meta.fields || [];
         const missingColumns = REQUIRED_COLUMNS.filter(col => !headers.includes(col));
@@ -61,7 +72,6 @@ export function ImportMembersDialog() {
           setFileError(`必須の列が見つかりません: ${missingColumns.join(', ')}`);
           setParsedData([]);
         } else {
-          // Add any additional validation here if needed
           const validatedData = results.data as NewUserPayload[];
           setParsedData(validatedData);
         }
@@ -85,7 +95,6 @@ export function ImportMembersDialog() {
     setIsLoading(true);
     
     try {
-      // Use the Next.js API route
       const response = await fetch('/api/batchImportUsers', {
         method: 'POST',
         headers: {
@@ -95,7 +104,6 @@ export function ImportMembersDialog() {
       });
 
       if (!response.ok) {
-        // Try to parse error response from the server
         const errorData = await response.json().catch(() => null);
         const errorMessage = errorData?.error || response.statusText || '不明なサーバーエラーが発生しました。';
         throw new Error(`サーバーエラー: ${errorMessage}`);
@@ -149,7 +157,7 @@ export function ImportMembersDialog() {
         <DialogHeader>
           <DialogTitle>メンバーをCSVで一括登録</DialogTitle>
           <DialogDescription>
-            CSVファイルをアップロードして、複数のメンバーを一度に登録します。
+            CSVファイルをアップロードして、複数のメンバーを一度に登録します。文字コードはUTF-8を想定しています。
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -195,7 +203,7 @@ export function ImportMembersDialog() {
                     {parsedData.slice(0, 5).map((row, i) => (
                       <TableRow key={i}>
                         {Object.entries(row).map(([key, value]) => (
-                          <TableCell key={key} className="text-xs whitespace-nowrap">{value}</TableCell>
+                          <TableCell key={key} className="text-xs whitespace-nowrap">{key === 'password' && value ? '******' : value}</TableCell>
                         ))}
                       </TableRow>
                     ))}
