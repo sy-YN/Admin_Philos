@@ -26,13 +26,9 @@ export async function POST(req: Request) {
 
     const importPromises = users.map(async (user: NewUserPayload) => {
       try {
-        // --- Start: Added Validation ---
         if (!user.email || !user.password || !user.displayName) {
           throw new Error('必須項目（email, password, displayName）が不足しています。');
         }
-        // --- End: Added Validation ---
-
-        // Role validation
         if (!user.role || !VALID_ROLES.includes(user.role)) {
           throw new Error(`無効な権限が指定されました: "${user.role}"。有効な権限: ${VALID_ROLES.join(', ')}`);
         }
@@ -42,25 +38,32 @@ export async function POST(req: Request) {
           email: user.email,
           password: user.password,
           displayName: user.displayName,
-          emailVerified: true, // Assuming email is verified for simplicity
+          emailVerified: true,
         });
 
-        // 2. Save user data to Firestore
+        // 2. Prepare user data for Firestore
         const userDocRef = db.collection('users').doc(userRecord.uid);
         const avatarUrl = `https://picsum.photos/seed/${userRecord.uid}/100/100`;
 
-        await userDocRef.set({
+        const firestoreData: any = {
           uid: userRecord.uid,
           email: user.email,
           displayName: user.displayName,
           employeeId: user.employeeId || null,
           company: user.company || null,
-          department: user.department || null,
           role: user.role,
           avatarUrl: avatarUrl,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
-        });
+        };
+
+        // Only add department if it exists and is not an empty string
+        if (user.department) {
+          firestoreData.department = user.department;
+        }
+
+        // 3. Save user data to Firestore
+        await userDocRef.set(firestoreData);
         
         results.push({ email: user.email, success: true });
         successCount++;
