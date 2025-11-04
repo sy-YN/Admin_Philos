@@ -1,41 +1,23 @@
 
-import { https, logger } from 'firebase-functions';
-import { auth, db } from '../lib/firebase-admin';
+import { NextResponse } from 'next/server';
+import { auth, db } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import type {
   NewUserPayload,
   UserImportResult,
   BatchImportUsersRequest,
   BatchImportUsersResponse,
-} from '../types/functions';
+} from '@/types/functions';
 import { Member } from '@/types/member';
 
 const VALID_ROLES: Member['role'][] = ['admin', 'executive', 'manager', 'employee'];
 
-// CORSを有効にするため、onCallではなくonRequestを使用
-export const batchImportUsers = https.onRequest(async (req, res) => {
-  // CORSヘッダーを設定
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-control-allow-methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
-
-  // pre-flightリクエスト（OPTIONS）への対応
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-  
-  if (req.method !== 'POST') {
-    res.status(405).send('Method Not Allowed');
-    return;
-  }
-
+export async function POST(req: Request) {
   try {
-    const { users } = req.body as BatchImportUsersRequest;
+    const { users } = (await req.json()) as BatchImportUsersRequest;
+
     if (!users || !Array.isArray(users)) {
-      logger.error('Invalid request body', { body: req.body });
-      res.status(400).json({ error: 'Invalid request body. "users" array is required.' });
-      return;
+      return NextResponse.json({ error: 'Invalid request body. "users" array is required.' }, { status: 400 });
     }
 
     const results: UserImportResult[] = [];
@@ -46,7 +28,7 @@ export const batchImportUsers = https.onRequest(async (req, res) => {
       try {
         // Role validation
         if (!user.role || !VALID_ROLES.includes(user.role)) {
-            throw new Error(`Invalid role specified: "${user.role}". Must be one of: ${VALID_ROLES.join(', ')}`);
+          throw new Error(`Invalid role specified: "${user.role}". Must be one of: ${VALID_ROLES.join(', ')}`);
         }
 
         // 1. Firebase Authenticationにユーザーを作成
@@ -76,12 +58,12 @@ export const batchImportUsers = https.onRequest(async (req, res) => {
         
         results.push({ email: user.email, success: true });
         successCount++;
-        logger.info(`Successfully imported user: ${user.email}`);
+        console.log(`Successfully imported user: ${user.email}`);
 
       } catch (error: any) {
         results.push({ email: user.email, success: false, error: error.message });
         errorCount++;
-        logger.error(`Failed to import user: ${user.email}`, { error: error.message, stack: error.stack });
+        console.error(`Failed to import user: ${user.email}`, { error: error.message });
       }
     });
 
@@ -94,10 +76,10 @@ export const batchImportUsers = https.onRequest(async (req, res) => {
       results,
     };
     
-    res.status(200).json(response);
+    return NextResponse.json(response);
 
   } catch (error: any) {
-    logger.error('Unhandled error in batchImportUsers function', { error: error.message, stack: error.stack });
-    res.status(500).json({ error: 'An unexpected error occurred.' });
+    console.error('Unhandled error in batchImportUsers API route', { error: error.message, stack: error.stack });
+    return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 });
   }
-});
+}

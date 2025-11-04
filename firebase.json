@@ -8,10 +8,6 @@
     },
     "rewrites": [
       {
-        "source": "/api/batchImportUsers",
-        "function": "batchImportUsers"
-      },
-      {
         "source": "**",
         "function": "server"
       }
@@ -19,7 +15,7 @@
   },
   "functions": [
     {
-      "source": "lib/functions",
+      "source": "src/functions",
       "runtime": "nodejs20",
       "codebase": "default",
       "ignore": [

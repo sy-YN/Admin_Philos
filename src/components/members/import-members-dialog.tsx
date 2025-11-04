@@ -85,6 +85,7 @@ export function ImportMembersDialog() {
     setIsLoading(true);
     
     try {
+      // Use the Next.js API route
       const response = await fetch('/api/batchImportUsers', {
         method: 'POST',
         headers: {
@@ -94,7 +95,10 @@ export function ImportMembersDialog() {
       });
 
       if (!response.ok) {
-        throw new Error(`サーバーエラー: ${response.statusText}`);
+        // Try to parse error response from the server
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.error || response.statusText || '不明なサーバーエラーが発生しました。';
+        throw new Error(`サーバーエラー: ${errorMessage}`);
       }
 
       const result = await response.json();
