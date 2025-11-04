@@ -59,6 +59,8 @@ export const batchImportUsers = https.onRequest(async (req, res) => {
 
         // 2. Firestoreにユーザーデータを保存
         const userDocRef = db.collection('users').doc(userRecord.uid);
+        const avatarUrl = `https://picsum.photos/seed/${userRecord.uid}/100/100`;
+
         await userDocRef.set({
           uid: userRecord.uid,
           email: user.email,
@@ -67,7 +69,7 @@ export const batchImportUsers = https.onRequest(async (req, res) => {
           company: user.company || null,
           department: user.department || null,
           role: user.role,
-          avatarUrl: '', // auto-generated later
+          avatarUrl: avatarUrl,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         });

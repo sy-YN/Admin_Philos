@@ -37,7 +37,7 @@ export function AddMemberDialog() {
   const [employeeId, setEmployeeId] = useState('');
   const [company, setCompany] = useState('');
   const [department, setDepartment] = useState('');
-  const [role, setRole] = useState<Member['role'] | ''>(user ? '' : 'admin');
+  const [role, setRole] = useState<Member['role'] | ''>('');
   
   const isFirstAdmin = !user;
 
@@ -55,7 +55,7 @@ export function AddMemberDialog() {
       return;
     }
     
-    if (!role) {
+    if (!role && !isFirstAdmin) {
       toast({
         title: 'エラー',
         description: '権限を選択してください。',
@@ -69,6 +69,9 @@ export function AddMemberDialog() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
+      const avatarUrl = `https://picsum.photos/seed/${newUser.uid}/100/100`;
+      const finalRole = isFirstAdmin ? 'admin' : role;
+
       const newMemberData: Omit<Member, 'updatedAt' | 'createdAt'> & { updatedAt: any, createdAt: any } = {
         uid: newUser.uid,
         email,
@@ -76,8 +79,8 @@ export function AddMemberDialog() {
         employeeId,
         company,
         department,
-        role,
-        avatarUrl: '', // auto-generated later
+        role: finalRole as Member['role'],
+        avatarUrl: avatarUrl,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
