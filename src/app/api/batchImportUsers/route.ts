@@ -11,27 +11,19 @@ import type {
 } from '@/types/functions';
 import type { Member } from '@/types/member';
 
-// Helper function to initialize Firebase Admin SDK
+// Helper function to initialize Firebase Admin SDK using the recommended method
 const initializeAdminApp = () => {
   if (admin.apps.length > 0) {
     return admin.app();
   }
 
+  // The GOOGLE_APPLICATION_CREDENTIALS env var (set in .env) points to the JSON key file.
+  // The SDK automatically finds and uses this file.
   try {
-    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-    if (!serviceAccountKey) {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set in .env file.');
-    }
-    // Directly parse the string from the environment variable
-    const serviceAccount: ServiceAccount = JSON.parse(serviceAccountKey);
-    
-    return admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
+    return admin.initializeApp();
   } catch (error: any) {
     console.error('Firebase Admin SDK Initialization Error:', error.stack);
-    // Re-throw a more specific error to be caught in the main handler
-    throw new Error('Failed to initialize Firebase Admin SDK. Please check your service account credentials.');
+    throw new Error('Failed to initialize Firebase Admin SDK. Ensure GOOGLE_APPLICATION_CREDENTIALS in .env points to a valid service account key file.');
   }
 };
 
@@ -131,7 +123,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       total: 0,
       successCount: 0,
-      errorCount: 1,
+      errorCount: (await req.json()).users.length || 1, // Attempt to get total from body
       results: [{ email: 'unknown', success: false, error: `サーバーで予期せぬエラーが発生しました: ${error.message}` }]
     }, { status: 500 });
   }
