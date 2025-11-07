@@ -75,6 +75,18 @@
     *   `priority` (String): 重要度 (`high`, `normal`)
     *   `tags` (Array of Strings): 関連するタグのリスト (例: `["営業部", "本社", "新製品"]`)
 
+#### サブコレクション: `comments`
+
+メッセージへのコメントを格納します。
+
+*   **コレクション**: `executiveMessages/{messageId}/comments`
+*   **ドキュメントID**: `commentId` (自動生成)
+*   **フィールド**:
+    *   `authorId` (String): コメント投稿者の`userId`
+    *   `content` (String): コメント内容
+    *   `createdAt` (Timestamp): コメント投稿日時
+    *   `sentiment` (Object, Optional): コメントの感情分析結果
+
 ---
 
 ### 4. `videos`

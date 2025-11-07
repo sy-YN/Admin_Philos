@@ -21,6 +21,18 @@ service cloud.firestore {
         }
       }
     }
+
+    match /executiveMessages/{messageId} {
+      //【一時的な開発用ルール】読み書きを誰でも許可
+      allow read, write: if true;
+
+      // commentsサブコレクション
+      match /comments/{commentId} {
+        //【一時的な開発用ルール】読み書きを誰でも許可
+        allow read, write: if true;
+      }
+    }
+
     match /users/{id} {
 			allow read, write: if true;
   	}
