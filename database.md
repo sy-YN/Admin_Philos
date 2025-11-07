@@ -73,6 +73,7 @@
     *   `content` (String): メッセージの全文
     *   `createdAt` (Timestamp): 公開日時
     *   `priority` (String): 重要度 (`high`, `normal`)
+    *   `tags` (Array of Strings): 関連するタグのリスト (例: `["営業部", "本社", "新製品"]`)
 
 ---
 
