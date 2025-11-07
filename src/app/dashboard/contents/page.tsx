@@ -11,9 +11,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Video, MessageSquare } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
+import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import type { ExecutiveMessage } from '@/types/executive-message';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
 
 // ダミーデータ
 const dummyVideos = [
@@ -21,10 +28,261 @@ const dummyVideos = [
   { id: 'v2', title: '新製品発表会', description: '新製品「Philos MAX」の紹介動画です。', thumbnailUrl: 'https://picsum.photos/seed/productlaunch/120/90', uploadedAt: '2024/06/15' },
 ];
 
-const dummyMessages = [
-  { id: 'm1', title: '従業員エンゲージメント向上に向けて', author: '山田 太郎 (CEO)', createdAt: '2024/07/20', priority: 'high' },
-  { id: 'm2', title: '夏の長期休暇について', author: '佐藤 管理者', createdAt: '2024/07/18', priority: 'normal' },
-];
+// 新規メッセージ追加用ダイアログ
+function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  
+  const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [priority, setPriority] = useState<'normal' | 'high'>('normal');
+  const [tags, setTags] = useState('');
+
+  const handleAddMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firestore || !user) return;
+    setIsLoading(true);
+
+    try {
+      await addDoc(collection(firestore, 'executiveMessages'), {
+        title,
+        content,
+        priority,
+        tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+        authorId: user.uid,
+        authorName: user.displayName || '不明な作成者',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      toast({ title: "成功", description: "新しいメッセージを追加しました。" });
+      onMessageAdded?.();
+      setOpen(false);
+      // Reset form
+      setTitle('');
+      setContent('');
+      setPriority('normal');
+      setTags('');
+    } catch (error) {
+      console.error(error);
+      toast({ title: "エラー", description: "メッセージの追加に失敗しました。", variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" />新規メッセージ追加</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-xl">
+        <form onSubmit={handleAddMessage}>
+          <DialogHeader>
+            <DialogTitle>新規メッセージ追加</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="msg-title">タイトル</Label>
+              <Input id="msg-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="来期の事業戦略について" required disabled={isLoading}/>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="msg-priority">重要度</Label>
+              <Select value={priority} onValueChange={(v: 'normal' | 'high') => setPriority(v)} disabled={isLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="重要度を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">通常</SelectItem>
+                  <SelectItem value="high">高</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="msg-tags">タグ (カンマ区切り)</Label>
+              <Input id="msg-tags" value={tags} onChange={e => setTags(e.target.value)} placeholder="全社, 方針, DX推進" disabled={isLoading}/>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="msg-content">内容</Label>
+              <Textarea id="msg-content" value={content} onChange={e => setContent(e.target.value)} placeholder="来期は..." rows={10} required disabled={isLoading}/>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+              {isLoading ? '追加中...' : 'メッセージを追加'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// 既存メッセージ編集用ダイアログ
+function EditMessageDialog({ message, onMessageUpdated, children }: { message: ExecutiveMessage, onMessageUpdated?: () => void, children: React.ReactNode }) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  
+  const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [title, setTitle] = useState(message.title);
+  const [content, setContent] = useState(message.content);
+  const [priority, setPriority] = useState(message.priority);
+  const [tags, setTags] = useState((message.tags || []).join(', '));
+
+  const handleEditMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firestore) return;
+    setIsLoading(true);
+
+    const messageRef = doc(firestore, 'executiveMessages', message.id);
+
+    try {
+      await updateDoc(messageRef, {
+        title,
+        content,
+        priority,
+        tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+        updatedAt: serverTimestamp(),
+      });
+
+      toast({ title: "成功", description: "メッセージを更新しました。" });
+      onMessageUpdated?.();
+      setOpen(false);
+    } catch (error) {
+      console.error(error);
+      toast({ title: "エラー", description: "メッセージの更新に失敗しました。", variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-xl">
+        <form onSubmit={handleEditMessage}>
+          <DialogHeader>
+            <DialogTitle>メッセージを編集</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-msg-title">タイトル</Label>
+              <Input id="edit-msg-title" value={title} onChange={e => setTitle(e.target.value)} required disabled={isLoading}/>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-msg-priority">重要度</Label>
+              <Select value={priority} onValueChange={(v: 'normal' | 'high') => setPriority(v)} disabled={isLoading}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">通常</SelectItem>
+                  <SelectItem value="high">高</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+             <div className="grid gap-2">
+              <Label htmlFor="edit-msg-tags">タグ (カンマ区切り)</Label>
+              <Input id="edit-msg-tags" value={tags} onChange={e => setTags(e.target.value)} disabled={isLoading}/>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-msg-content">内容</Label>
+              <Textarea id="edit-msg-content" value={content} onChange={e => setContent(e.target.value)} rows={10} required disabled={isLoading}/>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+              {isLoading ? '更新中...' : 'メッセージを更新'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// メッセージ一覧テーブル
+function MessagesTable() {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const messagesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'executiveMessages'), orderBy('createdAt', 'desc'));
+  }, [firestore]);
+
+  const { data: messages, isLoading } = useCollection<ExecutiveMessage>(messagesQuery);
+  
+  const handleDelete = async (id: string) => {
+    if (!firestore) return;
+    try {
+      await deleteDoc(doc(firestore, 'executiveMessages', id));
+      toast({ title: "成功", description: "メッセージを削除しました。" });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "エラー", description: "メッセージの削除に失敗しました。", variant: 'destructive' });
+    }
+  };
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    if (isNaN(date.getTime())) return '無効な日付';
+    return format(date, 'yyyy/MM/dd HH:mm', { locale: ja });
+  };
+  
+  if (isLoading) {
+    return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+  
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>タイトル</TableHead>
+          <TableHead className="w-[120px]">重要度</TableHead>
+          <TableHead className="w-[200px]">作成者</TableHead>
+          <TableHead className="w-[150px] hidden md:table-cell">作成日</TableHead>
+          <TableHead><span className="sr-only">Actions</span></TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {messages && messages.map((msg) => (
+          <TableRow key={msg.id}>
+            <TableCell className="font-medium">{msg.title}</TableCell>
+            <TableCell>
+              <Badge variant={msg.priority === 'high' ? 'destructive' : 'secondary'}>
+                {msg.priority === 'high' ? '高' : '通常'}
+              </Badge>
+            </TableCell>
+            <TableCell>{msg.authorName || '不明'}</TableCell>
+            <TableCell className="hidden md:table-cell">{formatDate(msg.createdAt)}</TableCell>
+            <TableCell>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <EditMessageDialog message={msg}>
+                     <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
+                  </EditMessageDialog>
+                  <DropdownMenuItem onClick={() => handleDelete(msg.id)} className="text-destructive">削除</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 
 export default function ContentsPage() {
   return (
@@ -127,80 +385,11 @@ export default function ContentsPage() {
               <CardTitle>メッセージ一覧</CardTitle>
               <CardDescription>経営層からのメッセージを管理します。</CardDescription>
                <div className="flex justify-end">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" />新規メッセージ追加</Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-xl">
-                    <DialogHeader>
-                      <DialogTitle>新規メッセージ追加</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="msg-title">タイトル</Label>
-                        <Input id="msg-title" placeholder="来期の事業戦略について" />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="msg-priority">重要度</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="重要度を選択" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="normal">通常</SelectItem>
-                            <SelectItem value="high">高</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="msg-content">内容</Label>
-                        <Textarea id="msg-content" placeholder="来期は..." rows={10} />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button type="submit">メッセージを追加</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <AddMessageDialog />
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>タイトル</TableHead>
-                    <TableHead className="w-[120px]">重要度</TableHead>
-                    <TableHead className="w-[200px]">作成者</TableHead>
-                    <TableHead className="w-[150px] hidden md:table-cell">作成日</TableHead>
-                    <TableHead><span className="sr-only">Actions</span></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dummyMessages.map((msg) => (
-                    <TableRow key={msg.id}>
-                      <TableCell className="font-medium">{msg.title}</TableCell>
-                      <TableCell>
-                        <Badge variant={msg.priority === 'high' ? 'destructive' : 'secondary'}>
-                          {msg.priority === 'high' ? '高' : '通常'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{msg.author}</TableCell>
-                      <TableCell className="hidden md:table-cell">{msg.createdAt}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>編集</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">削除</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <MessagesTable />
             </CardContent>
           </Card>
         </TabsContent>
