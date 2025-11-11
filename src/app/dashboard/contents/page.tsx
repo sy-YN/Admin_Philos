@@ -39,7 +39,20 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [priority, setPriority] = useState<'normal' | 'high'>('normal');
-  const [tags, setTags] = useState('');
+  const [tags, setTags] = useState<string[]>(Array(5).fill(''));
+
+  const handleTagChange = (index: number, value: string) => {
+    const newTags = [...tags];
+    newTags[index] = value;
+    setTags(newTags);
+  };
+
+  const resetForm = () => {
+    setTitle('');
+    setContent('');
+    setPriority('normal');
+    setTags(Array(5).fill(''));
+  }
 
   const handleAddMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +64,7 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
         title,
         content,
         priority,
-        tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+        tags: tags.map(tag => tag.trim()).filter(tag => tag),
         authorId: user.uid,
         authorName: user.displayName || '不明な作成者',
         createdAt: serverTimestamp(),
@@ -61,11 +74,7 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
       toast({ title: "成功", description: "新しいメッセージを追加しました。" });
       onMessageAdded?.();
       setOpen(false);
-      // Reset form
-      setTitle('');
-      setContent('');
-      setPriority('normal');
-      setTags('');
+      resetForm();
     } catch (error) {
       console.error(error);
       toast({ title: "エラー", description: "メッセージの追加に失敗しました。", variant: 'destructive' });
@@ -75,19 +84,24 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) {
+        resetForm();
+      }
+    }}>
       <DialogTrigger asChild>
         <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" />新規メッセージ追加</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <form onSubmit={handleAddMessage}>
           <DialogHeader>
             <DialogTitle>新規メッセージ追加</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="msg-title">タイトル</Label>
-              <Input id="msg-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="来期の事業戦略について" required disabled={isLoading}/>
+              <Label htmlFor="msg-title">タイトル (50文字以内)</Label>
+              <Input id="msg-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="来期の事業戦略について" required disabled={isLoading} maxLength={50} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="msg-priority">重要度</Label>
@@ -102,12 +116,23 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="msg-tags">タグ (カンマ区切り)</Label>
-              <Input id="msg-tags" value={tags} onChange={e => setTags(e.target.value)} placeholder="全社, 方針, DX推進" disabled={isLoading}/>
+              <Label>タグ (最大5個)</Label>
+              <div className='grid grid-cols-2 md:grid-cols-3 gap-2'>
+                {tags.map((tag, index) => (
+                    <Input 
+                      key={index}
+                      value={tag}
+                      onChange={e => handleTagChange(index, e.target.value)}
+                      placeholder={`タグ ${index + 1}`} 
+                      disabled={isLoading}
+                      maxLength={20}
+                    />
+                ))}
+              </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="msg-content">内容</Label>
-              <Textarea id="msg-content" value={content} onChange={e => setContent(e.target.value)} placeholder="来期は..." rows={10} required disabled={isLoading}/>
+              <Label htmlFor="msg-content">内容 (2000文字以内)</Label>
+              <Textarea id="msg-content" value={content} onChange={e => setContent(e.target.value)} placeholder="来期は..." rows={10} required disabled={isLoading} maxLength={2000} />
             </div>
           </div>
           <DialogFooter>
@@ -132,7 +157,22 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
   const [title, setTitle] = useState(message.title);
   const [content, setContent] = useState(message.content);
   const [priority, setPriority] = useState(message.priority);
-  const [tags, setTags] = useState((message.tags || []).join(', '));
+  
+  // Initialize tags array with 5 slots
+  const initialTags = Array(5).fill('');
+  if (message.tags) {
+    for(let i = 0; i < Math.min(message.tags.length, 5); i++) {
+      initialTags[i] = message.tags[i];
+    }
+  }
+  const [tags, setTags] = useState<string[]>(initialTags);
+
+  const handleTagChange = (index: number, value: string) => {
+    const newTags = [...tags];
+    newTags[index] = value;
+    setTags(newTags);
+  };
+
 
   const handleEditMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,7 +186,7 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
         title,
         content,
         priority,
-        tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+        tags: tags.map(tag => tag.trim()).filter(tag => tag),
         updatedAt: serverTimestamp(),
       });
 
@@ -166,15 +206,15 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <form onSubmit={handleEditMessage}>
           <DialogHeader>
             <DialogTitle>メッセージを編集</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-msg-title">タイトル</Label>
-              <Input id="edit-msg-title" value={title} onChange={e => setTitle(e.target.value)} required disabled={isLoading}/>
+              <Label htmlFor="edit-msg-title">タイトル (50文字以内)</Label>
+              <Input id="edit-msg-title" value={title} onChange={e => setTitle(e.target.value)} required disabled={isLoading} maxLength={50} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-msg-priority">重要度</Label>
@@ -187,12 +227,23 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
               </Select>
             </div>
              <div className="grid gap-2">
-              <Label htmlFor="edit-msg-tags">タグ (カンマ区切り)</Label>
-              <Input id="edit-msg-tags" value={tags} onChange={e => setTags(e.target.value)} disabled={isLoading}/>
+              <Label>タグ (最大5個)</Label>
+              <div className='grid grid-cols-2 md:grid-cols-3 gap-2'>
+                {tags.map((tag, index) => (
+                    <Input 
+                      key={index}
+                      value={tag}
+                      onChange={e => handleTagChange(index, e.target.value)}
+                      placeholder={`タグ ${index + 1}`} 
+                      disabled={isLoading}
+                      maxLength={20}
+                    />
+                ))}
+              </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-msg-content">内容</Label>
-              <Textarea id="edit-msg-content" value={content} onChange={e => setContent(e.target.value)} rows={10} required disabled={isLoading}/>
+              <Label htmlFor="edit-msg-content">内容 (2000文字以内)</Label>
+              <Textarea id="edit-msg-content" value={content} onChange={e => setContent(e.target.value)} rows={10} required disabled={isLoading} maxLength={2000}/>
             </div>
           </div>
           <DialogFooter>
@@ -246,8 +297,9 @@ function MessagesTable() {
       <TableHeader>
         <TableRow>
           <TableHead>タイトル</TableHead>
+          <TableHead className="hidden md:table-cell">タグ</TableHead>
           <TableHead className="w-[120px]">重要度</TableHead>
-          <TableHead className="w-[200px]">作成者</TableHead>
+          <TableHead className="w-[200px] hidden sm:table-cell">作成者</TableHead>
           <TableHead className="w-[150px] hidden md:table-cell">作成日</TableHead>
           <TableHead><span className="sr-only">Actions</span></TableHead>
         </TableRow>
@@ -256,12 +308,17 @@ function MessagesTable() {
         {messages && messages.map((msg) => (
           <TableRow key={msg.id}>
             <TableCell className="font-medium">{msg.title}</TableCell>
+            <TableCell className="hidden md:table-cell">
+              <div className="flex flex-wrap gap-1">
+                {(msg.tags || []).map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
+              </div>
+            </TableCell>
             <TableCell>
               <Badge variant={msg.priority === 'high' ? 'destructive' : 'secondary'}>
                 {msg.priority === 'high' ? '高' : '通常'}
               </Badge>
             </TableCell>
-            <TableCell>{msg.authorName || '不明'}</TableCell>
+            <TableCell className="hidden sm:table-cell">{msg.authorName || '不明'}</TableCell>
             <TableCell className="hidden md:table-cell">{formatDate(msg.createdAt)}</TableCell>
             <TableCell>
               <DropdownMenu>
@@ -367,7 +424,7 @@ export default function ContentsPage() {
       <div className="flex items-center mb-6">
         <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
       </div>
-      <Tabs defaultValue="videos">
+      <Tabs defaultValue="messages">
         <TabsList className="grid w-full grid-cols-2 max-w-md">
           <TabsTrigger value="videos"><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>
           <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>
@@ -475,5 +532,3 @@ export default function ContentsPage() {
     </div>
   );
 }
-
-    
