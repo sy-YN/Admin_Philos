@@ -100,8 +100,8 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="msg-title">タイトル (50文字以内)</Label>
-              <Input id="msg-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="来期の事業戦略について" required disabled={isLoading} maxLength={50} />
+              <Label htmlFor="msg-title">タイトル (30文字以内)</Label>
+              <Input id="msg-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="来期の事業戦略について" required disabled={isLoading} maxLength={30} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="msg-priority">重要度</Label>
@@ -213,8 +213,8 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-msg-title">タイトル (50文字以内)</Label>
-              <Input id="edit-msg-title" value={title} onChange={e => setTitle(e.target.value)} required disabled={isLoading} maxLength={50} />
+              <Label htmlFor="edit-msg-title">タイトル (30文字以内)</Label>
+              <Input id="edit-msg-title" value={title} onChange={e => setTitle(e.target.value)} required disabled={isLoading} maxLength={30} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-msg-priority">重要度</Label>
