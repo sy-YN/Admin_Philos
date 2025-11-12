@@ -764,48 +764,26 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         tags: ['開発', 'デモ'],
       },
     ];
-    
-    const sampleComments = [
-        { authorId: 'user-dummy-1', content: '素晴らしい発表でした。来期の戦略が明確になり、モチベーションが上がりました。' },
-        { authorId: 'user-dummy-2', content: 'データ駆動型経営へのシフト、具体的な取り組みについてもう少し詳しく知りたいです。' },
-        { authorId: 'user-dummy-3', content: '顧客中心主義、大賛成です。現場の我々も全力で貢献します！' },
-    ];
 
     try {
       const batch = writeBatch(firestore);
       const videosCollection = collection(firestore, "videos");
-      
-      let firstVideoRef: any = null;
 
-      sampleVideos.forEach((video, index) => {
+      sampleVideos.forEach(video => {
         const docRef = doc(videosCollection);
-        if (index === 0) {
-            firstVideoRef = docRef;
-        }
         batch.set(docRef, {
           ...video,
           uploaderId: user.uid,
           uploadedAt: serverTimestamp(),
           likesCount: 0,
-          commentsCount: index === 0 ? sampleComments.length : 0,
+          commentsCount: 0,
           viewsCount: 0,
         });
       });
-      
-      if (firstVideoRef) {
-         sampleComments.forEach(comment => {
-            const commentRef = doc(collection(firstVideoRef, "comments"));
-            batch.set(commentRef, {
-                ...comment,
-                createdAt: serverTimestamp(),
-            });
-         });
-      }
-
 
       await batch.commit();
       
-      toast({ title: "成功", description: `${sampleVideos.length}件の初期ビデオとコメントを登録しました。` });
+      toast({ title: "成功", description: `${sampleVideos.length}件の初期ビデオを登録しました。` });
       onSeeded();
     } catch (error) {
       console.error("初期ビデオデータの登録に失敗しました:", error);
