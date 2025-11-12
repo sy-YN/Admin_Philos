@@ -394,7 +394,25 @@ function MessagesTable({ selected, onSelectedChange }: { selected: string[], onS
                   <EditMessageDialog message={msg}>
                      <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
                   </EditMessageDialog>
-                  <DropdownMenuItem onClick={() => handleDelete(msg.id)} className="text-destructive">削除</DropdownMenuItem>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                        削除
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          メッセージ「{msg.title}」を削除します。この操作は元に戻せません。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(msg.id)}>削除</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>
@@ -729,7 +747,25 @@ export default function ContentsPage() {
                             <VideoDialog mode="edit" video={video} onSave={handleUpdateVideo}>
                               <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
                             </VideoDialog>
-                            <DropdownMenuItem onClick={() => handleDeleteVideo(video.id)} className="text-destructive">削除</DropdownMenuItem>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                  削除
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    ビデオ「{video.title}」を削除します。この操作は元に戻せません。
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteVideo(video.id)}>削除</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
