@@ -807,6 +807,7 @@ export default function ContentsPage() {
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
   const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
 
   const videosQuery = useMemoFirebase(() => {
@@ -833,6 +834,45 @@ export default function ContentsPage() {
       toast({ title: "エラー", description: "ビデオの追加に失敗しました。", variant: 'destructive' });
     }
   };
+  
+  /**
+   * サンプル関数: 特定のビデオにコメントを追加する方法を示します。
+   * @param videoId - コメントを追加するビデオのID
+   * @param content - コメントの内容
+   * @param parentCommentId - 返信先コメントのID（トップレベルの場合はnull）
+   */
+  const handleAddComment = async (videoId: string, content: string, parentCommentId: string | null) => {
+    if (!firestore || !user) {
+      toast({ title: "エラー", description: "コメントするにはログインが必要です。", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const commentsCollectionRef = collection(firestore, 'videos', videoId, 'comments');
+      
+      await addDoc(commentsCollectionRef, {
+        authorId: user.uid,
+        authorName: user.displayName || '匿名ユーザー',
+        authorAvatarUrl: user.photoURL || '',
+        content: content,
+        parentCommentId: parentCommentId, // ここで返信先IDをセット
+        createdAt: serverTimestamp(),     // ここで現在時刻をセット
+      });
+
+      // 親ドキュメントのcommentsCountを+1する
+      const videoRef = doc(firestore, 'videos', videoId);
+      await updateDoc(videoRef, {
+        commentsCount: (videos?.find(v => v.id === videoId)?.commentsCount || 0) + 1
+      });
+
+      toast({ title: "成功", description: "コメントを投稿しました。" });
+
+    } catch (error) {
+      console.error("コメントの投稿に失敗しました:", error);
+      toast({ title: "エラー", description: "コメントの投稿に失敗しました。", variant: "destructive" });
+    }
+  };
+
 
   const handleBulkDelete = async (type: 'videos' | 'messages') => {
     let collectionName: string;
