@@ -99,6 +99,10 @@
     *   `content` (String): コメント内容
     *   `createdAt` (Timestamp): コメント投稿日時
     *   `sentiment` (Object, Optional): コメントの感情分析結果
+*   **サブコレクション**: `likes`
+    *   コメントへの「いいね」を管理します。
+    *   **コレクション**: `executiveMessages/{messageId}/comments/{commentId}/likes`
+    *   **ドキュメントID**: `userId`
 
 ---
 
@@ -139,6 +143,10 @@
     *   `authorId` (String): コメント投稿者の`userId`
     *   `content` (String): コメント内容
     *   `createdAt` (Timestamp): コメント投稿日時
+*   **サブコレクション**: `likes`
+    *   コメントへの「いいね」を管理します。
+    *   **コレクション**: `videos/{videoId}/comments/{commentId}/likes`
+    *   **ドキュメントID**: `userId`
 
 ---
 
