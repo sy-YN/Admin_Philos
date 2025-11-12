@@ -603,16 +603,9 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
   );
 }
 
-function VideosTable({ selected, onSelectedChange }: { selected: string[], onSelectedChange: (ids: string[]) => void }) {
+function VideosTable({ selected, onSelectedChange, videos, isLoading }: { selected: string[], onSelectedChange: (ids: string[]) => void, videos: VideoType[] | null, isLoading: boolean }) {
   const firestore = useFirestore();
   const { toast } = useToast();
-
-  const videosQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'videos'), orderBy('uploadedAt', 'desc'));
-  }, [firestore]);
-
-  const { data: videos, isLoading } = useCollection<VideoType>(videosQuery);
 
   const handleUpdateVideo = async (videoId: string, videoData: Partial<VideoType>) => {
     if (!firestore) return;
@@ -665,7 +658,7 @@ function VideosTable({ selected, onSelectedChange }: { selected: string[], onSel
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[50px]"><Checkbox checked={selected.length === videos?.length && videos.length > 0} onCheckedChange={handleSelectAll} /></TableHead>
+          <TableHead className="w-[50px]"><Checkbox checked={selected.length === videos?.length && (videos?.length ?? 0) > 0} onCheckedChange={handleSelectAll} /></TableHead>
           <TableHead className="w-[120px]">サムネイル</TableHead>
           <TableHead>タイトル</TableHead>
           <TableHead className="hidden sm:table-cell">タグ</TableHead>
@@ -736,10 +729,9 @@ function VideosTable({ selected, onSelectedChange }: { selected: string[], onSel
   );
 }
 
-// サンプルビデオ生成コンポーネント
-function SeedVideosButton() {
+// 初期ビデオデータ登録ボタン
+function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
   const [isSeeding, setIsSeeding] = useState(false);
-  const [isDone, setIsDone] = useState(false);
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -790,22 +782,20 @@ function SeedVideosButton() {
 
       await batch.commit();
       
-      toast({ title: "成功", description: `${sampleVideos.length}件のサンプルビデオを生成しました。` });
-      setIsDone(true);
+      toast({ title: "成功", description: `${sampleVideos.length}件の初期ビデオデータを登録しました。` });
+      onSeeded();
     } catch (error) {
-      console.error("サンプルビデオの生成に失敗しました:", error);
-      toast({ title: "エラー", description: "サンプルビデオの生成に失敗しました。", variant: "destructive" });
+      console.error("初期ビデオデータの登録に失敗しました:", error);
+      toast({ title: "エラー", description: "初期ビデオデータの登録に失敗しました。", variant: "destructive" });
     } finally {
       setIsSeeding(false);
     }
   };
-  
-  if (isDone) return null;
 
   return (
     <Button onClick={handleSeedData} disabled={isSeeding} variant="outline" size="sm">
       {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-      {isSeeding ? '生成中...' : 'サンプルビデオ生成'}
+      {isSeeding ? '登録中...' : '初期ビデオデータを登録'}
     </Button>
   );
 }
@@ -816,6 +806,15 @@ export default function ContentsPage() {
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
+
+  const videosQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'videos'), orderBy('uploadedAt', 'desc'));
+  }, [firestore]);
+
+  const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
+
 
   const handleAddVideo = async (videoData: Partial<VideoType>) => {
     if (!firestore) return;
@@ -869,6 +868,7 @@ export default function ContentsPage() {
     }
   };
 
+  const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
 
   return (
     <div className="w-full">
@@ -909,12 +909,12 @@ export default function ContentsPage() {
                     </AlertDialogContent>
                   </AlertDialog>
                 )}
-                <SeedVideosButton />
+                {showSeedButton && <SeedInitialVideosButton onSeeded={() => setInitialVideosSeeded(true)} />}
                 <VideoDialog mode="add" onSave={handleAddVideo} />
               </div>
             </CardHeader>
             <CardContent>
-              <VideosTable selected={selectedVideos} onSelectedChange={setSelectedVideos} />
+              <VideosTable selected={selectedVideos} onSelectedChange={setSelectedVideos} videos={videos} isLoading={videosLoading} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -958,7 +958,3 @@ export default function ContentsPage() {
     </div>
   );
 }
-
-    
-
-    
