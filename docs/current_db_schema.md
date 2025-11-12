@@ -26,12 +26,14 @@ Firestoreデータベース
 │           ├── {commentId_A} (ドキュメント)
 │           │   ├── authorId: "{userId}"
 │           │   ├── content: "承知いたしました。"
-│           │   └── parentCommentId: null  <-- トップレベルのコメント
+│           │   ├── parentCommentId: null  <-- トップレベルのコメント
+│           │   └── createdAt: "2024-08-05T10:00:00Z"
 │           │
 │           └── {commentId_B} (ドキュメント)
 │               ├── authorId: "{anotherUserId}"
 │               ├── content: "質問なのですが..."
-│               └── parentCommentId: "{commentId_A}"  <-- commentId_Aへの返信
+│               ├── parentCommentId: "{commentId_A}"  <-- commentId_Aへの返信
+│               └── createdAt: "2024-08-05T10:05:15Z"
 │
 └── videos (コレクション)
     └── {videoId} (ドキュメント)
