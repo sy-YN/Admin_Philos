@@ -1,6 +1,7 @@
-# Philos DBスキーマ全体像
+# Philos DBスキーマ全体像 (返信機能追加後)
 
 このドキュメントは、現在のPhilosアプリケーションにおけるFirestoreデータベースの主要なコレクションとドキュメントの階層構造をテキスト形式で図示したものです。
+コメントに返信するための`parentCommentId`フィールドを追加した際の構造を示します。
 
 ```text
 Firestoreデータベース
@@ -28,10 +29,17 @@ Firestoreデータベース
 │       │       └── likedAt: Timestamp
 │       │
 │       └── comments (サブコレクション)
-│           └── {commentId} (ドキュメント)
-│               ├── authorId: "{userId}" (← コメント投稿者のID)
-│               ├── authorName: "田中 次郎"
-│               └── content: "承知いたしました。"
+│           ├── {commentId_A} (ドキュメント)
+│           │   ├── authorId: "{userId}"
+│           │   ├── authorName: "田中 次郎"
+│           │   ├── content: "承知いたしました。"
+│           │   └── parentCommentId: null  (← トップレベルのコメント)
+│           │
+│           └── {commentId_B} (ドキュメント)
+│               ├── authorId: "{anotherUserId}"
+│               ├── authorName: "佐藤 花子"
+│               ├── content: "質問なのですが..."
+│               └── parentCommentId: "{commentId_A}" (← commentId_Aへの返信)
 │
 └── videos (コレクション)
     └── {videoId} (ドキュメント)
@@ -48,11 +56,17 @@ Firestoreデータベース
         │       └── likedAt: Timestamp
         │
         └── comments (サブコレクション)
-            └── {commentId} (ドキュメント)
-                ├── authorId: "{userId}"
-                ├── authorName: "佐藤 花子"
-                └── content: "素晴らしいデザインですね！"
-
+            ├── {commentId_X} (ドキュメント)
+            │   ├── authorId: "{userId}"
+            │   ├── authorName: "鈴木 一郎"
+            │   ├── content: "素晴らしいデザインですね！"
+            │   └── parentCommentId: null
+            │
+            └── {commentId_Y} (ドキュメント)
+                ├── authorId: "{anotherUserId}"
+                ├── authorName: "高橋 美咲"
+                ├── content: "同感です！"
+                └── parentCommentId: "{commentId_X}" (← commentId_Xへの返信)
 ```
 
 ### 図の説明
@@ -62,4 +76,7 @@ Firestoreデータベース
 *   **`(ドキュメント)`**: Firestoreのドキュメントを表します。`{userId}`や`{messageId}`は実際のドキュメントIDが入るプレースホルダです。
 *   **`(サブコレクション)`**: ドキュメントの下にネストされたコレクションを表します。
 *   **`フィールド: 値`**: ドキュメントが持つデータの例です。
+*   **`parentCommentId`**: このフィールドが、コメントへの返信機能の核となります。
+    *   値が `null` または存在しない場合は、トップレベルのコメントです。
+    *   値に他のコメントのIDが入っている場合、そのコメントへの返信であることを示します。
 *   **`←`**: どのデータを参照しているかなど、補足情報を示します。
