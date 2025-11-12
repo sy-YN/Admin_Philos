@@ -405,7 +405,6 @@ function SeedMessagesButton() {
         priority: 'high',
         tags: ['全社', '経営方針', '戦略'],
         authorName: "山田 太郎 (CEO)",
-        likesCount: 152, commentsCount: 23, viewsCount: 1890,
       },
       {
         title: "新技術スタック導入に関する技術戦略説明会",
@@ -413,7 +412,6 @@ function SeedMessagesButton() {
         priority: 'normal',
         tags: ['開発部', '技術', 'DX'],
         authorName: "佐藤 花子 (CTO)",
-        likesCount: 98, commentsCount: 45, viewsCount: 1200,
       },
       {
         title: "新しい人事評価制度の導入について",
@@ -421,7 +419,6 @@ function SeedMessagesButton() {
         priority: 'normal',
         tags: ['人事', '制度', '全社'],
         authorName: "鈴木 一郎 (人事部長)",
-        likesCount: 75, commentsCount: 12, viewsCount: 950,
       },
     ];
 
@@ -436,6 +433,9 @@ function SeedMessagesButton() {
           authorId: user.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
+          likesCount: 0,
+          commentsCount: 0,
+          viewsCount: 0,
         });
       });
 
@@ -612,6 +612,7 @@ function VideosTable({ selected, onSelectedChange, videos, isLoading }: { select
     try {
       await updateDoc(doc(firestore, 'videos', videoId), {
         ...videoData,
+        updatedAt: serverTimestamp(),
       });
       toast({ title: "成功", description: "ビデオ情報を更新しました。" });
     } catch (error) {
@@ -747,7 +748,6 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         description: 'CEOからのメッセージ',
         thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
         tags: ['全社', '戦略'],
-        likesCount: 120, commentsCount: 0, viewsCount: 1500, // commentsCount will be updated
       },
       {
         src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
@@ -755,7 +755,6 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         description: '新プロダクトのコンセプト紹介',
         thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
         tags: ['新製品', 'デザイン'],
-        likesCount: 88, commentsCount: 23, viewsCount: 980,
       },
       {
         src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
@@ -763,7 +762,6 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         description: 'ベータ版新機能のデモ',
         thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg',
         tags: ['開発', 'デモ'],
-        likesCount: 210, commentsCount: 42, viewsCount: 2240,
       },
     ];
     
@@ -777,22 +775,23 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
       const batch = writeBatch(firestore);
       const videosCollection = collection(firestore, "videos");
       
-      // Keep track of the first video's doc ref
       let firstVideoRef: any = null;
 
       sampleVideos.forEach((video, index) => {
         const docRef = doc(videosCollection);
         if (index === 0) {
-            firstVideoRef = docRef; // Save the reference to the first video
+            firstVideoRef = docRef;
         }
         batch.set(docRef, {
           ...video,
           uploaderId: user.uid,
           uploadedAt: serverTimestamp(),
+          likesCount: 0,
+          commentsCount: index === 0 ? sampleComments.length : 0,
+          viewsCount: 0,
         });
       });
       
-      // If the first video ref was set, add comments to it
       if (firstVideoRef) {
          sampleComments.forEach(comment => {
             const commentRef = doc(collection(firstVideoRef, "comments"));
@@ -801,8 +800,6 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
                 createdAt: serverTimestamp(),
             });
          });
-         // Also update the commentsCount for the first video
-         batch.update(firstVideoRef, { commentsCount: sampleComments.length });
       }
 
 
