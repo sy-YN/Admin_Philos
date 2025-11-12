@@ -100,11 +100,11 @@
         },
         "likesCount": {
           "type": "number",
-          "description": "Number of likes."
+          "description": "Aggregated number of likes from the 'likes' subcollection."
         },
         "commentsCount": {
           "type": "number",
-          "description": "Number of comments."
+          "description": "Aggregated number of comments from the 'comments' subcollection."
         },
         "viewsCount": {
           "type": "number",
@@ -140,6 +140,10 @@
         "authorId": {
           "type": "string"
         },
+        "authorName": {
+          "type": "string",
+          "description": "Display name of the comment's author."
+        },
         "content": {
           "type": "string"
         },
@@ -150,8 +154,29 @@
       },
       "required": [
         "authorId",
+        "authorName",
         "content",
         "createdAt"
+      ]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "Represents a 'like' action from a user on an item.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who liked the item."
+        },
+        "likedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of when the like was given."
+        }
+      },
+      "required": [
+        "userId",
+        "likedAt"
       ]
     },
     "Video": {
@@ -187,10 +212,12 @@
           "format": "date-time"
         },
         "likesCount": {
-          "type": "number"
+          "type": "number",
+          "description": "Aggregated number of likes from the 'likes' subcollection."
         },
         "commentsCount": {
-          "type": "number"
+          "type": "number",
+          "description": "Aggregated number of comments from the 'comments' subcollection."
         },
         "viewsCount": {
           "type": "number"
@@ -233,6 +260,12 @@
       },
       "description": "Stores comments on executive messages."
     },
+    "/executiveMessages/{messageId}/likes/{userId}": {
+      "schema": {
+        "$ref": "#/entities/Like"
+      },
+      "description": "Stores likes on executive messages, keyed by user UID."
+    },
     "/videos/{videoId}": {
       "schema": {
         "$ref": "#/entities/Video"
@@ -244,6 +277,12 @@
         "$ref": "#/entities/Comment"
       },
       "description": "Stores comments on videos."
+    },
+    "/videos/{videoId}/likes/{userId}": {
+      "schema": {
+        "$ref": "#/entities/Like"
+      },
+      "description": "Stores likes on videos, keyed by user UID."
     }
   }
 }

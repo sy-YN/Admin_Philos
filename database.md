@@ -33,7 +33,7 @@
     *   `authorId` (String): 投稿者の`userId`への参照
     *   `content` (String): 投稿のテキスト内容
     *   `createdAt` (Timestamp): 投稿日時
-    *   `likesCount` (Number): いいねの数
+    *   `likesCount` (Number): いいねの数（集計値）
     *   `sentiment` (Object): AIによる感情分析の結果
         *   `score` (Number): 感情スコア (-1.0 〜 1.0)
         *   `label` (String): 感情ラベル (`positive`, `negative`, `neutral`)
@@ -41,7 +41,7 @@
 
 #### サブコレクション: `likes`
 
-投稿への「いいね」を管理します。
+投稿への「いいね」を管理します。誰がいいねしたかを記録するために使用します。
 
 *   **コレクション**: `posts/{postId}/likes`
 *   **ドキュメントID**: `userId`
@@ -75,9 +75,18 @@
     *   `createdAt` (Timestamp): 公開日時
     *   `priority` (String): 重要度 (`high`, `normal`)
     *   `tags` (Array of Strings): 関連するタグのリスト (例: `["営業部", "本社", "新製品"]`)
-    *   `likesCount` (Number): いいねの数
-    *   `commentsCount` (Number): コメントの数
+    *   `likesCount` (Number): いいねの数（`likes`サブコレクションの集計値）
+    *   `commentsCount` (Number): コメントの数（`comments`サブコレクションの集計値）
     *   `viewsCount` (Number): 表示回数
+
+#### サブコレクション: `likes`
+
+メッセージへの「いいね」を管理します。
+
+*   **コレクション**: `executiveMessages/{messageId}/likes`
+*   **ドキュメントID**: `userId`
+*   **フィールド**:
+    *   `likedAt` (Timestamp): いいねされた日時
 
 #### サブコレクション: `comments`
 
@@ -107,9 +116,18 @@
     *   `tags` (Array of Strings): 関連するタグのリスト
     *   `uploadedAt` (Timestamp): アップロード日時
     *   `uploaderId` (String): アップロードしたユーザーの`userId`
-    *   `likesCount` (Number): いいねの数
-    *   `commentsCount` (Number): コメントの数
+    *   `likesCount` (Number): いいねの数（`likes`サブコレクションの集計値）
+    *   `commentsCount` (Number): コメントの数（`comments`サブコレクションの集計値）
     *   `viewsCount` (Number): 表示回数
+
+#### サブコレクション: `likes`
+
+動画への「いいね」を管理します。
+
+*   **コレクション**: `videos/{videoId}/likes`
+*   **ドキュメントID**: `userId`
+*   **フィールド**:
+    *   `likedAt` (Timestamp): いいねされた日時
 
 #### サブコレクション: `comments`
 
