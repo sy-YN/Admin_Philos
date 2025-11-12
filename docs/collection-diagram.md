@@ -14,13 +14,13 @@ graph TD
         subgraph Executive Messages
             direction TB
             execMessages["executiveMessages (collection)"]
-            execMessageDoc["Message Document<br>{messageId}"]
+            execMessageDoc["Message Document<br>{messageId}<br>authorId: {userId}"]
             
             execLikes["likes (subcollection)"]
             execLikeDoc["Like Document<br>{userId}"]
 
             execComments["comments (subcollection)"]
-            execCommentDoc["Comment Document<br>{commentId}"]
+            execCommentDoc["Comment Document<br>{commentId}<br>authorId: {userId}"]
             
             execMessages --> execMessageDoc
             execMessageDoc --> execLikes
@@ -28,6 +28,7 @@ graph TD
             execLikes --> execLikeDoc
             execComments --> execCommentDoc
 
+            userDoc -.-> execMessageDoc
             userDoc -.-> execLikeDoc
             userDoc -.-> execCommentDoc
         end
@@ -35,13 +36,13 @@ graph TD
         subgraph Videos
             direction TB
             videos["videos (collection)"]
-            videoDoc["Video Document<br>{videoId}"]
+            videoDoc["Video Document<br>{videoId}<br>uploaderId: {userId}"]
 
             videoLikes["likes (subcollection)"]
             videoLikeDoc["Like Document<br>{userId}"]
             
             videoComments["comments (subcollection)"]
-            videoCommentDoc["Comment Document<br>{commentId}"]
+            videoCommentDoc["Comment Document<br>{commentId}<br>authorId: {userId}"]
 
             videos --> videoDoc
             videoDoc --> videoLikes
@@ -49,6 +50,7 @@ graph TD
             videoLikes --> videoLikeDoc
             videoComments --> videoCommentDoc
 
+            userDoc -.-> videoDoc
             userDoc -.-> videoLikeDoc
             userDoc -.-> videoCommentDoc
         end
