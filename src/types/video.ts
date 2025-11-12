@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type Video = {
@@ -9,7 +8,7 @@ export type Video = {
   thumbnailUrl: string;
   tags: string[];
   uploaderId?: string;
-  uploadedAt: Timestamp | string;
+  uploadedAt: Timestamp;
   likesCount: number;
   commentsCount: number;
   viewsCount: number;

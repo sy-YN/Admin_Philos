@@ -26,46 +26,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { Video as VideoType } from '@/types/video';
 
 
-// --- Video Section (Dummy Data) ---
-const initialDummyVideos: VideoType[] = [
-  {
-    id: 'video-1',
-    src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    title: '第4四半期 全社ミーティング',
-    description: 'CEOからのメッセージ',
-    thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
-    tags: ['全社', '戦略'],
-    uploadedAt: '2024/07/15',
-    likesCount: 120,
-    commentsCount: 15,
-    viewsCount: 1500,
-  },
-  {
-    id: 'video-2',
-    src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    title: 'デザインチームより',
-    description: '新プロダクトのコンセプト紹介',
-    thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
-    tags: ['新製品', 'デザイン'],
-    uploadedAt: '2024/07/10',
-    likesCount: 88,
-    commentsCount: 23,
-    viewsCount: 980,
-  },
-  {
-    id: 'video-3',
-    src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    title: 'エンジニアチームより',
-    description: 'ベータ版新機能のデモ',
-    thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg',
-    tags: ['開発', 'デモ'],
-    uploadedAt: '2024/07/05',
-    likesCount: 210,
-    commentsCount: 42,
-    viewsCount: 2300,
-  },
-];
-
 // --- Message Section (Firestore) ---
 
 // 新規メッセージ追加用ダイアログ
@@ -424,7 +384,7 @@ function MessagesTable({ selected, onSelectedChange }: { selected: string[], onS
 }
 
 // サンプルメッセージ生成コンポーネント
-function SeedDataButton() {
+function SeedMessagesButton() {
   const [isSeeding, setIsSeeding] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const firestore = useFirestore();
@@ -459,7 +419,7 @@ function SeedDataButton() {
         title: "新しい人事評価制度の導入について",
         content: "人事部長の鈴木です。従業員の皆様の成長と公正な評価を実現するため、来期より新しい人事評価制度を導入いたします。新制度の目的は、透明性の高い評価プロセスと、個人の目標達成への手厚いサポートです。",
         priority: 'normal',
-tags: ['人事', '制度', '全社'],
+        tags: ['人事', '制度', '全社'],
         authorName: "鈴木 一郎 (人事部長)",
         likesCount: 75, commentsCount: 12, viewsCount: 950,
       },
@@ -498,21 +458,24 @@ tags: ['人事', '制度', '全社'],
   return (
     <Button onClick={handleSeedData} disabled={isSeeding} variant="outline" size="sm">
       {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-      {isSeeding ? '生成中...' : 'サンプルデータ生成'}
+      {isSeeding ? '生成中...' : 'サンプルメッセージ生成'}
     </Button>
   );
 }
 
-// --- Video CRUD (Dummy) ---
 
-function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onSave: (video: VideoType) => void, children?: React.ReactNode, mode: 'add' | 'edit' }) {
-  const { toast } = useToast();
+// --- Video Section (Firestore) ---
+
+function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onSave: (video: Partial<VideoType>) => void, children?: React.ReactNode, mode: 'add' | 'edit' }) {
+  const { user } = useUser();
   const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
   const [title, setTitle] = useState(video?.title || '');
   const [description, setDescription] = useState(video?.description || '');
-  const [url, setUrl] = useState(video?.src || '');
+  const [src, setSrc] = useState(video?.src || '');
   const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnailUrl || '');
-
+  
   const initialTags = Array(5).fill('');
   if (video?.tags) {
     for (let i = 0; i < Math.min(video.tags.length, 5); i++) {
@@ -521,12 +484,27 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
   }
   const [tags, setTags] = useState<string[]>(initialTags);
 
+  const handleTagChange = (index: number, value: string) => {
+    const newTags = [...tags];
+    newTags[index] = value;
+    setTags(newTags);
+  };
+  
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setSrc('');
+    setThumbnailUrl('');
+    setTags(Array(5).fill(''));
+  };
+
   useEffect(() => {
     if (open) {
       setTitle(video?.title || '');
       setDescription(video?.description || '');
-      setUrl(video?.src || '');
+      setSrc(video?.src || '');
       setThumbnailUrl(video?.thumbnailUrl || '');
+      
       const newInitialTags = Array(5).fill('');
       if (video?.tags) {
         for (let i = 0; i < Math.min(video.tags.length, 5); i++) {
@@ -536,37 +514,43 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
       setTags(newInitialTags);
     }
   }, [video, open]);
-
-  const handleTagChange = (index: number, value: string) => {
-    const newTags = [...tags];
-    newTags[index] = value;
-    setTags(newTags);
-  };
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const savedVideo: VideoType = {
-      id: video?.id || `v${Date.now()}`,
+    if (!user) return;
+    
+    setIsLoading(true);
+    
+    const videoData: Partial<VideoType> = {
       title,
       description,
-      src: url,
-      thumbnailUrl: thumbnailUrl,
+      src,
+      thumbnailUrl,
       tags: tags.map(tag => tag.trim()).filter(tag => tag),
-      uploadedAt: video?.uploadedAt || new Date().toISOString().split('T')[0].replace(/-/g, '/'),
-      likesCount: video?.likesCount || 0,
-      commentsCount: video?.commentsCount || 0,
-      viewsCount: video?.viewsCount || 0,
     };
-    onSave(savedVideo);
-    toast({ title: "成功", description: `ビデオを${mode === 'add' ? '追加' : '更新'}しました。` });
+    
+    if(mode === 'add') {
+      videoData.uploaderId = user.uid;
+    }
+
+    onSave(videoData);
+
+    // This is handled by the parent now, we just close the dialog.
+    setIsLoading(false);
     setOpen(false);
+    if(mode === 'add') {
+      resetForm();
+    }
   };
 
   const dialogTitle = mode === 'add' ? '新規ビデオ追加' : 'ビデオを編集';
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-       <DialogTrigger asChild>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) resetForm();
+    }}>
+      <DialogTrigger asChild>
         {children || <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" />新規ビデオ追加</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
@@ -577,7 +561,7 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="video-title">タイトル (30文字以内)</Label>
-              <Input id="video-title" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={30} />
+              <Input id="video-title" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={30} disabled={isLoading} />
             </div>
             <div className="grid gap-2">
               <Label>タグ (最大5個)</Label>
@@ -589,25 +573,29 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
                       onChange={e => handleTagChange(index, e.target.value)}
                       placeholder={`タグ ${index + 1}`} 
                       maxLength={20}
+                      disabled={isLoading}
                     />
                 ))}
               </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="video-desc">概要 (500文字以内)</Label>
-              <Textarea id="video-desc" value={description} onChange={(e) => setDescription(e.target.value)} required maxLength={500} rows={5} />
+              <Textarea id="video-desc" value={description} onChange={(e) => setDescription(e.target.value)} required maxLength={500} rows={5} disabled={isLoading} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="video-url">動画URL</Label>
-              <Input id="video-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/video.mp4" required />
+              <Input id="video-url" value={src} onChange={(e) => setSrc(e.target.value)} placeholder="https://example.com/video.mp4" required disabled={isLoading} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="video-thumb">サムネイルURL</Label>
-              <Input id="video-thumb" value={thumbnailUrl} onChange={(e) => setThumbnailUrl(e.target.value)} placeholder="https://example.com/thumbnail.jpg" required />
+              <Input id="video-thumb" value={thumbnailUrl} onChange={(e) => setThumbnailUrl(e.target.value)} placeholder="https://example.com/thumbnail.jpg" required disabled={isLoading} />
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">{mode === 'add' ? 'ビデオを追加' : 'ビデオを更新'}</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+              {isLoading ? (mode === 'add' ? '追加中...' : '更新中...') : (mode === 'add' ? 'ビデオを追加' : 'ビデオを更新')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -615,46 +603,261 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
   );
 }
 
+function VideosTable({ selected, onSelectedChange }: { selected: string[], onSelectedChange: (ids: string[]) => void }) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const videosQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'videos'), orderBy('uploadedAt', 'desc'));
+  }, [firestore]);
+
+  const { data: videos, isLoading } = useCollection<VideoType>(videosQuery);
+
+  const handleUpdateVideo = async (videoId: string, videoData: Partial<VideoType>) => {
+    if (!firestore) return;
+    try {
+      await updateDoc(doc(firestore, 'videos', videoId), {
+        ...videoData,
+      });
+      toast({ title: "成功", description: "ビデオ情報を更新しました。" });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "エラー", description: "ビデオ情報の更新に失敗しました。", variant: 'destructive' });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!firestore) return;
+    try {
+      await deleteDoc(doc(firestore, 'videos', id));
+      toast({ title: "成功", description: "ビデオを削除しました。" });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "エラー", description: "ビデオの削除に失敗しました。", variant: 'destructive' });
+    }
+  };
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    if (isNaN(date.getTime())) return '無効な日付';
+    return format(date, 'yyyy/MM/dd', { locale: ja });
+  };
+  
+  const handleSelectAll = (checked: boolean) => {
+    onSelectedChange(checked && videos ? videos.map(v => v.id) : []);
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    if (checked) {
+      onSelectedChange([...selected, id]);
+    } else {
+      onSelectedChange(selected.filter(rowId => rowId !== id));
+    }
+  };
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[50px]"><Checkbox checked={selected.length === videos?.length && videos.length > 0} onCheckedChange={handleSelectAll} /></TableHead>
+          <TableHead className="w-[120px]">サムネイル</TableHead>
+          <TableHead>タイトル</TableHead>
+          <TableHead className="hidden sm:table-cell">タグ</TableHead>
+          <TableHead className="hidden lg:table-cell">Counts</TableHead>
+          <TableHead className="hidden md:table-cell">アップロード日</TableHead>
+          <TableHead><span className="sr-only">Actions</span></TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {videos && videos.map((video) => (
+          <TableRow key={video.id} data-state={selected.includes(video.id) && "selected"}>
+            <TableCell><Checkbox checked={selected.includes(video.id)} onCheckedChange={(checked) => handleSelectRow(video.id, !!checked)} /></TableCell>
+            <TableCell>
+              <Image src={video.thumbnailUrl} alt={video.title} width={120} height={90} className="rounded-md object-cover" />
+            </TableCell>
+            <TableCell>
+              <div className="font-medium">{video.title}</div>
+              <div className="text-sm text-muted-foreground hidden md:inline">{video.description}</div>
+            </TableCell>
+            <TableCell className="hidden sm:table-cell">
+              <div className="flex flex-wrap gap-1">
+                {video.tags.map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
+              </div>
+            </TableCell>
+            <TableCell className="hidden lg:table-cell">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
+                <div className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
+                <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{video.viewsCount ?? 0}</div>
+              </div>
+            </TableCell>
+            <TableCell className="hidden md:table-cell">{formatDate(video.uploadedAt)}</TableCell>
+            <TableCell>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <VideoDialog mode="edit" video={video} onSave={(data) => handleUpdateVideo(video.id, data)}>
+                    <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
+                  </VideoDialog>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                        削除
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          ビデオ「{video.title}」を削除します。この操作は元に戻せません。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(video.id)}>削除</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+// サンプルビデオ生成コンポーネント
+function SeedVideosButton() {
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [isDone, setIsDone] = useState(false);
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
+
+  const handleSeedData = async () => {
+    if (!firestore || !user) return;
+    setIsSeeding(true);
+
+    const sampleVideos = [
+      {
+        src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        title: '第4四半期 全社ミーティング',
+        description: 'CEOからのメッセージ',
+        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+        tags: ['全社', '戦略'],
+        likesCount: 120, commentsCount: 15, viewsCount: 1500,
+      },
+      {
+        src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+        title: 'デザインチームより',
+        description: '新プロダクトのコンセプト紹介',
+        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
+        tags: ['新製品', 'デザイン'],
+        likesCount: 88, commentsCount: 23, viewsCount: 980,
+      },
+    ];
+
+    try {
+      const batch = writeBatch(firestore);
+      const videosCollection = collection(firestore, "videos");
+
+      sampleVideos.forEach(video => {
+        const docRef = doc(videosCollection); 
+        batch.set(docRef, {
+          ...video,
+          uploaderId: user.uid,
+          uploadedAt: serverTimestamp(),
+        });
+      });
+
+      await batch.commit();
+      
+      toast({ title: "成功", description: "2件のサンプルビデオを生成しました。" });
+      setIsDone(true);
+    } catch (error) {
+      console.error("サンプルビデオの生成に失敗しました:", error);
+      toast({ title: "エラー", description: "サンプルビデオの生成に失敗しました。", variant: "destructive" });
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+  
+  if (isDone) return null;
+
+  return (
+    <Button onClick={handleSeedData} disabled={isSeeding} variant="outline" size="sm">
+      {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+      {isSeeding ? '生成中...' : 'サンプルビデオ生成'}
+    </Button>
+  );
+}
+
 
 export default function ContentsPage() {
-  const [dummyVideos, setDummyVideos] = useState<VideoType[]>(initialDummyVideos);
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  const handleAddVideo = (newVideo: VideoType) => {
-    setDummyVideos(prev => [newVideo, ...prev]);
+  const handleAddVideo = async (videoData: Partial<VideoType>) => {
+    if (!firestore) return;
+    try {
+      await addDoc(collection(firestore, 'videos'), {
+        ...videoData,
+        uploadedAt: serverTimestamp(),
+        likesCount: 0,
+        commentsCount: 0,
+        viewsCount: 0,
+      });
+      toast({ title: "成功", description: "新規ビデオを追加しました。" });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "エラー", description: "ビデオの追加に失敗しました。", variant: 'destructive' });
+    }
   };
 
-  const handleUpdateVideo = (updatedVideo: VideoType) => {
-    setDummyVideos(prev => prev.map(v => v.id === updatedVideo.id ? updatedVideo : v));
-  };
-  
-  const handleDeleteVideo = (videoId: string) => {
-    setDummyVideos(prev => prev.filter(v => v.id !== videoId));
-    toast({ title: '成功', description: 'ダミービデオを削除しました。' });
-  };
-  
-  const handleBulkDeleteVideos = () => {
-    setDummyVideos(prev => prev.filter(v => !selectedVideos.includes(v.id)));
-    toast({ title: '成功', description: `${selectedVideos.length}件のビデオを削除しました。` });
-    setSelectedVideos([]);
-  };
+  const handleBulkDelete = async (type: 'videos' | 'messages') => {
+    let collectionName: string;
+    let selectedIds: string[];
+    let itemLabel: string;
+    let setSelected: (ids: string[]) => void;
 
-  const handleBulkDeleteMessages = async () => {
-    if (!firestore || selectedMessages.length === 0) return;
+    if (type === 'videos') {
+      collectionName = 'videos';
+      selectedIds = selectedVideos;
+      itemLabel = 'ビデオ';
+      setSelected = setSelectedVideos;
+    } else {
+      collectionName = 'executiveMessages';
+      selectedIds = selectedMessages;
+      itemLabel = 'メッセージ';
+      setSelected = setSelectedMessages;
+    }
+
+    if (!firestore || selectedIds.length === 0) return;
+    
     const batch = writeBatch(firestore);
-    selectedMessages.forEach(id => {
-      batch.delete(doc(firestore, 'executiveMessages', id));
+    selectedIds.forEach(id => {
+      batch.delete(doc(firestore, collectionName, id));
     });
+
     try {
       await batch.commit();
-      toast({ title: '成功', description: `${selectedMessages.length}件のメッセージを削除しました。` });
-      setSelectedMessages([]);
+      toast({ title: '成功', description: `${selectedIds.length}件の${itemLabel}を削除しました。` });
+      setSelected([]);
     } catch (error) {
-      console.error('一括削除エラー:', error);
-      toast({ title: 'エラー', description: 'メッセージの一括削除に失敗しました。', variant: 'destructive' });
+      console.error(`一括削除エラー (${collectionName}):`, error);
+      toast({ title: 'エラー', description: `${itemLabel}の一括削除に失敗しました。`, variant: 'destructive' });
     }
   };
 
@@ -676,7 +879,7 @@ export default function ContentsPage() {
             <CardHeader>
               <CardTitle>ビデオ一覧</CardTitle>
               <CardDescription>
-                全社に共有するビデオコンテンツを管理します。（現在ダミー表示）
+                全社に共有するビデオコンテンツを管理します。
               </CardDescription>
               <div className="flex justify-end items-center gap-2">
                  {selectedVideos.length > 0 && (
@@ -693,86 +896,17 @@ export default function ContentsPage() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleBulkDeleteVideos}>削除</AlertDialogAction>
+                        <AlertDialogAction onClick={() => handleBulkDelete('videos')}>削除</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
                 )}
+                <SeedVideosButton />
                 <VideoDialog mode="add" onSave={handleAddVideo} />
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]"><Checkbox checked={selectedVideos.length === dummyVideos.length && dummyVideos.length > 0} onCheckedChange={(checked) => setSelectedVideos(checked ? dummyVideos.map(v => v.id) : [])} /></TableHead>
-                    <TableHead className="w-[120px]">サムネイル</TableHead>
-                    <TableHead>タイトル</TableHead>
-                    <TableHead className="hidden sm:table-cell">タグ</TableHead>
-                    <TableHead className="hidden lg:table-cell">Counts</TableHead>
-                    <TableHead className="hidden md:table-cell">アップロード日</TableHead>
-                    <TableHead><span className="sr-only">Actions</span></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dummyVideos.map((video) => (
-                    <TableRow key={video.id} data-state={selectedVideos.includes(video.id) && "selected"}>
-                       <TableCell><Checkbox checked={selectedVideos.includes(video.id)} onCheckedChange={(checked) => setSelectedVideos(p => checked ? [...p, video.id] : p.filter(id => id !== video.id))} /></TableCell>
-                      <TableCell>
-                        <Image src={video.thumbnailUrl} alt={video.title} width={120} height={90} className="rounded-md object-cover" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{video.title}</div>
-                        <div className="text-sm text-muted-foreground hidden md:inline">{video.description}</div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <div className="flex flex-wrap gap-1">
-                          {video.tags.map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
-                        </div>
-                      </TableCell>
-                       <TableCell className="hidden lg:table-cell">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
-                            <div className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
-                            <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{video.viewsCount ?? 0}</div>
-                          </div>
-                        </TableCell>
-                      <TableCell className="hidden md:table-cell">{video.uploadedAt}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <VideoDialog mode="edit" video={video} onSave={handleUpdateVideo}>
-                              <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
-                            </VideoDialog>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                  削除
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    ビデオ「{video.title}」を削除します。この操作は元に戻せません。
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteVideo(video.id)}>削除</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <VideosTable selected={selectedVideos} onSelectedChange={setSelectedVideos} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -798,12 +932,12 @@ export default function ContentsPage() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleBulkDeleteMessages}>削除</AlertDialogAction>
+                          <AlertDialogAction onClick={() => handleBulkDelete('messages')}>削除</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
                   )}
-                <SeedDataButton />
+                <SeedMessagesButton />
                 <AddMessageDialog />
               </div>
             </CardHeader>
