@@ -1,3 +1,4 @@
+
 # データベース設計
 
 このドキュメントでは、Philosアプリケーションのバックエンドで使用するデータベースの構造を定義します。データベースには、スケーラビリティとリアルタイム性を考慮し、NoSQLデータベースであるCloud Firestoreを採用することを想定しています。
@@ -74,6 +75,9 @@
     *   `createdAt` (Timestamp): 公開日時
     *   `priority` (String): 重要度 (`high`, `normal`)
     *   `tags` (Array of Strings): 関連するタグのリスト (例: `["営業部", "本社", "新製品"]`)
+    *   `likesCount` (Number): いいねの数
+    *   `commentsCount` (Number): コメントの数
+    *   `viewsCount` (Number): 表示回数
 
 #### サブコレクション: `comments`
 
@@ -98,10 +102,25 @@
 *   **フィールド**:
     *   `title` (String): 動画のタイトル
     *   `description` (String): 動画の説明
-    *   `url` (String): 動画ファイルのURL (Cloud Storageなど)
+    *   `src` (String): 動画ファイルのURL (Cloud Storageなど)
     *   `thumbnailUrl` (String): サムネイル画像のURL
+    *   `tags` (Array of Strings): 関連するタグのリスト
     *   `uploadedAt` (Timestamp): アップロード日時
     *   `uploaderId` (String): アップロードしたユーザーの`userId`
+    *   `likesCount` (Number): いいねの数
+    *   `commentsCount` (Number): コメントの数
+    *   `viewsCount` (Number): 表示回数
+
+#### サブコレクション: `comments`
+
+動画へのコメントを格納します。
+
+*   **コレクション**: `videos/{videoId}/comments`
+*   **ドキュメントID**: `commentId` (自動生成)
+*   **フィールド**:
+    *   `authorId` (String): コメント投稿者の`userId`
+    *   `content` (String): コメント内容
+    *   `createdAt` (Timestamp): コメント投稿日時
 
 ---
 

@@ -1,16 +1,15 @@
 
 import type { Timestamp } from 'firebase/firestore';
 
-export type ExecutiveMessage = {
+export type Video = {
   id: string;
-  authorId: string;
-  authorName: string;
   title: string;
-  content: string;
-  priority: 'normal' | 'high';
+  description: string;
+  src: string;
+  thumbnailUrl: string;
   tags: string[];
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  uploaderId?: string;
+  uploadedAt: Timestamp | string;
   likesCount: number;
   commentsCount: number;
   viewsCount: number;

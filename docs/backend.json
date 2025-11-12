@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -32,13 +33,18 @@
           "format": "email"
         },
         "avatarUrl": {
-            "type": "string",
-            "description": "URL for the user's avatar image."
+          "type": "string",
+          "description": "URL for the user's avatar image."
         },
         "role": {
           "type": "string",
           "description": "User's role in the organization.",
-          "enum": ["employee", "manager", "executive", "admin"]
+          "enum": [
+            "employee",
+            "manager",
+            "executive",
+            "admin"
+          ]
         },
         "createdAt": {
           "type": "string",
@@ -51,7 +57,156 @@
           "description": "Timestamp of when the user was last updated."
         }
       },
-      "required": ["uid", "email", "displayName", "role", "createdAt", "updatedAt"]
+      "required": [
+        "uid",
+        "email",
+        "displayName",
+        "role",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ExecutiveMessage": {
+      "title": "Executive Message",
+      "description": "A message from the executive team.",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "description": "The UID of the author."
+        },
+        "authorName": {
+          "type": "string",
+          "description": "The display name of the author."
+        },
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "high"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "likesCount": {
+          "type": "number",
+          "description": "Number of likes."
+        },
+        "commentsCount": {
+          "type": "number",
+          "description": "Number of comments."
+        },
+        "viewsCount": {
+          "type": "number",
+          "description": "Number of views."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "authorId",
+        "authorName",
+        "title",
+        "content",
+        "priority",
+        "createdAt",
+        "updatedAt",
+        "likesCount",
+        "commentsCount",
+        "viewsCount"
+      ]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on a post or message.",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "authorId",
+        "content",
+        "createdAt"
+      ]
+    },
+    "Video": {
+      "title": "Video",
+      "description": "A video content item.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "src": {
+          "type": "string",
+          "description": "URL to the video file in Cloud Storage."
+        },
+        "thumbnailUrl": {
+          "type": "string",
+          "description": "URL to the video thumbnail image."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "uploaderId": {
+          "type": "string"
+        },
+        "uploadedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "likesCount": {
+          "type": "number"
+        },
+        "commentsCount": {
+          "type": "number"
+        },
+        "viewsCount": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "title",
+        "description",
+        "src",
+        "thumbnailUrl",
+        "uploaderId",
+        "uploadedAt",
+        "likesCount",
+        "commentsCount",
+        "viewsCount"
+      ]
     }
   },
   "auth": {
@@ -65,6 +220,30 @@
         "$ref": "#/entities/User"
       },
       "description": "Stores profile information for each user, keyed by their Firebase Auth UID."
+    },
+    "/executiveMessages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/ExecutiveMessage"
+      },
+      "description": "Stores messages from the executive team."
+    },
+    "/executiveMessages/{messageId}/comments/{commentId}": {
+      "schema": {
+        "$ref": "#/entities/Comment"
+      },
+      "description": "Stores comments on executive messages."
+    },
+    "/videos/{videoId}": {
+      "schema": {
+        "$ref": "#/entities/Video"
+      },
+      "description": "Stores video content information."
+    },
+    "/videos/{videoId}/comments/{commentId}": {
+      "schema": {
+        "$ref": "#/entities/Comment"
+      },
+      "description": "Stores comments on videos."
     }
   }
 }
