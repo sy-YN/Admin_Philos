@@ -34,10 +34,6 @@
     *   `content` (String): 投稿のテキスト内容
     *   `createdAt` (Timestamp): 投稿日時
     *   `likesCount` (Number): いいねの数（集計値）
-    *   `sentiment` (Object): AIによる感情分析の結果
-        *   `score` (Number): 感情スコア (-1.0 〜 1.0)
-        *   `label` (String): 感情ラベル (`positive`, `negative`, `neutral`)
-        *   `flagged` (Boolean): モデレーションのためにフラグが立てられたかどうか
 
 #### サブコレクション: `likes`
 
@@ -58,6 +54,7 @@
     *   `authorId` (String): コメント投稿者の`userId`
     *   `content` (String): コメント内容
     *   `createdAt` (Timestamp): コメント投稿日時
+    *   `parentCommentId` (String | Null): これが返信である場合、親コメントのID。トップレベルのコメントはnull。
 
 ---
 
@@ -97,6 +94,7 @@
     *   `authorId` (String): コメント投稿者の`userId`
     *   `content` (String): コメント内容
     *   `createdAt` (Timestamp): コメント投稿日時
+    *   `parentCommentId` (String | Null): これが返信である場合、親コメントのID。トップレベルのコメントはnull。
 
 ---
 
@@ -137,6 +135,7 @@
     *   `authorId` (String): コメント投稿者の`userId`
     *   `content` (String): コメント内容
     *   `createdAt` (Timestamp): コメント投稿日時
+    *   `parentCommentId` (String | Null): これが返信である場合、親コメントのID。トップレベルのコメントはnull。
 
 ---
 
@@ -168,4 +167,5 @@
     *   `goalProgress` (Number): 目標達成率の平均
     *   `satisfactionScore` (Number): 従業員満足度スコア
     *   `createdAt` (Timestamp): スナップショットの生成日時
+
 

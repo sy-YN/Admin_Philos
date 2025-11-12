@@ -147,6 +147,13 @@
         "content": {
           "type": "string"
         },
+        "parentCommentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "ID of the parent comment if this is a reply. Null for top-level comments."
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"
