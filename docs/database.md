@@ -58,7 +58,6 @@
     *   `authorId` (String): コメント投稿者の`userId`
     *   `content` (String): コメント内容
     *   `createdAt` (Timestamp): コメント投稿日時
-    *   `sentiment` (Object): コメントの感情分析結果
 
 ---
 
@@ -98,7 +97,6 @@
     *   `authorId` (String): コメント投稿者の`userId`
     *   `content` (String): コメント内容
     *   `createdAt` (Timestamp): コメント投稿日時
-    *   `sentiment` (Object, Optional): コメントの感情分析結果
 
 ---
 
@@ -170,3 +168,4 @@
     *   `goalProgress` (Number): 目標達成率の平均
     *   `satisfactionScore` (Number): 従業員満足度スコア
     *   `createdAt` (Timestamp): スナップショットの生成日時
+
