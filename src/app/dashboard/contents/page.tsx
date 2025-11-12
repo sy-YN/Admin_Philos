@@ -898,7 +898,7 @@ export default function ContentsPage() {
       <div className="flex items-center mb-6">
         <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
       </div>
-      <Tabs defaultValue="messages">
+      <Tabs defaultValue="videos">
         <TabsList className="grid w-full grid-cols-2 max-w-md">
           <TabsTrigger value="videos"><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>
           <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>
