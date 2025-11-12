@@ -747,7 +747,7 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         description: 'CEOからのメッセージ',
         thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
         tags: ['全社', '戦略'],
-        likesCount: 120, commentsCount: 15, viewsCount: 1500,
+        likesCount: 120, commentsCount: 0, viewsCount: 1500, // commentsCount will be updated
       },
       {
         src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
@@ -766,23 +766,49 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         likesCount: 210, commentsCount: 42, viewsCount: 2240,
       },
     ];
+    
+    const sampleComments = [
+        { authorId: 'user-dummy-1', content: '素晴らしい発表でした。来期の戦略が明確になり、モチベーションが上がりました。' },
+        { authorId: 'user-dummy-2', content: 'データ駆動型経営へのシフト、具体的な取り組みについてもう少し詳しく知りたいです。' },
+        { authorId: 'user-dummy-3', content: '顧客中心主義、大賛成です。現場の我々も全力で貢献します！' },
+    ];
 
     try {
       const batch = writeBatch(firestore);
       const videosCollection = collection(firestore, "videos");
+      
+      // Keep track of the first video's doc ref
+      let firstVideoRef: any = null;
 
-      sampleVideos.forEach(video => {
-        const docRef = doc(videosCollection); 
+      sampleVideos.forEach((video, index) => {
+        const docRef = doc(videosCollection);
+        if (index === 0) {
+            firstVideoRef = docRef; // Save the reference to the first video
+        }
         batch.set(docRef, {
           ...video,
           uploaderId: user.uid,
           uploadedAt: serverTimestamp(),
         });
       });
+      
+      // If the first video ref was set, add comments to it
+      if (firstVideoRef) {
+         sampleComments.forEach(comment => {
+            const commentRef = doc(collection(firstVideoRef, "comments"));
+            batch.set(commentRef, {
+                ...comment,
+                createdAt: serverTimestamp(),
+            });
+         });
+         // Also update the commentsCount for the first video
+         batch.update(firstVideoRef, { commentsCount: sampleComments.length });
+      }
+
 
       await batch.commit();
       
-      toast({ title: "成功", description: `${sampleVideos.length}件の初期ビデオデータを登録しました。` });
+      toast({ title: "成功", description: `${sampleVideos.length}件の初期ビデオとコメントを登録しました。` });
       onSeeded();
     } catch (error) {
       console.error("初期ビデオデータの登録に失敗しました:", error);
