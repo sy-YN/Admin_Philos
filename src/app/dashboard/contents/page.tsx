@@ -17,16 +17,28 @@ import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
-// ダミーデータ
-const dummyVideos = [
-  { id: 'v1', title: '2024年上期 全社会議', description: 'CEOからのメッセージと今期の戦略について。', thumbnailUrl: 'https://picsum.photos/seed/corpvideo/120/90', uploadedAt: '2024/07/01' },
-  { id: 'v2', title: '新製品発表会', description: '新製品「Philos MAX」の紹介動画です。', thumbnailUrl: 'https://picsum.photos/seed/productlaunch/120/90', uploadedAt: '2024/06/15' },
+// --- Video Section (Dummy Data) ---
+type DummyVideo = {
+  id: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  url: string;
+  uploadedAt: string;
+  tags: string[];
+};
+
+const initialDummyVideos: DummyVideo[] = [
+  { id: 'v1', title: '2024年上期 全社会議', description: 'CEOからのメッセージと今期の戦略について。', thumbnailUrl: 'https://picsum.photos/seed/corpvideo/120/90', url: '#', uploadedAt: '2024/07/01', tags: ['全社', '戦略'] },
+  { id: 'v2', title: '新製品発表会', description: '新製品「Philos MAX」の紹介動画です。', thumbnailUrl: 'https://picsum.photos/seed/productlaunch/120/90', url: '#', uploadedAt: '2024/06/15', tags: ['新製品', 'マーケティング'] },
 ];
+
+// --- Message Section (Firestore) ---
 
 // 新規メッセージ追加用ダイアログ
 function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
@@ -158,7 +170,6 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
   const [content, setContent] = useState(message.content);
   const [priority, setPriority] = useState(message.priority);
   
-  // Initialize tags array with 5 slots
   const initialTags = Array(5).fill('');
   if (message.tags) {
     for(let i = 0; i < Math.min(message.tags.length, 5); i++) {
@@ -340,7 +351,7 @@ function MessagesTable() {
   );
 }
 
-// サンプルデータ生成コンポーネント
+// サンプルメッセージ生成コンポーネント
 function SeedDataButton() {
   const [isSeeding, setIsSeeding] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -406,7 +417,7 @@ function SeedDataButton() {
   };
 
   if (isDone) {
-    return null; // 処理完了後はボタンを非表示にする
+    return null; 
   }
 
   return (
@@ -417,8 +428,133 @@ function SeedDataButton() {
   );
 }
 
+// --- Video CRUD (Dummy) ---
+
+function VideoDialog({ video, onSave, children, mode }: { video?: DummyVideo, onSave: (video: DummyVideo) => void, children?: React.ReactNode, mode: 'add' | 'edit' }) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(video?.title || '');
+  const [description, setDescription] = useState(video?.description || '');
+  const [url, setUrl] = useState(video?.url || '');
+  const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnailUrl || '');
+
+  const initialTags = Array(5).fill('');
+  if (video?.tags) {
+    for (let i = 0; i < Math.min(video.tags.length, 5); i++) {
+      initialTags[i] = video.tags[i];
+    }
+  }
+  const [tags, setTags] = useState<string[]>(initialTags);
+
+  useEffect(() => {
+    if (open) {
+      setTitle(video?.title || '');
+      setDescription(video?.description || '');
+      setUrl(video?.url || '');
+      setThumbnailUrl(video?.thumbnailUrl || '');
+      const newInitialTags = Array(5).fill('');
+      if (video?.tags) {
+        for (let i = 0; i < Math.min(video.tags.length, 5); i++) {
+          newInitialTags[i] = video.tags[i];
+        }
+      }
+      setTags(newInitialTags);
+    }
+  }, [video, open]);
+
+  const handleTagChange = (index: number, value: string) => {
+    const newTags = [...tags];
+    newTags[index] = value;
+    setTags(newTags);
+  };
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const savedVideo: DummyVideo = {
+      id: video?.id || `v${Date.now()}`,
+      title,
+      description,
+      url,
+      thumbnailUrl,
+      tags: tags.map(tag => tag.trim()).filter(tag => tag),
+      uploadedAt: video?.uploadedAt || new Date().toISOString().split('T')[0].replace(/-/g, '/'),
+    };
+    onSave(savedVideo);
+    toast({ title: "成功", description: `ビデオを${mode === 'add' ? '追加' : '更新'}しました。` });
+    setOpen(false);
+  };
+
+  const dialogTitle = mode === 'add' ? '新規ビデオ追加' : 'ビデオを編集';
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+       <DialogTrigger asChild>
+        {children || <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" />新規ビデオ追加</Button>}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="video-title">タイトル (30文字以内)</Label>
+              <Input id="video-title" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={30} />
+            </div>
+            <div className="grid gap-2">
+              <Label>タグ (最大5個)</Label>
+              <div className='grid grid-cols-2 md:grid-cols-3 gap-2'>
+                {tags.map((tag, index) => (
+                    <Input 
+                      key={index}
+                      value={tag}
+                      onChange={e => handleTagChange(index, e.target.value)}
+                      placeholder={`タグ ${index + 1}`} 
+                      maxLength={20}
+                    />
+                ))}
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="video-desc">説明 (500文字以内)</Label>
+              <Textarea id="video-desc" value={description} onChange={(e) => setDescription(e.target.value)} required maxLength={500} rows={5} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="video-url">動画URL</Label>
+              <Input id="video-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/video.mp4" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="video-thumb">サムネイルURL</Label>
+              <Input id="video-thumb" value={thumbnailUrl} onChange={(e) => setThumbnailUrl(e.target.value)} placeholder="https://example.com/thumbnail.jpg" required />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit">{mode === 'add' ? 'ビデオを追加' : 'ビデオを更新'}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 export default function ContentsPage() {
+  const [dummyVideos, setDummyVideos] = useState<DummyVideo[]>(initialDummyVideos);
+  const { toast } = useToast();
+
+  const handleAddVideo = (newVideo: DummyVideo) => {
+    setDummyVideos(prev => [newVideo, ...prev]);
+  };
+
+  const handleUpdateVideo = (updatedVideo: DummyVideo) => {
+    setDummyVideos(prev => prev.map(v => v.id === updatedVideo.id ? updatedVideo : v));
+  };
+  
+  const handleDeleteVideo = (videoId: string) => {
+    setDummyVideos(prev => prev.filter(v => v.id !== videoId));
+    toast({ title: '成功', description: 'ダミービデオを削除しました。' });
+  };
+
   return (
     <div className="w-full">
       <div className="flex items-center mb-6">
@@ -436,40 +572,10 @@ export default function ContentsPage() {
             <CardHeader>
               <CardTitle>ビデオ一覧</CardTitle>
               <CardDescription>
-                全社に共有するビデオコンテンツを管理します。
+                全社に共有するビデオコンテンツを管理します。（現在ダミー表示）
               </CardDescription>
               <div className="flex justify-end">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" />新規ビデオ追加</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>新規ビデオ追加</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="video-title">タイトル</Label>
-                        <Input id="video-title" placeholder="2024年下期 方針説明会" />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="video-desc">説明</Label>
-                        <Textarea id="video-desc" placeholder="CEOからのメッセージと今期の目標について。" />
-                      </div>
-                       <div className="grid gap-2">
-                        <Label htmlFor="video-url">動画URL</Label>
-                        <Input id="video-url" placeholder="https://example.com/video.mp4" />
-                      </div>
-                       <div className="grid gap-2">
-                        <Label htmlFor="video-thumb">サムネイルURL</Label>
-                        <Input id="video-thumb" placeholder="https://example.com/thumbnail.jpg" />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button type="submit">ビデオを追加</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <VideoDialog mode="add" onSave={handleAddVideo} />
               </div>
             </CardHeader>
             <CardContent>
@@ -478,6 +584,7 @@ export default function ContentsPage() {
                   <TableRow>
                     <TableHead className="w-[120px]">サムネイル</TableHead>
                     <TableHead>タイトル</TableHead>
+                    <TableHead className="hidden sm:table-cell">タグ</TableHead>
                     <TableHead className="hidden md:table-cell">アップロード日</TableHead>
                     <TableHead><span className="sr-only">Actions</span></TableHead>
                   </TableRow>
@@ -492,6 +599,11 @@ export default function ContentsPage() {
                         <div className="font-medium">{video.title}</div>
                         <div className="text-sm text-muted-foreground hidden md:inline">{video.description}</div>
                       </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {video.tags.map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
+                        </div>
+                      </TableCell>
                       <TableCell className="hidden md:table-cell">{video.uploadedAt}</TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -499,8 +611,10 @@ export default function ContentsPage() {
                             <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>編集</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">削除</DropdownMenuItem>
+                            <VideoDialog mode="edit" video={video} onSave={handleUpdateVideo}>
+                              <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
+                            </VideoDialog>
+                            <DropdownMenuItem onClick={() => handleDeleteVideo(video.id)} className="text-destructive">削除</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -532,3 +646,5 @@ export default function ContentsPage() {
     </div>
   );
 }
+
+    
