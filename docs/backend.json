@@ -260,12 +260,6 @@
       },
       "description": "Stores comments on executive messages."
     },
-    "/executiveMessages/{messageId}/comments/{commentId}/likes/{userId}": {
-      "schema": {
-        "$ref": "#/entities/Like"
-      },
-      "description": "Stores likes on comments for executive messages."
-    },
     "/executiveMessages/{messageId}/likes/{userId}": {
       "schema": {
         "$ref": "#/entities/Like"
@@ -283,12 +277,6 @@
         "$ref": "#/entities/Comment"
       },
       "description": "Stores comments on videos."
-    },
-    "/videos/{videoId}/comments/{commentId}/likes/{userId}": {
-      "schema": {
-        "$ref": "#/entities/Like"
-      },
-      "description": "Stores likes on comments for videos."
     },
     "/videos/{videoId}/likes/{userId}": {
       "schema": {
