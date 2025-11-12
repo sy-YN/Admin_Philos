@@ -765,6 +765,14 @@ function SeedVideosButton() {
         tags: ['新製品', 'デザイン'],
         likesCount: 88, commentsCount: 23, viewsCount: 980,
       },
+      {
+        src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+        title: 'エンジニアチームより',
+        description: 'ベータ版新機能のデモ',
+        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg',
+        tags: ['開発', 'デモ'],
+        likesCount: 210, commentsCount: 42, viewsCount: 2240,
+      },
     ];
 
     try {
@@ -782,7 +790,7 @@ function SeedVideosButton() {
 
       await batch.commit();
       
-      toast({ title: "成功", description: "2件のサンプルビデオを生成しました。" });
+      toast({ title: "成功", description: `${sampleVideos.length}件のサンプルビデオを生成しました。` });
       setIsDone(true);
     } catch (error) {
       console.error("サンプルビデオの生成に失敗しました:", error);
@@ -950,5 +958,7 @@ export default function ContentsPage() {
     </div>
   );
 }
+
+    
 
     
