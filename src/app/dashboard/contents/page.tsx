@@ -25,17 +25,42 @@ import { ja } from 'date-fns/locale';
 // --- Video Section (Dummy Data) ---
 type DummyVideo = {
   id: string;
+  src: string;
   title: string;
-  description: string;
-  thumbnailUrl: string;
-  url: string;
-  uploadedAt: string;
+  subtitle: string;
+  thumbnail: string;
   tags: string[];
+  uploadedAt: string; // Keep this for display consistency
 };
 
 const initialDummyVideos: DummyVideo[] = [
-  { id: 'v1', title: '2024年上期 全社会議', description: 'CEOからのメッセージと今期の戦略について。', thumbnailUrl: 'https://picsum.photos/seed/corpvideo/120/90', url: '#', uploadedAt: '2024/07/01', tags: ['全社', '戦略'] },
-  { id: 'v2', title: '新製品発表会', description: '新製品「Philos MAX」の紹介動画です。', thumbnailUrl: 'https://picsum.photos/seed/productlaunch/120/90', url: '#', uploadedAt: '2024/06/15', tags: ['新製品', 'マーケティング'] },
+  {
+    id: 'video-1',
+    src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    title: '第4四半期 全社ミーティング',
+    subtitle: 'CEOからのメッセージ',
+    thumbnail: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+    tags: ['全社', '戦略'],
+    uploadedAt: '2024/07/15',
+  },
+  {
+    id: 'video-2',
+    src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    title: 'デザインチームより',
+    subtitle: '新プロダクトのコンセプト紹介',
+    thumbnail: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
+    tags: ['新製品', 'デザイン'],
+    uploadedAt: '2024/07/10',
+  },
+  {
+    id: 'video-3',
+    src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    title: 'エンジニアチームより',
+    subtitle: 'ベータ版新機能のデモ',
+    thumbnail: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg',
+    tags: ['開発', 'デモ'],
+    uploadedAt: '2024/07/05',
+  },
 ];
 
 // --- Message Section (Firestore) ---
@@ -434,9 +459,9 @@ function VideoDialog({ video, onSave, children, mode }: { video?: DummyVideo, on
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(video?.title || '');
-  const [description, setDescription] = useState(video?.description || '');
-  const [url, setUrl] = useState(video?.url || '');
-  const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnailUrl || '');
+  const [subtitle, setSubtitle] = useState(video?.subtitle || '');
+  const [url, setUrl] = useState(video?.src || '');
+  const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnail || '');
 
   const initialTags = Array(5).fill('');
   if (video?.tags) {
@@ -449,9 +474,9 @@ function VideoDialog({ video, onSave, children, mode }: { video?: DummyVideo, on
   useEffect(() => {
     if (open) {
       setTitle(video?.title || '');
-      setDescription(video?.description || '');
-      setUrl(video?.url || '');
-      setThumbnailUrl(video?.thumbnailUrl || '');
+      setSubtitle(video?.subtitle || '');
+      setUrl(video?.src || '');
+      setThumbnailUrl(video?.thumbnail || '');
       const newInitialTags = Array(5).fill('');
       if (video?.tags) {
         for (let i = 0; i < Math.min(video.tags.length, 5); i++) {
@@ -473,9 +498,9 @@ function VideoDialog({ video, onSave, children, mode }: { video?: DummyVideo, on
     const savedVideo: DummyVideo = {
       id: video?.id || `v${Date.now()}`,
       title,
-      description,
-      url,
-      thumbnailUrl,
+      subtitle,
+      src: url,
+      thumbnail: thumbnailUrl,
       tags: tags.map(tag => tag.trim()).filter(tag => tag),
       uploadedAt: video?.uploadedAt || new Date().toISOString().split('T')[0].replace(/-/g, '/'),
     };
@@ -516,8 +541,8 @@ function VideoDialog({ video, onSave, children, mode }: { video?: DummyVideo, on
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="video-desc">説明 (500文字以内)</Label>
-              <Textarea id="video-desc" value={description} onChange={(e) => setDescription(e.target.value)} required maxLength={500} rows={5} />
+              <Label htmlFor="video-desc">概要 (500文字以内)</Label>
+              <Textarea id="video-desc" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} required maxLength={500} rows={5} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="video-url">動画URL</Label>
@@ -593,11 +618,11 @@ export default function ContentsPage() {
                   {dummyVideos.map((video) => (
                     <TableRow key={video.id}>
                       <TableCell>
-                        <Image src={video.thumbnailUrl} alt={video.title} width={120} height={90} className="rounded-md object-cover" />
+                        <Image src={video.thumbnail} alt={video.title} width={120} height={90} className="rounded-md object-cover" />
                       </TableCell>
                       <TableCell>
                         <div className="font-medium">{video.title}</div>
-                        <div className="text-sm text-muted-foreground hidden md:inline">{video.description}</div>
+                        <div className="text-sm text-muted-foreground hidden md:inline">{video.subtitle}</div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <div className="flex flex-wrap gap-1">
