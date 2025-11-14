@@ -9,9 +9,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, MessageCircle, Eye, Loader2, User, CornerDownRight } from 'lucide-react';
+import { Heart, MessageCircle, Eye, Loader2, User, CornerDownRight, Send, Trash2, Reply } from 'lucide-react';
 import { useSubCollection, WithId } from '@/firebase/firestore/use-sub-collection';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { Like } from '@/types/like';
 import type { Comment } from '@/types/comment';
 import type { Member } from '@/types/member';
@@ -20,11 +20,16 @@ import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ScrollArea } from '../ui/scroll-area';
 import { doc } from 'firebase/firestore';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Button } from '../ui/button';
+import { Textarea } from '../ui/textarea';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+
+type ContentType = 'executiveMessages' | 'videos';
 
 interface ContentDetailsDialogProps {
   contentId: string;
-  contentType: 'executiveMessages' | 'videos';
+  contentType: ContentType;
   contentTitle: string;
   children: React.ReactNode;
 }
@@ -38,7 +43,7 @@ const formatDate = (timestamp: any) => {
 
 
 function LikesList({ contentId, contentType }: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType'>) {
-  const { data: likes, isLoading } = useSubCollection<Like>(contentType, contentId, 'likes');
+  const { data: likes, isLoading } = useSubCollection<WithId<Like>>(contentType, contentId, 'likes');
 
   if (isLoading) {
     return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
@@ -104,8 +109,18 @@ function UserItem({ userId }: { userId: string}) {
     );
 }
 
-const CommentItem = ({ comment }: { comment: WithId<Comment> }) => (
-    <div className="flex items-start gap-3">
+const CommentItem = ({ 
+  comment, 
+  currentUserId,
+  onDelete,
+  onReply
+}: { 
+  comment: WithId<Comment>, 
+  currentUserId: string | undefined,
+  onDelete: (commentId: string) => void,
+  onReply: (comment: WithId<Comment>) => void
+}) => (
+    <div className="flex items-start gap-3 group">
         <Avatar className="h-8 w-8">
             <AvatarImage src={comment.authorAvatarUrl} />
             <AvatarFallback>{comment.authorName ? comment.authorName.charAt(0) : '?'}</AvatarFallback>
@@ -116,18 +131,122 @@ const CommentItem = ({ comment }: { comment: WithId<Comment> }) => (
                 <p className="text-xs text-muted-foreground">{formatDate(comment.createdAt)}</p>
             </div>
             <p className="text-sm mt-1 whitespace-pre-wrap">{comment.content}</p>
+            <div className="flex items-center gap-2 mt-1 invisible group-hover:visible">
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onReply(comment)}>
+                <Reply className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+              {comment.authorId === currentUserId && (
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                       <Button variant="ghost" size="icon" className="h-6 w-6">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          このコメントを削除します。この操作は元に戻せません。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDelete(comment.id)}>削除</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+              )}
+            </div>
         </div>
     </div>
 );
 
+
+interface CommentFormProps {
+  contentType: ContentType;
+  contentId: string;
+  replyToComment: WithId<Comment> | null;
+  onCommentPosted: () => void;
+}
+
+function CommentForm({ contentType, contentId, replyToComment, onCommentPosted }: CommentFormProps) {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [commentText, setCommentText] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
+
+  const handlePostComment = async () => {
+    if (!commentText.trim() || !user || !firestore) return;
+    setIsPosting(true);
+
+    try {
+      const commentData = {
+        content: commentText,
+        parentCommentId: replyToComment?.id || null,
+      };
+
+      const commentsCollectionRef = collection(firestore, contentType, contentId, 'comments');
+      await addDoc(commentsCollectionRef, {
+        ...commentData,
+        authorId: user.uid,
+        authorName: user.displayName || '匿名ユーザー',
+        authorAvatarUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`,
+        createdAt: serverTimestamp(),
+      });
+      
+      const contentRef = doc(firestore, contentType, contentId);
+      await updateDoc(contentRef, { commentsCount: increment(1) });
+
+      toast({ title: '成功', description: 'コメントを投稿しました。' });
+      setCommentText('');
+      onCommentPosted();
+    } catch (error) {
+      console.error('コメントの投稿に失敗しました:', error);
+      toast({ title: 'エラー', description: 'コメントの投稿に失敗しました。', variant: 'destructive' });
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  return (
+    <div className="p-4 border-t">
+      {replyToComment && (
+        <div className="text-xs text-muted-foreground mb-2 p-2 bg-muted rounded-md flex justify-between items-center">
+          <span>@{replyToComment.authorName}への返信</span>
+          <Button variant="ghost" size="sm" onClick={onCommentPosted} className="h-auto px-1 py-0">×</Button>
+        </div>
+      )}
+      <div className="flex items-start gap-2">
+        <Textarea
+          value={commentText}
+          onChange={(e) => setCommentText(e.target.value)}
+          placeholder={replyToComment ? '返信を入力...' : 'コメントを追加...'}
+          rows={2}
+          className="flex-1"
+          disabled={isPosting}
+        />
+        <Button onClick={handlePostComment} disabled={isPosting || !commentText.trim()}>
+          {isPosting ? <Loader2 className="animate-spin" /> : <Send />}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
 function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType'>) {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
   const { data: comments, isLoading } = useSubCollection<Comment>(contentType, contentId, 'comments');
+  const [replyToComment, setReplyToComment] = useState<WithId<Comment> | null>(null);
   
   const { topLevelComments, repliesMap } = useMemo(() => {
     if (!comments) {
       return { topLevelComments: [], repliesMap: new Map() };
     }
-    const topLevelComments = comments.filter(c => !c.parentCommentId);
+    const topLevelComments = comments.filter(c => !c.parentCommentId).sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis());
     const repliesMap = new Map<string, WithId<Comment>[]>();
     comments.forEach(c => {
       if (c.parentCommentId) {
@@ -137,8 +256,28 @@ function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps
         repliesMap.get(c.parentCommentId)?.push(c);
       }
     });
+     // Sort replies within each parent
+    repliesMap.forEach(replies => replies.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis()));
+    
     return { topLevelComments, repliesMap };
   }, [comments]);
+
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!firestore) return;
+    try {
+      const commentRef = doc(firestore, contentType, contentId, 'comments', commentId);
+      await deleteDoc(commentRef);
+      
+      const contentRef = doc(firestore, contentType, contentId);
+      await updateDoc(contentRef, { commentsCount: increment(-1) });
+      
+      toast({ title: '成功', description: 'コメントを削除しました。' });
+    } catch (error) {
+      console.error('コメントの削除に失敗しました:', error);
+      toast({ title: 'エラー', description: 'コメントの削除に失敗しました。', variant: 'destructive' });
+    }
+  };
 
 
   if (isLoading) {
@@ -146,33 +285,61 @@ function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps
   }
 
   if (!comments || comments.length === 0) {
-    return <p className="text-sm text-muted-foreground p-8 text-center">まだコメントはありません。</p>;
+    return (
+      <div>
+        <p className="text-sm text-muted-foreground p-8 text-center">まだコメントはありません。</p>
+        <CommentForm 
+          contentId={contentId} 
+          contentType={contentType} 
+          replyToComment={null} 
+          onCommentPosted={() => setReplyToComment(null)}
+        />
+      </div>
+    );
   }
 
 
   return (
-    <ScrollArea className="h-72">
-        <div className="space-y-4 p-4">
-            {topLevelComments.map(comment => (
-                <div key={comment.id}>
-                    <CommentItem comment={comment} />
-                    {repliesMap.has(comment.id) && (
-                        <div className="ml-8 mt-3 space-y-3 pl-4 border-l-2">
-                            {repliesMap.get(comment.id)?.map(reply => (
-                                <div key={reply.id}>
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                                      <CornerDownRight className="h-3 w-3" />
-                                      <span>@{comment.authorName || '不明'}への返信</span>
+    <>
+      <ScrollArea className="h-72">
+          <div className="space-y-4 p-4">
+              {topLevelComments.map(comment => (
+                  <div key={comment.id}>
+                      <CommentItem 
+                        comment={comment} 
+                        currentUserId={user?.uid} 
+                        onDelete={handleDeleteComment} 
+                        onReply={setReplyToComment}
+                      />
+                      {repliesMap.has(comment.id) && (
+                          <div className="ml-8 mt-3 space-y-3 pl-4 border-l-2">
+                              {repliesMap.get(comment.id)?.map(reply => (
+                                  <div key={reply.id}>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                                        <CornerDownRight className="h-3 w-3" />
+                                        <span>@{comment.authorName || '不明'}への返信</span>
+                                    </div>
+                                    <CommentItem 
+                                      comment={reply} 
+                                      currentUserId={user?.uid} 
+                                      onDelete={handleDeleteComment} 
+                                      onReply={setReplyToComment}
+                                    />
                                   </div>
-                                  <CommentItem comment={reply} />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            ))}
-        </div>
-    </ScrollArea>
+                              ))}
+                          </div>
+                      )}
+                  </div>
+              ))}
+          </div>
+      </ScrollArea>
+       <CommentForm 
+          contentId={contentId} 
+          contentType={contentType} 
+          replyToComment={replyToComment} 
+          onCommentPosted={() => setReplyToComment(null)}
+      />
+    </>
   );
 }
 
@@ -195,23 +362,23 @@ export function ContentDetailsDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl p-0 gap-0">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle className="truncate pr-8">「{contentTitle}」の詳細</DialogTitle>
         </DialogHeader>
         <Tabs defaultValue="comments" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="comments"><MessageCircle className="mr-2 h-4 w-4" />コメント</TabsTrigger>
-            <TabsTrigger value="likes"><Heart className="mr-2 h-4 w-4" />いいね</TabsTrigger>
-            <TabsTrigger value="views"><Eye className="mr-2 h-4 w-4" />既読</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 border-b rounded-none px-0">
+            <TabsTrigger value="comments" className="rounded-none"><MessageCircle className="mr-2 h-4 w-4" />コメント</TabsTrigger>
+            <TabsTrigger value="likes" className="rounded-none"><Heart className="mr-2 h-4 w-4" />いいね</TabsTrigger>
+            <TabsTrigger value="views" className="rounded-none"><Eye className="mr-2 h-4 w-4" />既読</TabsTrigger>
           </TabsList>
-          <TabsContent value="comments">
+          <TabsContent value="comments" className="m-0">
             <CommentsList contentId={contentId} contentType={contentType} />
           </TabsContent>
-          <TabsContent value="likes">
+          <TabsContent value="likes" className="m-0">
             <LikesList contentId={contentId} contentType={contentType} />
           </TabsContent>
-          <TabsContent value="views">
+          <TabsContent value="views" className="m-0">
             <ViewsList />
           </TabsContent>
         </Tabs>

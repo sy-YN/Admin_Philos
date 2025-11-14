@@ -17,3 +17,4 @@ export type Comment = {
   parentCommentId: string | null;
   createdAt: Timestamp;
 };
+

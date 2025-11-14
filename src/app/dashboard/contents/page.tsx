@@ -25,6 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import type { Video as VideoType } from '@/types/video';
 import { ContentDetailsDialog } from '@/components/contents/content-details-dialog';
+import type { Comment } from '@/types/comment';
 
 
 // --- Message Section (Firestore) ---
@@ -840,13 +841,11 @@ export default function ContentsPage() {
     }
   };
   
-  /**
-   * サンプル関数: 特定のビデオにコメントを追加する方法を示します。
-   * @param videoId - コメントを追加するビデオのID
-   * @param content - コメントの内容
-   * @param parentCommentId - 返信先コメントのID（トップレベルの場合はnull）
-   */
-  const handleAddComment = async (videoId: string, content: string, parentCommentId: string | null) => {
+  const handleAddComment = async (
+    contentType: 'videos' | 'executiveMessages',
+    contentId: string,
+    commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>
+  ) => {
     if (!firestore || !user) {
       toast({ title: "エラー", description: "コメントするにはログインが必要です。", variant: "destructive" });
       return;
@@ -854,19 +853,18 @@ export default function ContentsPage() {
 
     try {
       // 1. コメントをサブコレクションに追加
-      const commentsCollectionRef = collection(firestore, 'videos', videoId, 'comments');
+      const commentsCollectionRef = collection(firestore, contentType, contentId, 'comments');
       await addDoc(commentsCollectionRef, {
+        ...commentData,
         authorId: user.uid,
         authorName: user.displayName || '匿名ユーザー',
-        authorAvatarUrl: user.photoURL || '',
-        content: content,
-        parentCommentId: parentCommentId,
+        authorAvatarUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`,
         createdAt: serverTimestamp(),
       });
 
       // 2. 親ドキュメントのcommentsCountを+1する
-      const videoRef = doc(firestore, 'videos', videoId);
-      await updateDoc(videoRef, {
+      const contentRef = doc(firestore, contentType, contentId);
+      await updateDoc(contentRef, {
         commentsCount: increment(1)
       });
 
@@ -875,6 +873,26 @@ export default function ContentsPage() {
     } catch (error) {
       console.error("コメントの投稿に失敗しました:", error);
       toast({ title: "エラー", description: "コメントの投稿に失敗しました。", variant: "destructive" });
+    }
+  };
+  
+  const handleDeleteComment = async (contentType: 'videos' | 'executiveMessages', contentId: string, commentId: string) => {
+    if (!firestore) return;
+    try {
+      // 1. コメントをサブコレクションから削除
+      const commentRef = doc(firestore, contentType, contentId, 'comments', commentId);
+      await deleteDoc(commentRef);
+
+      // 2. 親ドキュメントのcommentsCountを-1する
+      const contentRef = doc(firestore, contentType, contentId);
+      await updateDoc(contentRef, {
+        commentsCount: increment(-1)
+      });
+      
+      toast({ title: '成功', description: 'コメントを削除しました。' });
+    } catch (error) {
+      console.error("コメントの削除に失敗しました:", error);
+      toast({ title: 'エラー', description: 'コメントの削除に失敗しました。', variant: 'destructive' });
     }
   };
 
