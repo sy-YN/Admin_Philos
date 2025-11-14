@@ -9,8 +9,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, MessageCircle, Eye, Loader2, User } from 'lucide-react';
-import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
+import { Heart, MessageCircle, Eye, Loader2, User, CornerDownRight } from 'lucide-react';
+import { useSubCollection, WithId } from '@/firebase/firestore/use-sub-collection';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Like } from '@/types/like';
 import type { Comment } from '@/types/comment';
@@ -20,6 +20,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ScrollArea } from '../ui/scroll-area';
 import { doc } from 'firebase/firestore';
+import { useMemo } from 'react';
 
 interface ContentDetailsDialogProps {
   contentId: string;
@@ -50,7 +51,7 @@ function LikesList({ contentId, contentType }: Pick<ContentDetailsDialogProps, '
   return (
     <ScrollArea className="h-72">
       <ul className="space-y-3 p-4">
-        {likes.map(like => (
+        {likes.map((like) => (
           <li key={like.id} className="flex items-center gap-3">
              <UserItem userId={like.id} />
              <span className="text-xs text-muted-foreground ml-auto">
@@ -103,9 +104,43 @@ function UserItem({ userId }: { userId: string}) {
     );
 }
 
+const CommentItem = ({ comment }: { comment: WithId<Comment> }) => (
+    <div className="flex items-start gap-3">
+        <Avatar className="h-8 w-8">
+            <AvatarImage src={comment.authorAvatarUrl} />
+            <AvatarFallback>{comment.authorName ? comment.authorName.charAt(0) : '?'}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1">
+            <div className="flex items-baseline justify-between">
+                <p className="font-semibold text-sm">{comment.authorName || '不明なユーザー'}</p>
+                <p className="text-xs text-muted-foreground">{formatDate(comment.createdAt)}</p>
+            </div>
+            <p className="text-sm mt-1 whitespace-pre-wrap">{comment.content}</p>
+        </div>
+    </div>
+);
+
 function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType'>) {
   const { data: comments, isLoading } = useSubCollection<Comment>(contentType, contentId, 'comments');
   
+  const { topLevelComments, repliesMap } = useMemo(() => {
+    if (!comments) {
+      return { topLevelComments: [], repliesMap: new Map() };
+    }
+    const topLevelComments = comments.filter(c => !c.parentCommentId);
+    const repliesMap = new Map<string, WithId<Comment>[]>();
+    comments.forEach(c => {
+      if (c.parentCommentId) {
+        if (!repliesMap.has(c.parentCommentId)) {
+          repliesMap.set(c.parentCommentId, []);
+        }
+        repliesMap.get(c.parentCommentId)?.push(c);
+      }
+    });
+    return { topLevelComments, repliesMap };
+  }, [comments]);
+
+
   if (isLoading) {
     return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
   }
@@ -114,28 +149,29 @@ function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps
     return <p className="text-sm text-muted-foreground p-8 text-center">まだコメントはありません。</p>;
   }
 
-  // TODO: Implement threading logic here if parentCommentId is used.
-  // For now, it displays as a flat list.
 
   return (
     <ScrollArea className="h-72">
-        <ul className="space-y-4 p-4">
-            {comments.map(comment => (
-                <li key={comment.id} className="flex items-start gap-3">
-                    <Avatar className="h-8 w-8">
-                        <AvatarImage src={comment.authorAvatarUrl} />
-                        <AvatarFallback>{comment.authorName ? comment.authorName.charAt(0) : '?'}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                        <div className="flex items-baseline justify-between">
-                            <p className="font-semibold text-sm">{comment.authorName || '不明なユーザー'}</p>
-                            <p className="text-xs text-muted-foreground">{formatDate(comment.createdAt)}</p>
+        <div className="space-y-4 p-4">
+            {topLevelComments.map(comment => (
+                <div key={comment.id}>
+                    <CommentItem comment={comment} />
+                    {repliesMap.has(comment.id) && (
+                        <div className="ml-8 mt-3 space-y-3 pl-4 border-l-2">
+                            {repliesMap.get(comment.id)?.map(reply => (
+                                <div key={reply.id}>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                                      <CornerDownRight className="h-3 w-3" />
+                                      <span>@{comment.authorName || '不明'}への返信</span>
+                                  </div>
+                                  <CommentItem comment={reply} />
+                                </div>
+                            ))}
                         </div>
-                        <p className="text-sm mt-1">{comment.content}</p>
-                    </div>
-                </li>
+                    )}
+                </div>
             ))}
-        </ul>
+        </div>
     </ScrollArea>
   );
 }
