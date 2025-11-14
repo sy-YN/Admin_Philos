@@ -11,16 +11,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heart, MessageCircle, Eye, Loader2, User, Users } from 'lucide-react';
 import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
-import { useCollection, useDoc } from '@/firebase';
+import { useDoc } from '@/firebase';
 import type { Like } from '@/types/like';
 import type { Comment } from '@/types/comment';
 import type { Member } from '@/types/member';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ScrollArea } from '../ui/scroll-area';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
-import { collection, query, doc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 
 interface ContentDetailsDialogProps {
   contentId: string;
@@ -38,16 +38,7 @@ const formatDate = (timestamp: any) => {
 
 
 function LikesList({ contentId, contentType }: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType'>) {
-  const { data: likes, isLoading } = useSubCollection<Omit<Like, 'id'>> (contentType, contentId, 'likes');
-  const firestore = useFirestore();
-  
-  // Create an array of user document references to fetch
-  const userRefs = useMemoFirebase(() => {
-    if (!firestore || !likes) return [];
-    // This is incorrect for useCollection, which expects a single query.
-    // We will fetch users individually in UserItem.
-    return likes.map(like => doc(firestore, 'users', like.id));
-  }, [firestore, likes]);
+  const { data: likes, isLoading } = useSubCollection<Omit<Like, 'id'>>(contentType, contentId, 'likes');
 
   if (isLoading) {
     return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
@@ -83,11 +74,23 @@ function UserItem({ userId }: { userId: string}) {
     const { data: user, isLoading } = useDoc<Member>(userRef);
 
     if (isLoading) {
-        return <div className="flex items-center gap-3"><Loader2 className="h-4 w-4 animate-spin" /><span className="text-sm text-muted-foreground">読み込み中...</span></div>;
+        return (
+            <>
+                <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
+                <div className="h-4 w-24 bg-muted rounded-md animate-pulse" />
+            </>
+        );
     }
 
     if (!user) {
-         return <div className="flex items-center gap-3"><User className="h-8 w-8 text-muted-foreground p-1.5 bg-muted rounded-full" /><span className="text-sm text-destructive">不明なユーザー</span></div>;
+         return (
+            <>
+                <Avatar className="h-8 w-8">
+                    <AvatarFallback><User /></AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-muted-foreground">不明なユーザー</span>
+            </>
+         );
     }
 
     return (
@@ -112,6 +115,9 @@ function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps
     return <p className="text-sm text-muted-foreground p-8 text-center">まだコメントはありません。</p>;
   }
 
+  // TODO: Implement threading logic here if parentCommentId is used.
+  // For now, it displays as a flat list.
+
   return (
     <ScrollArea className="h-72">
         <ul className="space-y-4 p-4">
@@ -119,11 +125,11 @@ function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps
                 <li key={comment.id} className="flex items-start gap-3">
                     <Avatar className="h-8 w-8">
                         <AvatarImage src={comment.authorAvatarUrl} />
-                        <AvatarFallback>{comment.authorName.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{comment.authorName ? comment.authorName.charAt(0) : '?'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                         <div className="flex items-baseline justify-between">
-                            <p className="font-semibold text-sm">{comment.authorName}</p>
+                            <p className="font-semibold text-sm">{comment.authorName || '不明なユーザー'}</p>
                             <p className="text-xs text-muted-foreground">{formatDate(comment.createdAt)}</p>
                         </div>
                         <p className="text-sm mt-1">{comment.content}</p>
