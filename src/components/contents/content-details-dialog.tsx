@@ -9,9 +9,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, MessageCircle, Eye, Loader2, User, Users } from 'lucide-react';
+import { Heart, MessageCircle, Eye, Loader2, User } from 'lucide-react';
 import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
-import { useDoc } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Like } from '@/types/like';
 import type { Comment } from '@/types/comment';
 import type { Member } from '@/types/member';
@@ -19,7 +19,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ScrollArea } from '../ui/scroll-area';
-import { useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { doc } from 'firebase/firestore';
 
 interface ContentDetailsDialogProps {
@@ -184,3 +183,5 @@ export function ContentDetailsDialog({
     </Dialog>
   );
 }
+
+    

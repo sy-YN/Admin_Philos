@@ -6,9 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { MembersTable } from '@/components/members/members-table';
 import { AddMemberDialog } from '@/components/members/add-member-dialog';
-import { useCollection } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
-import { useFirestore, useMemoFirebase } from '@/firebase/provider';
 import type { Member } from '@/types/member';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns-tz';
@@ -115,3 +114,5 @@ export default function MembersPage() {
     </>
   );
 }
+
+    

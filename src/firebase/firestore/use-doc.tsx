@@ -1,3 +1,4 @@
+
 'use client';
     
 import { useState, useEffect } from 'react';
@@ -48,6 +49,10 @@ export function useDoc<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    if (memoizedDocRef && !memoizedDocRef.__memo) {
+      throw new Error('useDoc Reference must be memoized with useMemoFirebase');
+    }
+
     if (!memoizedDocRef) {
       setData(null);
       setIsLoading(false);
@@ -89,9 +94,7 @@ export function useDoc<T = any>(
     return () => unsubscribe();
   }, [memoizedDocRef]); // Re-run if the memoizedDocRef changes.
   
-  if(memoizedDocRef && !memoizedDocRef.__memo) {
-    throw new Error('useDoc Reference must be memoized with useMemoFirebase');
-  }
-
   return { data, isLoading, error };
 }
+
+    

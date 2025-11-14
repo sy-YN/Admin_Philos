@@ -9,13 +9,12 @@ import {
   DocumentData,
   FirestoreError,
   QuerySnapshot,
-  CollectionReference,
-  Query,
   orderBy
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
+import { getPathFromQuery } from './get-path-from-query';
 
 export type WithId<T> = T & { id: string };
 
@@ -56,6 +55,10 @@ export function useSubCollection<T = any>(
   }, [firestore, parentCollectionName, parentDocId, subCollectionName]);
 
   useEffect(() => {
+    if (subCollectionQuery && !subCollectionQuery.__memo) {
+      throw new Error('subCollectionQuery must be memoized with useMemoFirebase');
+    }
+
     if (!subCollectionQuery) {
       setData(null);
       setIsLoading(false);
@@ -78,9 +81,10 @@ export function useSubCollection<T = any>(
         setIsLoading(false);
       },
       (error: FirestoreError) => {
+        const path = getPathFromQuery(subCollectionQuery);
         const contextualError = new FirestorePermissionError({
           operation: 'list',
-          path: subCollectionQuery.path,
+          path: path,
         });
 
         setError(contextualError);
@@ -96,3 +100,4 @@ export function useSubCollection<T = any>(
   return { data, isLoading, error };
 }
 
+    

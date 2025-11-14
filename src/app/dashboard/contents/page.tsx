@@ -11,13 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle, Eye, Users } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle as MessageCircleIcon, Eye } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -343,7 +343,7 @@ function MessagesTable({ selected, onSelectedChange }: { selected: string[], onS
                <ContentDetailsDialog contentId={msg.id} contentType='executiveMessages' contentTitle={msg.title}>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-primary">
                   <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{msg.likesCount ?? 0}</div>
-                  <div className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{msg.commentsCount ?? 0}</div>
+                  <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{msg.commentsCount ?? 0}</div>
                   <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{msg.viewsCount ?? 0}</div>
                 </div>
               </ContentDetailsDialog>
@@ -501,7 +501,7 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
     setTags(Array(5).fill(''));
   };
 
-  useEffect(() => {
+  useMemo(() => {
     if (open) {
       setTitle(video?.title || '');
       setDescription(video?.description || '');
@@ -691,7 +691,7 @@ function VideosTable({ selected, onSelectedChange, videos, isLoading }: { select
                <ContentDetailsDialog contentId={video.id} contentType='videos' contentTitle={video.title}>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-primary">
                     <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
-                    <div className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
+                    <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
                     <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{video.viewsCount ?? 0}</div>
                   </div>
               </ContentDetailsDialog>
@@ -1004,3 +1004,5 @@ export default function ContentsPage() {
     </div>
   );
 }
+
+    
