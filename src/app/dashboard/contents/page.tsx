@@ -11,11 +11,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle, Eye } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle, Eye, Users } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
 import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +24,7 @@ import { ja } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import type { Video as VideoType } from '@/types/video';
+import { ContentDetailsDialog } from '@/components/contents/content-details-dialog';
 
 
 // --- Message Section (Firestore) ---
@@ -339,11 +340,13 @@ function MessagesTable({ selected, onSelectedChange }: { selected: string[], onS
               <div className="text-xs text-muted-foreground">{formatDate(msg.createdAt)}</div>
             </TableCell>
             <TableCell className="hidden lg:table-cell">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{msg.likesCount ?? 0}</div>
-                <div className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{msg.commentsCount ?? 0}</div>
-                <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{msg.viewsCount ?? 0}</div>
-              </div>
+               <ContentDetailsDialog contentId={msg.id} contentType='executiveMessages' contentTitle={msg.title}>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-primary">
+                  <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{msg.likesCount ?? 0}</div>
+                  <div className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{msg.commentsCount ?? 0}</div>
+                  <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{msg.viewsCount ?? 0}</div>
+                </div>
+              </ContentDetailsDialog>
             </TableCell>
             <TableCell>
               <DropdownMenu>
@@ -433,9 +436,9 @@ function SeedMessagesButton() {
           authorId: user.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-          likesCount: 0,
-          commentsCount: 0,
-          viewsCount: 0,
+          likesCount: Math.floor(Math.random() * 50),
+          commentsCount: Math.floor(Math.random() * 20),
+          viewsCount: Math.floor(Math.random() * 200),
         });
       });
 
@@ -685,11 +688,13 @@ function VideosTable({ selected, onSelectedChange, videos, isLoading }: { select
               </div>
             </TableCell>
             <TableCell className="hidden lg:table-cell">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
-                <div className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
-                <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{video.viewsCount ?? 0}</div>
-              </div>
+               <ContentDetailsDialog contentId={video.id} contentType='videos' contentTitle={video.title}>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-primary">
+                    <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
+                    <div className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
+                    <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{video.viewsCount ?? 0}</div>
+                  </div>
+              </ContentDetailsDialog>
             </TableCell>
             <TableCell className="hidden md:table-cell">{formatDate(video.uploadedAt)}</TableCell>
             <TableCell>
@@ -775,9 +780,9 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
           ...video,
           uploaderId: user.uid,
           uploadedAt: serverTimestamp(),
-          likesCount: 0,
-          commentsCount: 0,
-          viewsCount: 0,
+          likesCount: Math.floor(Math.random() * 50),
+          commentsCount: Math.floor(Math.random() * 20),
+          viewsCount: Math.floor(Math.random() * 200),
         });
       });
 
@@ -848,21 +853,21 @@ export default function ContentsPage() {
     }
 
     try {
+      // 1. コメントをサブコレクションに追加
       const commentsCollectionRef = collection(firestore, 'videos', videoId, 'comments');
-      
       await addDoc(commentsCollectionRef, {
         authorId: user.uid,
         authorName: user.displayName || '匿名ユーザー',
         authorAvatarUrl: user.photoURL || '',
         content: content,
-        parentCommentId: parentCommentId, // ここで返信先IDをセット
-        createdAt: serverTimestamp(),     // ここで現在時刻をセット
+        parentCommentId: parentCommentId,
+        createdAt: serverTimestamp(),
       });
 
-      // 親ドキュメントのcommentsCountを+1する
+      // 2. 親ドキュメントのcommentsCountを+1する
       const videoRef = doc(firestore, 'videos', videoId);
       await updateDoc(videoRef, {
-        commentsCount: (videos?.find(v => v.id === videoId)?.commentsCount || 0) + 1
+        commentsCount: increment(1)
       });
 
       toast({ title: "成功", description: "コメントを投稿しました。" });
