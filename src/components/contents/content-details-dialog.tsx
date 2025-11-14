@@ -33,6 +33,8 @@ interface ContentDetailsDialogProps {
   contentType: ContentType;
   contentTitle: string;
   children: React.ReactNode;
+  onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
+  onDeleteComment: (contentId: string, commentId: string) => Promise<void>;
 }
 
 const formatDate = (timestamp: any) => {
@@ -118,7 +120,7 @@ const CommentItem = ({
 }: { 
   comment: WithId<Comment>, 
   currentUserId: string | undefined,
-  onDelete: (commentId: string) => void,
+  onDelete: () => void,
   onReply: (comment: WithId<Comment>) => void
 }) => (
     <div className="flex items-start gap-3 group">
@@ -152,7 +154,7 @@ const CommentItem = ({
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete(comment.id)}>削除</AlertDialogAction>
+                        <AlertDialogAction onClick={onDelete}>削除</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -164,50 +166,30 @@ const CommentItem = ({
 
 
 interface CommentFormProps {
-  contentType: ContentType;
   contentId: string;
   replyToComment: WithId<Comment> | null;
   onCommentPosted: () => void;
+  onAddComment: ContentDetailsDialogProps['onAddComment'];
 }
 
-function CommentForm({ contentType, contentId, replyToComment, onCommentPosted }: CommentFormProps) {
-  const { user } = useUser();
-  const firestore = useFirestore();
-  const { toast } = useToast();
+function CommentForm({ contentId, replyToComment, onCommentPosted, onAddComment }: CommentFormProps) {
   const [commentText, setCommentText] = useState('');
   const [isPosting, setIsPosting] = useState(false);
 
   const handlePostComment = async () => {
-    if (!commentText.trim() || !user || !firestore) return;
+    if (!commentText.trim()) return;
     setIsPosting(true);
 
-    try {
-      const commentData = {
-        content: commentText,
-        parentCommentId: replyToComment?.id || null,
-      };
-
-      const commentsCollectionRef = collection(firestore, contentType, contentId, 'comments');
-      await addDoc(commentsCollectionRef, {
-        ...commentData,
-        authorId: user.uid,
-        authorName: user.displayName || '匿名ユーザー',
-        authorAvatarUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`,
-        createdAt: serverTimestamp(),
-      });
-      
-      const contentRef = doc(firestore, contentType, contentId);
-      await updateDoc(contentRef, { commentsCount: increment(1) });
-
-      toast({ title: '成功', description: 'コメントを投稿しました。' });
-      setCommentText('');
-      onCommentPosted();
-    } catch (error) {
-      console.error('コメントの投稿に失敗しました:', error);
-      toast({ title: 'エラー', description: 'コメントの投稿に失敗しました。', variant: 'destructive' });
-    } finally {
-      setIsPosting(false);
-    }
+    const commentData = {
+      content: commentText,
+      parentCommentId: replyToComment?.id || null,
+    };
+    
+    await onAddComment(contentId, commentData);
+    
+    setCommentText('');
+    onCommentPosted();
+    setIsPosting(false);
   };
 
   return (
@@ -236,10 +218,13 @@ function CommentForm({ contentType, contentId, replyToComment, onCommentPosted }
 }
 
 
-function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType'>) {
+function CommentsList({ 
+  contentId, 
+  contentType, 
+  onAddComment, 
+  onDeleteComment 
+}: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType' | 'onAddComment' | 'onDeleteComment'>) {
   const { user } = useUser();
-  const firestore = useFirestore();
-  const { toast } = useToast();
   const { data: comments, isLoading } = useSubCollection<Comment>(contentType, contentId, 'comments');
   const [replyToComment, setReplyToComment] = useState<WithId<Comment> | null>(null);
   
@@ -264,20 +249,8 @@ function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps
   }, [comments]);
 
 
-  const handleDeleteComment = async (commentId: string) => {
-    if (!firestore) return;
-    try {
-      const commentRef = doc(firestore, contentType, contentId, 'comments', commentId);
-      await deleteDoc(commentRef);
-      
-      const contentRef = doc(firestore, contentType, contentId);
-      await updateDoc(contentRef, { commentsCount: increment(-1) });
-      
-      toast({ title: '成功', description: 'コメントを削除しました。' });
-    } catch (error) {
-      console.error('コメントの削除に失敗しました:', error);
-      toast({ title: 'エラー', description: 'コメントの削除に失敗しました。', variant: 'destructive' });
-    }
+  const handleDelete = (commentId: string) => {
+    onDeleteComment(contentId, commentId);
   };
 
 
@@ -291,9 +264,9 @@ function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps
         <p className="text-sm text-muted-foreground p-8 text-center">まだコメントはありません。</p>
         <CommentForm 
           contentId={contentId} 
-          contentType={contentType} 
           replyToComment={null} 
           onCommentPosted={() => setReplyToComment(null)}
+          onAddComment={onAddComment}
         />
       </div>
     );
@@ -309,7 +282,7 @@ function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps
                       <CommentItem 
                         comment={comment} 
                         currentUserId={user?.uid} 
-                        onDelete={handleDeleteComment} 
+                        onDelete={() => handleDelete(comment.id)} 
                         onReply={setReplyToComment}
                       />
                       {repliesMap.has(comment.id) && (
@@ -323,7 +296,7 @@ function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps
                                     <CommentItem 
                                       comment={reply} 
                                       currentUserId={user?.uid} 
-                                      onDelete={handleDeleteComment} 
+                                      onDelete={() => handleDelete(reply.id)} 
                                       onReply={setReplyToComment}
                                     />
                                   </div>
@@ -335,10 +308,10 @@ function CommentsList({ contentId, contentType }: Pick<ContentDetailsDialogProps
           </div>
       </ScrollArea>
        <CommentForm 
-          contentId={contentId} 
-          contentType={contentType} 
+          contentId={contentId}
           replyToComment={replyToComment} 
           onCommentPosted={() => setReplyToComment(null)}
+          onAddComment={onAddComment}
       />
     </>
   );
@@ -359,6 +332,8 @@ export function ContentDetailsDialog({
   contentType,
   contentTitle,
   children,
+  onAddComment,
+  onDeleteComment
 }: ContentDetailsDialogProps) {
   return (
     <Dialog>
@@ -374,7 +349,12 @@ export function ContentDetailsDialog({
             <TabsTrigger value="views" className="rounded-none"><Eye className="mr-2 h-4 w-4" />既読</TabsTrigger>
           </TabsList>
           <TabsContent value="comments" className="m-0">
-            <CommentsList contentId={contentId} contentType={contentType} />
+            <CommentsList 
+              contentId={contentId} 
+              contentType={contentType} 
+              onAddComment={onAddComment}
+              onDeleteComment={onDeleteComment}
+            />
           </TabsContent>
           <TabsContent value="likes" className="m-0">
             <LikesList contentId={contentId} contentType={contentType} />
@@ -387,3 +367,5 @@ export function ContentDetailsDialog({
     </Dialog>
   );
 }
+
+    

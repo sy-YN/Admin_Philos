@@ -263,7 +263,17 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
 }
 
 // メッセージ一覧テーブル
-function MessagesTable({ selected, onSelectedChange }: { selected: string[], onSelectedChange: (ids: string[]) => void }) {
+function MessagesTable({ 
+  selected, 
+  onSelectedChange,
+  onAddComment,
+  onDeleteComment
+}: { 
+  selected: string[], 
+  onSelectedChange: (ids: string[]) => void,
+  onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>,
+  onDeleteComment: (contentId: string, commentId: string) => Promise<void>
+}) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -341,7 +351,13 @@ function MessagesTable({ selected, onSelectedChange }: { selected: string[], onS
               <div className="text-xs text-muted-foreground">{formatDate(msg.createdAt)}</div>
             </TableCell>
             <TableCell className="hidden lg:table-cell">
-               <ContentDetailsDialog contentId={msg.id} contentType='executiveMessages' contentTitle={msg.title}>
+               <ContentDetailsDialog 
+                  contentId={msg.id} 
+                  contentType='executiveMessages' 
+                  contentTitle={msg.title}
+                  onAddComment={onAddComment}
+                  onDeleteComment={onDeleteComment}
+                >
                 <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-primary">
                   <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{msg.likesCount ?? 0}</div>
                   <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{msg.commentsCount ?? 0}</div>
@@ -607,7 +623,21 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
   );
 }
 
-function VideosTable({ selected, onSelectedChange, videos, isLoading }: { selected: string[], onSelectedChange: (ids: string[]) => void, videos: VideoType[] | null, isLoading: boolean }) {
+function VideosTable({ 
+  selected, 
+  onSelectedChange, 
+  videos, 
+  isLoading,
+  onAddComment,
+  onDeleteComment
+}: { 
+  selected: string[], 
+  onSelectedChange: (ids: string[]) => void, 
+  videos: VideoType[] | null, 
+  isLoading: boolean,
+  onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>,
+  onDeleteComment: (contentId: string, commentId: string) => Promise<void>
+}) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -689,7 +719,13 @@ function VideosTable({ selected, onSelectedChange, videos, isLoading }: { select
               </div>
             </TableCell>
             <TableCell className="hidden lg:table-cell">
-               <ContentDetailsDialog contentId={video.id} contentType='videos' contentTitle={video.title}>
+               <ContentDetailsDialog 
+                  contentId={video.id} 
+                  contentType='videos' 
+                  contentTitle={video.title}
+                  onAddComment={onAddComment}
+                  onDeleteComment={onDeleteComment}
+                >
                   <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-primary">
                     <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
                     <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
@@ -978,7 +1014,14 @@ export default function ContentsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <VideosTable selected={selectedVideos} onSelectedChange={setSelectedVideos} videos={videos} isLoading={videosLoading} />
+              <VideosTable 
+                selected={selectedVideos} 
+                onSelectedChange={setSelectedVideos} 
+                videos={videos} 
+                isLoading={videosLoading} 
+                onAddComment={(contentId, commentData) => handleAddComment('videos', contentId, commentData)}
+                onDeleteComment={(contentId, commentId) => handleDeleteComment('videos', contentId, commentId)}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1014,7 +1057,12 @@ export default function ContentsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <MessagesTable selected={selectedMessages} onSelectedChange={setSelectedMessages} />
+              <MessagesTable 
+                selected={selectedMessages} 
+                onSelectedChange={setSelectedMessages}
+                onAddComment={(contentId, commentData) => handleAddComment('executiveMessages', contentId, commentData)}
+                onDeleteComment={(contentId, commentId) => handleDeleteComment('executiveMessages', contentId, commentId)}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1022,3 +1070,5 @@ export default function ContentsPage() {
     </div>
   );
 }
+
+    
