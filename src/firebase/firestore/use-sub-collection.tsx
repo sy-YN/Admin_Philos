@@ -50,8 +50,12 @@ export function useSubCollection<T = any>(
   const subCollectionQuery = useMemoFirebase(() => {
     if (!firestore || !parentDocId) return null;
     const path = `${parentCollectionName}/${parentDocId}/${subCollectionName}`;
-    // By default, order by 'createdAt' if it exists.
-    return query(collection(firestore, path), orderBy('createdAt', 'desc'));
+    // By default, order by 'createdAt' if it exists. For 'likes' it might fail, so we handle it.
+    // A more robust solution might pass the orderBy field as an argument.
+    if (subCollectionName === 'comments') {
+        return query(collection(firestore, path), orderBy('createdAt', 'desc'));
+    }
+    return query(collection(firestore, path));
   }, [firestore, parentCollectionName, parentDocId, subCollectionName]);
 
   useEffect(() => {
@@ -99,5 +103,3 @@ export function useSubCollection<T = any>(
 
   return { data, isLoading, error };
 }
-
-    

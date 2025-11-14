@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heart, MessageCircle, Eye, Loader2, User } from 'lucide-react';
-import { useSubCollection, WithId } from '@/firebase/firestore/use-sub-collection';
+import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Like } from '@/types/like';
 import type { Comment } from '@/types/comment';
@@ -37,7 +37,7 @@ const formatDate = (timestamp: any) => {
 
 
 function LikesList({ contentId, contentType }: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType'>) {
-  const { data: likes, isLoading } = useSubCollection<WithId<Omit<Like, 'id'>>>(contentType, contentId, 'likes');
+  const { data: likes, isLoading } = useSubCollection<Like>(contentType, contentId, 'likes');
 
   if (isLoading) {
     return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
