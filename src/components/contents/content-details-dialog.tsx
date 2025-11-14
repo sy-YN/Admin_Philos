@@ -19,11 +19,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ScrollArea } from '../ui/scroll-area';
-import { doc } from 'firebase/firestore';
+import { doc, collection, addDoc, serverTimestamp, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { useMemo, useState } from 'react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 type ContentType = 'executiveMessages' | 'videos';
 
@@ -43,7 +44,7 @@ const formatDate = (timestamp: any) => {
 
 
 function LikesList({ contentId, contentType }: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType'>) {
-  const { data: likes, isLoading } = useSubCollection<WithId<Like>>(contentType, contentId, 'likes');
+  const { data: likes, isLoading } = useSubCollection<Like>(contentType, contentId, 'likes');
 
   if (isLoading) {
     return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
