@@ -19,8 +19,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ScrollArea } from '../ui/scroll-area';
-import { useMemoFirebase } from '@/firebase/provider';
-import { collection, query } from 'firebase/firestore';
+import { useFirestore, useMemoFirebase } from '@/firebase/provider';
+import { collection, query, doc } from 'firebase/firestore';
 
 interface ContentDetailsDialogProps {
   contentId: string;
@@ -44,13 +44,11 @@ function LikesList({ contentId, contentType }: Pick<ContentDetailsDialogProps, '
   // Create an array of user document references to fetch
   const userRefs = useMemoFirebase(() => {
     if (!firestore || !likes) return [];
+    // This is incorrect for useCollection, which expects a single query.
+    // We will fetch users individually in UserItem.
     return likes.map(like => doc(firestore, 'users', like.id));
   }, [firestore, likes]);
 
-  // This part is tricky because useCollection doesn't directly support fetching multiple docs by reference.
-  // For simplicity, we'll fetch each user individually with useDoc inside the loop.
-  // In a production app, you might create a custom hook `useDocs` that takes an array of refs.
-  
   if (isLoading) {
     return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
   }
@@ -78,7 +76,7 @@ function LikesList({ contentId, contentType }: Pick<ContentDetailsDialogProps, '
 function UserItem({ userId }: { userId: string}) {
     const firestore = useFirestore();
     const userRef = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore || !userId) return null;
         return doc(firestore, 'users', userId);
     }, [firestore, userId]);
     
