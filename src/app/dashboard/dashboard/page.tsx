@@ -8,12 +8,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { LineChart, BarChart, PieChart, Donut, PlusCircle, MoreHorizontal, Trash2, Edit, Database, Archive, Undo, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Archive, Undo, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import dynamic from 'next/dynamic';
+import type { Widget } from '@/components/dashboard/widget-preview';
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
   ssr: false,
@@ -41,11 +42,11 @@ const kpiOptions = {
 };
 
 const chartOptions = [
-  { value: 'line', label: '折れ線グラフ', icon: LineChart },
-  { value: 'bar', label: '棒グラフ', icon: BarChart },
-  { value: 'pie', label: '円グラフ', icon: PieChart },
-  { value: 'donut', label: 'ドーナツチャート', icon: Donut },
-  { value: 'composed', label: '複合グラフ', icon: BarChart }
+    { value: 'line', label: '折れ線グラフ' },
+    { value: 'bar', label: '棒グラフ' },
+    { value: 'pie', label: '円グラフ' },
+    { value: 'donut', label: 'ドーナツチャート' },
+    { value: 'composed', label: '複合グラフ' }
 ];
 
 export const kpiToChartMapping: Record<string, string[]> = {
@@ -67,16 +68,8 @@ export const kpiToChartMapping: Record<string, string[]> = {
 
 type WidgetScope = 'company' | 'team' | 'personal';
 
-export type Widget = {
-  id: string;
-  title: string;
-  kpi: string;
-  scope: WidgetScope;
-  chartType: string;
-  status: 'active' | 'archived';
-};
 
-type SalesRecord = {
+export type SalesRecord = {
     id: string;
     year: number;
     month: number;
@@ -369,7 +362,7 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
     );
 }
 
-function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord, onDeleteRecord, currentYear }: { 
+function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord, onDeleteRecord }: { 
   widgets: Widget[], 
   salesData: SalesRecord[], 
   onSave: (data: Omit<Widget, 'id' | 'status'>, id?: string) => void, 
@@ -377,16 +370,15 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
   scope: WidgetScope, 
   onSaveRecord: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void, 
   onDeleteRecord: (id: string) => void,
-  currentYear: number
 }) {
   const activeWidgets = widgets.filter(w => w.status === 'active');
   const chartData = useMemo(() =>
     salesData
-      .map(d => ({ month: `${d.year}/${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
+      .map(d => ({ month: `${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
       .sort((a, b) => {
-          const [yearA, monthA] = a.month.split('/');
-          const [yearB, monthB] = b.month.split('/');
-          return new Date(Number(yearA), Number(monthA.replace('月', ''))-1).getTime() - new Date(Number(yearB), Number(monthB.replace('月', ''))-1).getTime();
+          const monthA = parseInt(a.month.replace('月', ''), 10);
+          const monthB = parseInt(b.month.replace('月', ''), 10);
+          return monthA - monthB;
       })
     , [salesData]);
 
@@ -601,6 +593,11 @@ export default function DashboardSettingsPage() {
         return widgets.filter(w => w.scope === activeTab);
     }, [widgets, activeTab]);
 
+    const filteredSalesData = useMemo(() => {
+        return salesRecords.filter(d => d.year === currentYear);
+    }, [salesRecords, currentYear]);
+
+
   if (!isMounted) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -653,13 +650,13 @@ export default function DashboardSettingsPage() {
             <TabsTrigger value="personal">個人単位</TabsTrigger>
             </TabsList>
             <TabsContent value="company">
-            <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="company" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} currentYear={currentYear} />
+            <WidgetList widgets={filteredWidgets} salesData={filteredSalesData} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="company" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
             </TabsContent>
             <TabsContent value="team">
-            <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="team" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} currentYear={currentYear} />
+            <WidgetList widgets={filteredWidgets} salesData={filteredSalesData} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="team" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
             </TabsContent>
             <TabsContent value="personal">
-                <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="personal" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} currentYear={currentYear} />
+                <WidgetList widgets={filteredWidgets} salesData={filteredSalesData} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="personal" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
             </TabsContent>
         </Tabs>
       </div>
