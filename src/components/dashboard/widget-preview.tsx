@@ -90,41 +90,45 @@ function ActualSalesComposedChart({ chartData }: { chartData: any[] }) {
 
 function BarChartPreview() {
   return (
-    <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={previewData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+    <ChartContainer config={{value: {label: 'Value', color: 'hsl(var(--primary))'}}} className="h-full w-full">
+      <BarChart data={previewData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
         <Bar dataKey="value" fill="hsl(var(--primary))" />
         <XAxis dataKey="name" tick={{ fontSize: 10 }}/>
         <YAxis tick={{ fontSize: 10 }}/>
-        </BarChart>
-    </ResponsiveContainer>
+      </BarChart>
+    </ChartContainer>
   );
 }
 
 function LineChartPreview() {
   return (
-     <ResponsiveContainer width="100%" height="100%">
+     <ChartContainer config={{value: {label: 'Value', color: 'hsl(var(--primary))'}}} className="h-full w-full">
         <LineChart data={previewData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-        <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" />
-        <XAxis dataKey="name" tick={{ fontSize: 10 }}/>
-        <YAxis tick={{ fontSize: 10 }}/>
+          <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" />
+          <XAxis dataKey="name" tick={{ fontSize: 10 }}/>
+          <YAxis tick={{ fontSize: 10 }}/>
         </LineChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
 function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
+  const chartConfig = {
+    完了: { label: '完了', color: 'hsl(var(--primary))' },
+    未完了: { label: '未完了', color: 'hsl(var(--muted))' },
+  };
   return (
-     <ResponsiveContainer width="100%" height="100%">
+    <ChartContainer config={chartConfig} className="h-full w-full">
         <PieChart>
-        <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} innerRadius={isDonut ? 40 : 0}>
-            {pieData.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-            ))}
-        </Pie>
-        <Tooltip content={<ChartTooltipContent hideLabel />} />
-        <Legend wrapperStyle={{ fontSize: '10px' }}/>
+          <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} innerRadius={isDonut ? 40 : 0}>
+              {pieData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+          </Pie>
+          <Tooltip content={<ChartTooltipContent hideLabel />} />
+          <Legend wrapperStyle={{ fontSize: '10px' }}/>
         </PieChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 
