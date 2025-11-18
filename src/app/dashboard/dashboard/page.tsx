@@ -8,17 +8,31 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { LineChart, BarChart, PieChart, Donut, PlusCircle, MoreHorizontal, Trash2, Edit } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { LineChart, BarChart, PieChart, Donut, PlusCircle, MoreHorizontal, Trash2, Edit, Database } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, CartesianGrid, XAxis } from 'recharts';
 import dynamic from 'next/dynamic';
 
 const ComposedChart = dynamic(
   () => import('recharts').then(mod => mod.ComposedChart),
+  { ssr: false }
+);
+
+const Bar = dynamic(
+  () => import('recharts').then(mod => mod.Bar),
+  { ssr: false }
+);
+
+const CartesianGrid = dynamic(
+  () => import('recharts').then(mod => mod.CartesianGrid),
+  { ssr: false }
+);
+
+const XAxis = dynamic(
+  () => import('recharts').then(mod => mod.XAxis),
   { ssr: false }
 );
 
@@ -236,8 +250,88 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
     );
 }
 
+function SalesDataManagementDialog({
+  records,
+  onSave,
+  onDelete,
+  children
+}: {
+  records: SalesRecord[];
+  onSave: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void;
+  onDelete: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>売上実績データ管理</DialogTitle>
+          <DialogDescription>月次の売上目標と実績を登録・管理します。ここで登録したデータがグラフに反映されます。</DialogDescription>
+        </DialogHeader>
+        <Card>
+            <CardContent className='pt-6'>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>年月</TableHead>
+                            <TableHead>売上目標</TableHead>
+                            <TableHead>売上実績</TableHead>
+                            <TableHead>達成率</TableHead>
+                            <TableHead><span className='sr-only'>Actions</span></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {records.sort((a, b) => a.id.localeCompare(b.id)).map(record => (
+                            <TableRow key={record.id}>
+                                <TableCell>{record.year}年{record.month}月</TableCell>
+                                <TableCell>{record.salesTarget}百万円</TableCell>
+                                <TableCell>{record.salesActual}百万円</TableCell>
+                                <TableCell>{record.achievementRate}%</TableCell>
+                                <TableCell>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <SalesRecordDialog record={record} onSave={(data) => onSave(data, record.id)}>
+                                                <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
+                                            </SalesRecordDialog>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">削除</DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => onDelete(record.id)}>削除</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+            <CardFooter>
+                <SalesRecordDialog onSave={(data) => onSave(data)}>
+                    <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>新規実績を登録</Button>
+                </SalesRecordDialog>
+            </CardFooter>
+        </Card>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-function WidgetList({ widgets, salesData, onSave, onDelete, scope }: { widgets: Widget[], salesData: SalesRecord[], onSave: (data: Omit<Widget, 'id'>, id?: string) => void, onDelete: (id: string) => void, scope: WidgetScope }) {
+
+function WidgetList({ widgets, salesData, onSave, onDelete, scope, onSaveRecord, onDeleteRecord }: { widgets: Widget[], salesData: SalesRecord[], onSave: (data: Omit<Widget, 'id'>, id?: string) => void, onDelete: (id: string) => void, scope: WidgetScope, onSaveRecord: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void, onDeleteRecord: (id: string) => void }) {
   const chartData = useMemo(() => 
     salesData.map(d => ({ month: `${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget }))
     .sort((a, b) => parseInt(a.month) - parseInt(b.month))
@@ -258,9 +352,17 @@ function WidgetList({ widgets, salesData, onSave, onDelete, scope }: { widgets: 
                 <DropdownMenuContent align="end">
                   <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={scope}>
                     <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                        <Edit className="mr-2 h-4 w-4"/>編集
+                        <Edit className="mr-2 h-4 w-4"/>ウィジェット設定
                     </DropdownMenuItem>
                   </WidgetDialog>
+                  {widget.kpi === 'sales_revenue' && (
+                    <SalesDataManagementDialog records={salesData} onSave={onSaveRecord} onDelete={onDeleteRecord}>
+                       <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                          <Database className="mr-2 h-4 w-4"/>データ編集
+                      </DropdownMenuItem>
+                    </SalesDataManagementDialog>
+                  )}
+                  <DropdownMenuSeparator />
                    <AlertDialog>
                     <AlertDialogTrigger asChild>
                        <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
@@ -284,7 +386,7 @@ function WidgetList({ widgets, salesData, onSave, onDelete, scope }: { widgets: 
               </DropdownMenu>
             </CardHeader>
             <CardContent>
-                {widget.kpi === 'sales_revenue' ? (
+                {widget.kpi === 'sales_revenue' && ComposedChart ? (
                      <ChartContainer config={salesChartConfig} className="h-40 w-full">
                         <ComposedChart accessibilityLayer data={chartData}>
                            <CartesianGrid vertical={false} />
@@ -334,13 +436,12 @@ export default function DashboardSettingsPage() {
     const handleSaveRecord = (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => {
         const achievementRate = calculateAchievementRate(data.salesActual, data.salesTarget);
         const recordId = id || `${data.year}-${String(data.month).padStart(2, '0')}`;
-        const newRecord = { ...data, id: recordId, achievementRate };
         const exists = salesRecords.some(r => r.id === recordId);
         
         if (exists) {
-            setSalesRecords(salesRecords.map(r => (r.id === recordId ? newRecord : r)));
+            setSalesRecords(salesRecords.map(r => (r.id === recordId ? { ...data, id: recordId, achievementRate } : r)));
         } else {
-            setSalesRecords([...salesRecords, newRecord].sort((a,b) => a.id.localeCompare(b.id)));
+            setSalesRecords([...salesRecords, { ...data, id: recordId, achievementRate }].sort((a,b) => a.id.localeCompare(b.id)));
         }
     }
 
@@ -352,76 +453,8 @@ export default function DashboardSettingsPage() {
         return widgets.filter(w => w.scope === activeTab);
     }, [widgets, activeTab]);
 
-    const showSalesDataCard = useMemo(() => {
-      return widgets.some(widget => widget.kpi === 'sales_revenue');
-    }, [widgets]);
-
   return (
     <div className="w-full space-y-8">
-      {showSalesDataCard && (
-        <Card>
-          <CardHeader>
-            <CardTitle>売上実績データ</CardTitle>
-            <CardDescription>月次の売上目標と実績を登録・管理します。ここで登録したデータがグラフに反映されます。</CardDescription>
-          </CardHeader>
-          <CardContent>
-              <Table>
-                  <TableHeader>
-                      <TableRow>
-                          <TableHead>年月</TableHead>
-                          <TableHead>売上目標</TableHead>
-                          <TableHead>売上実績</TableHead>
-                          <TableHead>達成率</TableHead>
-                          <TableHead><span className='sr-only'>Actions</span></TableHead>
-                      </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                      {salesRecords.sort((a, b) => a.id.localeCompare(b.id)).map(record => (
-                          <TableRow key={record.id}>
-                              <TableCell>{record.year}年{record.month}月</TableCell>
-                              <TableCell>{record.salesTarget}百万円</TableCell>
-                              <TableCell>{record.salesActual}百万円</TableCell>
-                              <TableCell>{record.achievementRate}%</TableCell>
-                              <TableCell>
-                                  <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent>
-                                          <SalesRecordDialog record={record} onSave={(data) => handleSaveRecord(data, record.id)}>
-                                              <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
-                                          </SalesRecordDialog>
-                                          <AlertDialog>
-                                              <AlertDialogTrigger asChild>
-                                              <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">削除</DropdownMenuItem>
-                                              </AlertDialogTrigger>
-                                              <AlertDialogContent>
-                                              <AlertDialogHeader>
-                                                  <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                                              </AlertDialogHeader>
-                                              <AlertDialogFooter>
-                                                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                                                  <AlertDialogAction onClick={() => handleDeleteRecord(record.id)}>削除</AlertDialogAction>
-                                              </AlertDialogFooter>
-                                              </AlertDialogContent>
-                                          </AlertDialog>
-                                      </DropdownMenuContent>
-                                  </DropdownMenu>
-                              </TableCell>
-                          </TableRow>
-                      ))}
-                  </TableBody>
-              </Table>
-          </CardContent>
-          <CardFooter>
-              <SalesRecordDialog onSave={(data) => handleSaveRecord(data)}>
-                  <Button variant="outline"><PlusCircle className="mr-2"/>新規実績を登録</Button>
-              </SalesRecordDialog>
-          </CardFooter>
-        </Card>
-      )}
-
-
       <div>
          <div className="flex items-center justify-between mb-6">
             <div className='flex flex-col'>
@@ -443,13 +476,13 @@ export default function DashboardSettingsPage() {
             <TabsTrigger value="personal">個人単位</TabsTrigger>
             </TabsList>
             <TabsContent value="company">
-            <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onDelete={handleDeleteWidget} scope="company" />
+            <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onDelete={handleDeleteWidget} scope="company" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
             </TabsContent>
             <TabsContent value="team">
-            <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onDelete={handleDeleteWidget} scope="team" />
+            <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onDelete={handleDeleteWidget} scope="team" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
             </TabsContent>
             <TabsContent value="personal">
-                <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onDelete={handleDeleteWidget} scope="personal" />
+                <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onDelete={handleDeleteWidget} scope="personal" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
             </TabsContent>
         </Tabs>
       </div>
