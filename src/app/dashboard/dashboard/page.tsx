@@ -244,7 +244,7 @@ function SalesRecordTable({
 }) {
     return (
         <Card>
-            <CardContent className='pt-6'>
+            <CardContent className='pt-6 max-h-[60vh] overflow-y-auto'>
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -536,20 +536,16 @@ export default function DashboardSettingsPage() {
     
     // 現在の年を、利用可能な会計年度の最新のものに設定
     const [currentYear, setCurrentYear] = useState(() => {
-        const years = [...new Set(initialSalesRecords.map(d => d.year))].sort((a,b) => b-a);
+        const years = [...new Set(initialSalesRecords.map(d => {
+            return d.month >= 8 ? d.year + 1 : d.year;
+        }))].sort((a,b) => b-a);
         return years[0] || new Date().getFullYear();
     });
 
     const availableYears = useMemo(() => {
       const yearSet = new Set<number>();
       salesRecords.forEach(record => {
-        // 8月以降のデータは翌年度に属する
-        if (record.month >= 8) {
-          yearSet.add(record.year + 1);
-        } else {
-        // 7月以前のデータはその年に属する
-          yearSet.add(record.year);
-        }
+          yearSet.add(record.month >= 8 ? record.year + 1 : record.year);
       });
       return Array.from(yearSet).sort((a,b) => b-a);
     }, [salesRecords]);
