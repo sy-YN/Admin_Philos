@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { LineChart, BarChart, PieChart, Donut, PlusCircle, MoreHorizontal, Trash2, Edit } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const kpiOptions = {
   company: [
@@ -44,11 +45,13 @@ const getChartIcon = (chartType: string) => {
   return chart ? <chart.icon className="h-5 w-5" /> : null;
 };
 
+type WidgetScope = 'company' | 'team' | 'personal';
+
 type Widget = {
   id: string;
   title: string;
   kpi: string;
-  scope: 'company' | 'team' | 'personal';
+  scope: WidgetScope;
   chartType: string;
 };
 
@@ -58,12 +61,12 @@ const initialWidgets: Widget[] = [
     { id: '3', title: '個人の学習時間の記録', kpi: 'self_learning_time', scope: 'personal', chartType: 'bar' },
 ];
 
-function WidgetDialog({ widget, onSave, children }: { widget?: Widget | null, onSave: (data: Omit<Widget, 'id'>) => void, children: React.ReactNode }) {
+function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Widget | null, onSave: (data: Omit<Widget, 'id'>) => void, children: React.ReactNode, defaultScope: WidgetScope }) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState(widget?.title || '');
-  const [scope, setScope] = useState<'company' | 'team' | 'personal'>(widget?.scope || 'company');
-  const [kpi, setKpi] = useState(widget?.kpi || '');
-  const [chartType, setChartType] = useState(widget?.chartType || '');
+  const [title, setTitle] = useState('');
+  const [scope, setScope] = useState<WidgetScope>(defaultScope);
+  const [kpi, setKpi] = useState('');
+  const [chartType, setChartType] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,12 +76,13 @@ function WidgetDialog({ widget, onSave, children }: { widget?: Widget | null, on
   
   useEffect(() => {
     if (open) {
+      const initialScope = widget?.scope || defaultScope;
       setTitle(widget?.title || '');
-      setScope(widget?.scope || 'company');
+      setScope(initialScope);
       setKpi(widget?.kpi || '');
       setChartType(widget?.chartType || '');
     }
-  }, [widget, open]);
+  }, [widget, open, defaultScope]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -137,36 +141,9 @@ function WidgetDialog({ widget, onSave, children }: { widget?: Widget | null, on
   );
 }
 
-export default function DashboardSettingsPage() {
-    const [widgets, setWidgets] = useState<Widget[]>(initialWidgets);
-
-    const handleSaveWidget = (data: Omit<Widget, 'id'>, id?: string) => {
-        if (id) {
-            setWidgets(widgets.map(w => w.id === id ? { ...w, ...data } : w));
-        } else {
-            setWidgets([...widgets, { ...data, id: new Date().toISOString() }]);
-        }
-    };
-
-    const handleDeleteWidget = (id: string) => {
-        setWidgets(widgets.filter(w => w.id !== id));
-    };
-
+function WidgetList({ widgets, onSave, onDelete, scope }: { widgets: Widget[], onSave: (data: Omit<Widget, 'id'>, id?: string) => void, onDelete: (id: string) => void, scope: WidgetScope }) {
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-6">
-        <div className='flex flex-col'>
-          <h1 className="text-lg font-semibold md:text-2xl">ダッシュボード設定</h1>
-          <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
-        </div>
-        <WidgetDialog onSave={(data) => handleSaveWidget(data)}>
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            新規ウィジェット追加
-          </Button>
-        </WidgetDialog>
-      </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {widgets.map(widget => (
           <Card key={widget.id}>
             <CardHeader className='flex-row items-center justify-between'>
@@ -178,7 +155,7 @@ export default function DashboardSettingsPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <WidgetDialog widget={widget} onSave={(data) => handleSaveWidget(data, widget.id)}>
+                  <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={scope}>
                     <DropdownMenuItem onSelect={e => e.preventDefault()}>
                         <Edit className="mr-2 h-4 w-4"/>編集
                     </DropdownMenuItem>
@@ -198,7 +175,7 @@ export default function DashboardSettingsPage() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDeleteWidget(widget.id)}>削除</AlertDialogAction>
+                        <AlertDialogAction onClick={() => onDelete(widget.id)}>削除</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -221,6 +198,62 @@ export default function DashboardSettingsPage() {
           </Card>
         ))}
       </div>
+  );
+}
+
+export default function DashboardSettingsPage() {
+    const [widgets, setWidgets] = useState<Widget[]>(initialWidgets);
+    const [activeTab, setActiveTab] = useState<WidgetScope>('company');
+
+    const handleSaveWidget = (data: Omit<Widget, 'id'>, id?: string) => {
+        if (id) {
+            setWidgets(widgets.map(w => w.id === id ? { ...w, ...data, id } : w));
+        } else {
+            setWidgets([...widgets, { ...data, id: new Date().toISOString() }]);
+        }
+    };
+
+    const handleDeleteWidget = (id: string) => {
+        setWidgets(widgets.filter(w => w.id !== id));
+    };
+
+    const filteredWidgets = useMemo(() => {
+        return widgets.filter(w => w.scope === activeTab);
+    }, [widgets, activeTab]);
+
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-6">
+        <div className='flex flex-col'>
+          <h1 className="text-lg font-semibold md:text-2xl">ダッシュボード設定</h1>
+          <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
+        </div>
+        <WidgetDialog onSave={(data) => handleSaveWidget(data)} defaultScope={activeTab}>
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            新規ウィジェット追加
+          </Button>
+        </WidgetDialog>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="company">会社単位</TabsTrigger>
+          <TabsTrigger value="team">チーム単位</TabsTrigger>
+          <TabsTrigger value="personal">個人単位</TabsTrigger>
+        </TabsList>
+        <TabsContent value="company">
+           <WidgetList widgets={filteredWidgets} onSave={handleSaveWidget} onDelete={handleDeleteWidget} scope="company" />
+        </TabsContent>
+        <TabsContent value="team">
+           <WidgetList widgets={filteredWidgets} onSave={handleSaveWidget} onDelete={handleDeleteWidget} scope="team" />
+        </TabsContent>
+        <TabsContent value="personal">
+            <WidgetList widgets={filteredWidgets} onSave={handleSaveWidget} onDelete={handleDeleteWidget} scope="personal" />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
+    
