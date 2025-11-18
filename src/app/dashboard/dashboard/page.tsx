@@ -71,7 +71,7 @@ type SalesRecord = {
     month: number;
     salesTarget: number;
     salesActual: number;
-    profitRate: number;
+    achievementRate: number;
 }
 
 const initialWidgets: Widget[] = [
@@ -80,10 +80,15 @@ const initialWidgets: Widget[] = [
     { id: '3', title: '個人の学習時間の記録', kpi: 'self_learning_time', scope: 'personal', chartType: 'line' },
 ];
 
+const calculateAchievementRate = (actual: number, target: number) => {
+  if (target === 0) return 0;
+  return Math.round((actual / target) * 100);
+}
+
 const initialSalesRecords: SalesRecord[] = [
-    { id: '2024-04', year: 2024, month: 4, salesTarget: 80, salesActual: 75, profitRate: 15 },
-    { id: '2024-05', year: 2024, month: 5, salesTarget: 85, salesActual: 88, profitRate: 18 },
-    { id: '2024-06', year: 2024, month: 6, salesTarget: 90, salesActual: 92, profitRate: 20 },
+    { id: '2024-04', year: 2024, month: 4, salesTarget: 80, salesActual: 75, achievementRate: calculateAchievementRate(75, 80) },
+    { id: '2024-05', year: 2024, month: 5, salesTarget: 85, salesActual: 88, achievementRate: calculateAchievementRate(88, 85) },
+    { id: '2024-06', year: 2024, month: 6, salesTarget: 90, salesActual: 92, achievementRate: calculateAchievementRate(92, 90) },
 ];
 
 const salesChartConfig = {
@@ -172,17 +177,16 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
   );
 }
 
-function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord | null, onSave: (data: Omit<SalesRecord, 'id'>) => void, children: React.ReactNode }) {
+function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord | null, onSave: (data: Omit<SalesRecord, 'id' | 'achievementRate'>) => void, children: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [year, setYear] = useState(new Date().getFullYear());
     const [month, setMonth] = useState(new Date().getMonth() + 1);
     const [salesTarget, setSalesTarget] = useState(0);
     const [salesActual, setSalesActual] = useState(0);
-    const [profitRate, setProfitRate] = useState(0);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ year, month, salesTarget, salesActual, profitRate });
+        onSave({ year, month, salesTarget, salesActual });
         setOpen(false);
     };
 
@@ -192,7 +196,6 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
             setMonth(record?.month || new Date().getMonth() + 1);
             setSalesTarget(record?.salesTarget || 0);
             setSalesActual(record?.salesActual || 0);
-            setProfitRate(record?.profitRate || 0);
         }
     }, [record, open]);
 
@@ -222,10 +225,6 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
                          <div className="grid gap-2">
                             <Label>売上実績 (百万円)</Label>
                             <Input type="number" value={salesActual} onChange={e => setSalesActual(Number(e.target.value))} />
-                        </div>
-                         <div className="grid gap-2">
-                            <Label>利益率 (%)</Label>
-                            <Input type="number" value={profitRate} onChange={e => setProfitRate(Number(e.target.value))} />
                         </div>
                     </div>
                     <DialogFooter>
@@ -331,13 +330,16 @@ export default function DashboardSettingsPage() {
         setWidgets(widgets.filter(w => w.id !== id));
     };
 
-    const handleSaveRecord = (data: Omit<SalesRecord, 'id'>, id?: string) => {
+    const handleSaveRecord = (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => {
+        const achievementRate = calculateAchievementRate(data.salesActual, data.salesTarget);
         const recordId = id || `${data.year}-${String(data.month).padStart(2, '0')}`;
+        const newRecord = { ...data, id: recordId, achievementRate };
         const exists = salesRecords.some(r => r.id === recordId);
-        if(exists) {
-            setSalesRecords(salesRecords.map(r => r.id === recordId ? { ...data, id: recordId } : r));
+        
+        if (exists) {
+            setSalesRecords(salesRecords.map(r => (r.id === recordId ? newRecord : r)));
         } else {
-            setSalesRecords([...salesRecords, { ...data, id: recordId }].sort((a,b) => a.id.localeCompare(b.id)));
+            setSalesRecords([...salesRecords, newRecord].sort((a,b) => a.id.localeCompare(b.id)));
         }
     }
 
@@ -363,7 +365,7 @@ export default function DashboardSettingsPage() {
                         <TableHead>年月</TableHead>
                         <TableHead>売上目標</TableHead>
                         <TableHead>売上実績</TableHead>
-                        <TableHead>利益率</TableHead>
+                        <TableHead>達成率</TableHead>
                         <TableHead><span className='sr-only'>Actions</span></TableHead>
                     </TableRow>
                 </TableHeader>
@@ -373,7 +375,7 @@ export default function DashboardSettingsPage() {
                             <TableCell>{record.year}年{record.month}月</TableCell>
                             <TableCell>{record.salesTarget}百万円</TableCell>
                             <TableCell>{record.salesActual}百万円</TableCell>
-                            <TableCell>{record.profitRate}%</TableCell>
+                            <TableCell>{record.achievementRate}%</TableCell>
                             <TableCell>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -447,3 +449,5 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
+    
