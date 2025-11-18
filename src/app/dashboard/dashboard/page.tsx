@@ -14,7 +14,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, CartesianGrid, XAxis, ComposedChart } from 'recharts';
+import { Bar, CartesianGrid, XAxis } from 'recharts';
+import dynamic from 'next/dynamic';
+
+const ComposedChart = dynamic(
+  () => import('recharts').then(mod => mod.ComposedChart),
+  { ssr: false }
+);
+
 
 const kpiOptions = {
   company: [
