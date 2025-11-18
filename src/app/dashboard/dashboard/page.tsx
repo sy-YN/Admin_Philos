@@ -240,6 +240,7 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
 function WidgetList({ widgets, salesData, onSave, onDelete, scope }: { widgets: Widget[], salesData: SalesRecord[], onSave: (data: Omit<Widget, 'id'>, id?: string) => void, onDelete: (id: string) => void, scope: WidgetScope }) {
   const chartData = useMemo(() => 
     salesData.map(d => ({ month: `${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget }))
+    .sort((a, b) => parseInt(a.month) - parseInt(b.month))
     , [salesData]);
 
   return (
@@ -351,68 +352,74 @@ export default function DashboardSettingsPage() {
         return widgets.filter(w => w.scope === activeTab);
     }, [widgets, activeTab]);
 
+    const showSalesDataCard = useMemo(() => {
+      return widgets.some(widget => widget.kpi === 'sales_revenue');
+    }, [widgets]);
+
   return (
     <div className="w-full space-y-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>売上実績データ</CardTitle>
-          <CardDescription>月次の売上目標と実績を登録・管理します。ここで登録したデータがグラフに反映されます。</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>年月</TableHead>
-                        <TableHead>売上目標</TableHead>
-                        <TableHead>売上実績</TableHead>
-                        <TableHead>達成率</TableHead>
-                        <TableHead><span className='sr-only'>Actions</span></TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {salesRecords.map(record => (
-                        <TableRow key={record.id}>
-                            <TableCell>{record.year}年{record.month}月</TableCell>
-                            <TableCell>{record.salesTarget}百万円</TableCell>
-                            <TableCell>{record.salesActual}百万円</TableCell>
-                            <TableCell>{record.achievementRate}%</TableCell>
-                            <TableCell>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <SalesRecordDialog record={record} onSave={(data) => handleSaveRecord(data, record.id)}>
-                                            <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
-                                        </SalesRecordDialog>
-                                         <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                            <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">削除</DropdownMenuItem>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteRecord(record.id)}>削除</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </CardContent>
-        <CardFooter>
-            <SalesRecordDialog onSave={(data) => handleSaveRecord(data)}>
-                <Button variant="outline"><PlusCircle className="mr-2"/>新規実績を登録</Button>
-            </SalesRecordDialog>
-        </CardFooter>
-      </Card>
+      {showSalesDataCard && (
+        <Card>
+          <CardHeader>
+            <CardTitle>売上実績データ</CardTitle>
+            <CardDescription>月次の売上目標と実績を登録・管理します。ここで登録したデータがグラフに反映されます。</CardDescription>
+          </CardHeader>
+          <CardContent>
+              <Table>
+                  <TableHeader>
+                      <TableRow>
+                          <TableHead>年月</TableHead>
+                          <TableHead>売上目標</TableHead>
+                          <TableHead>売上実績</TableHead>
+                          <TableHead>達成率</TableHead>
+                          <TableHead><span className='sr-only'>Actions</span></TableHead>
+                      </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {salesRecords.sort((a, b) => a.id.localeCompare(b.id)).map(record => (
+                          <TableRow key={record.id}>
+                              <TableCell>{record.year}年{record.month}月</TableCell>
+                              <TableCell>{record.salesTarget}百万円</TableCell>
+                              <TableCell>{record.salesActual}百万円</TableCell>
+                              <TableCell>{record.achievementRate}%</TableCell>
+                              <TableCell>
+                                  <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent>
+                                          <SalesRecordDialog record={record} onSave={(data) => handleSaveRecord(data, record.id)}>
+                                              <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
+                                          </SalesRecordDialog>
+                                          <AlertDialog>
+                                              <AlertDialogTrigger asChild>
+                                              <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">削除</DropdownMenuItem>
+                                              </AlertDialogTrigger>
+                                              <AlertDialogContent>
+                                              <AlertDialogHeader>
+                                                  <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter>
+                                                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                                                  <AlertDialogAction onClick={() => handleDeleteRecord(record.id)}>削除</AlertDialogAction>
+                                              </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                          </AlertDialog>
+                                      </DropdownMenuContent>
+                                  </DropdownMenu>
+                              </TableCell>
+                          </TableRow>
+                      ))}
+                  </TableBody>
+              </Table>
+          </CardContent>
+          <CardFooter>
+              <SalesRecordDialog onSave={(data) => handleSaveRecord(data)}>
+                  <Button variant="outline"><PlusCircle className="mr-2"/>新規実績を登録</Button>
+              </SalesRecordDialog>
+          </CardFooter>
+        </Card>
+      )}
 
 
       <div>
@@ -449,5 +456,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-
-    
