@@ -77,13 +77,13 @@ function ActualSalesComposedChart({ chartData }: { chartData: any[] }) {
                 <ChartLegend content={<ChartLegendContent />} />
                 
                 {/* Base bar (actual sales up to the target) */}
-                <Bar dataKey="base" stackId="a" fill="var(--color-salesActual)" radius={[4, 4, 0, 0]} unit="M" name="実績" />
+                <Bar yAxisId="left" dataKey="base" stackId="a" fill="var(--color-salesActual)" radius={[4, 4, 0, 0]} unit="M" name="実績" />
                 
                 {/* Invisible bar to represent shortfall, making the total height reach the target */}
-                <Bar dataKey="shortfall" stackId="a" fill="var(--color-salesTarget)" unit="M" name="目標" />
+                <Bar yAxisId="left" dataKey="shortfall" stackId="a" fill="var(--color-salesTarget)" unit="M" name="目標" />
 
                 {/* Overachievement part, stacked on top */}
-                <Bar dataKey="overachievement" stackId="a" fill="var(--color-overachievement)" radius={[4, 4, 0, 0]} unit="M" name="目標超過" />
+                <Bar yAxisId="left" dataKey="overachievement" stackId="a" fill="var(--color-overachievement)" radius={[4, 4, 0, 0]} unit="M" name="目標超過" />
 
                 <Line type="monotone" dataKey="achievementRate" stroke="var(--color-salesActual)" yAxisId="right" dot={false} unit="%" name="達成率" />
             </ComposedChart>
