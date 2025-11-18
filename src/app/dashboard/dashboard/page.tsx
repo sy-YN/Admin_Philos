@@ -139,7 +139,6 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
   const handleKpiChange = (newKpi: string) => {
     setKpi(newKpi);
     const allowedCharts = kpiToChartMapping[newKpi] || [];
-    // If current chartType is not allowed for the new KPI, reset it
     if (!allowedCharts.includes(chartType)) {
       setChartType('');
     }
@@ -372,36 +371,21 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
     );
 }
 
-function SalesChartWidget({ widget, salesData, onSave, onArchive, onSaveRecord, onDeleteRecord }: {
+function SalesChartWidget({ widget, salesData, onSave, onArchive, onSaveRecord, onDeleteRecord, currentYear }: {
   widget: Widget,
   salesData: SalesRecord[],
   onSave: (data: Omit<Widget, 'id' | 'status'>, id?: string) => void,
   onArchive: (id: string) => void,
   onSaveRecord: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void,
-  onDeleteRecord: (id: string) => void
+  onDeleteRecord: (id: string) => void,
+  currentYear: number
 }) {
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const availableYears = useMemo(() => [...new Set(salesData.map(d => d.year))].sort(), [salesData]);
-
   const chartData = useMemo(() =>
     salesData
       .filter(d => d.year === currentYear)
       .map(d => ({ month: `${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget }))
       .sort((a, b) => parseInt(a.month) - parseInt(b.month))
     , [salesData, currentYear]);
-
-  const canGoPrev = availableYears.length > 0 && currentYear > availableYears[0];
-  const canGoNext = availableYears.length > 0 && currentYear < availableYears[availableYears.length - 1];
-  
-  const handleYearChange = (direction: 'prev' | 'next') => {
-    const currentIndex = availableYears.indexOf(currentYear);
-    if(direction === 'prev' && canGoPrev) {
-      setCurrentYear(availableYears[currentIndex - 1]);
-    }
-    if(direction === 'next' && canGoNext) {
-      setCurrentYear(availableYears[currentIndex + 1]);
-    }
-  }
 
   return (
     <Card>
@@ -450,15 +434,6 @@ function SalesChartWidget({ widget, salesData, onSave, onArchive, onSaveRecord, 
         </DropdownMenu>
       </CardHeader>
       <CardContent>
-          <div className="flex items-center justify-center gap-4 my-2">
-            <Button variant="outline" size="icon" className='h-6 w-6' onClick={() => handleYearChange('prev')} disabled={!canGoPrev}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium">{currentYear}年</span>
-             <Button variant="outline" size="icon" className='h-6 w-6' onClick={() => handleYearChange('next')} disabled={!canGoNext}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
           <ChartContainer config={salesChartConfig} className="h-40 w-full">
               <ComposedChart accessibilityLayer data={chartData}>
                  <CartesianGrid vertical={false} />
@@ -482,14 +457,15 @@ function SalesChartWidget({ widget, salesData, onSave, onArchive, onSaveRecord, 
 }
 
 
-function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord, onDeleteRecord }: { 
+function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord, onDeleteRecord, currentYear }: { 
   widgets: Widget[], 
   salesData: SalesRecord[], 
   onSave: (data: Omit<Widget, 'id' | 'status'>, id?: string) => void, 
   onArchive: (id: string) => void, 
   scope: WidgetScope, 
   onSaveRecord: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void, 
-  onDeleteRecord: (id: string) => void 
+  onDeleteRecord: (id: string) => void,
+  currentYear: number
 }) {
   const activeWidgets = widgets.filter(w => w.status === 'active');
 
@@ -505,6 +481,7 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
               onArchive={onArchive}
               onSaveRecord={onSaveRecord}
               onDeleteRecord={onDeleteRecord}
+              currentYear={currentYear}
             />
           }
           return (
@@ -638,6 +615,29 @@ export default function DashboardSettingsPage() {
     const [widgets, setWidgets] = useState<Widget[]>(initialWidgets);
     const [activeTab, setActiveTab] = useState<WidgetScope>('company');
     const [salesRecords, setSalesRecords] = useState<SalesRecord[]>(initialSalesRecords);
+    
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+    const availableYears = useMemo(() => [...new Set(salesRecords.map(d => d.year))].sort((a,b) => b-a), [salesRecords]);
+    
+    useEffect(() => {
+        if(availableYears.length > 0 && !availableYears.includes(currentYear)){
+            setCurrentYear(availableYears[0]);
+        }
+    }, [availableYears, currentYear]);
+
+
+    const handleYearChange = (direction: 'prev' | 'next') => {
+        const currentIndex = availableYears.indexOf(currentYear);
+        if (direction === 'prev' && currentIndex < availableYears.length - 1) {
+            setCurrentYear(availableYears[currentIndex + 1]);
+        }
+        if (direction === 'next' && currentIndex > 0) {
+            setCurrentYear(availableYears[currentIndex - 1]);
+        }
+    };
+    
+    const canGoPrev = availableYears.indexOf(currentYear) < availableYears.length - 1;
+    const canGoNext = availableYears.indexOf(currentYear) > 0;
 
     const handleSaveWidget = (data: Omit<Widget, 'id' | 'status'>, id?: string) => {
         if (id) {
@@ -684,22 +684,35 @@ export default function DashboardSettingsPage() {
       <div>
          <div className="flex items-center justify-between mb-6">
             <div className='flex flex-col'>
-            <h1 className="text-lg font-semibold md:text-2xl">ダッシュボード設定</h1>
-            <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
+              <h1 className="text-lg font-semibold md:text-2xl">ダッシュボード設定</h1>
+              <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
             </div>
-            <div className='flex items-center gap-2'>
-              <ArchivedWidgetsDialog widgets={widgets} onRestore={handleRestoreWidget} onPermanentDelete={handlePermanentDeleteWidget}>
-                 <Button variant="outline">
-                    <Archive className="mr-2 h-4 w-4" />
-                    アーカイブ済み
-                </Button>
-              </ArchivedWidgetsDialog>
-              <WidgetDialog onSave={(data) => handleSaveWidget(data)} defaultScope={activeTab}>
-                <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    新規ウィジェット追加
-                </Button>
-              </WidgetDialog>
+
+            <div className='flex items-center gap-4'>
+               <div className="flex items-center justify-center gap-2">
+                  <Button variant="outline" size="icon" className='h-7 w-7' onClick={() => handleYearChange('prev')} disabled={!canGoPrev}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-medium w-20 text-center">{currentYear}年</span>
+                   <Button variant="outline" size="icon" className='h-7 w-7' onClick={() => handleYearChange('next')} disabled={!canGoNext}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className='flex items-center gap-2'>
+                  <ArchivedWidgetsDialog widgets={widgets} onRestore={handleRestoreWidget} onPermanentDelete={handlePermanentDeleteWidget}>
+                     <Button variant="outline">
+                        <Archive className="mr-2 h-4 w-4" />
+                        アーカイブ済み
+                    </Button>
+                  </ArchivedWidgetsDialog>
+                  <WidgetDialog onSave={(data) => handleSaveWidget(data)} defaultScope={activeTab}>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        新規ウィジェット追加
+                    </Button>
+                  </WidgetDialog>
+                </div>
             </div>
         </div>
 
@@ -710,17 +723,16 @@ export default function DashboardSettingsPage() {
             <TabsTrigger value="personal">個人単位</TabsTrigger>
             </TabsList>
             <TabsContent value="company">
-            <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="company" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
+            <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="company" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} currentYear={currentYear} />
             </TabsContent>
             <TabsContent value="team">
-            <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="team" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
+            <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="team" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} currentYear={currentYear} />
             </TabsContent>
             <TabsContent value="personal">
-                <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="personal" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
+                <WidgetList widgets={filteredWidgets} salesData={salesRecords} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="personal" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} currentYear={currentYear} />
             </TabsContent>
         </Tabs>
       </div>
     </div>
   );
 }
-
