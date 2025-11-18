@@ -13,23 +13,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import dynamic from 'next/dynamic';
 
-const RechartsComposedChart = dynamic(() => import('recharts').then(mod => mod.ComposedChart), { ssr: false, loading: () => <div className="h-full w-full flex items-center justify-center"><LineChart className="h-5 w-5 text-muted-foreground" /></div> });
-const RechartsBarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), { ssr: false, loading: () => <div className="h-full w-full flex items-center justify-center"><BarChart className="h-5 w-5 text-muted-foreground" /></div> });
-const RechartsLineChart = dynamic(() => import('recharts').then(mod => mod.LineChart), { ssr: false, loading: () => <div className="h-full w-full flex items-center justify-center"><LineChart className="h-5 w-5 text-muted-foreground" /></div> });
-const RechartsPieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), { ssr: false, loading: () => <div className="h-full w-full flex items-center justify-center"><PieChart className="h-5 w-5 text-muted-foreground" /></div> });
-
-const RechartsBar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
-const RechartsLine = dynamic(() => import('recharts').then(mod => mod.Line), { ssr: false });
-const RechartsPie = dynamic(() => import('recharts').then(mod => mod.Pie), { ssr: false });
-const RechartsCell = dynamic(() => import('recharts').then(mod => mod.Cell), { ssr: false });
-const RechartsXAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
-const RechartsYAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
-const RechartsCartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
-const RechartsRechartsTooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
-const RechartsLegend = dynamic(() => import('recharts').then(mod => mod.Legend), { ssr: false });
+const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
+  ssr: false,
+  loading: () => <div className="h-full w-full flex items-center justify-center"><BarChart className="h-8 w-8 text-muted-foreground" /></div>,
+});
 
 
 const kpiOptions = {
@@ -59,7 +48,7 @@ const chartOptions = [
   { value: 'composed', label: '複合グラフ', icon: BarChart }
 ];
 
-const kpiToChartMapping: Record<string, string[]> = {
+export const kpiToChartMapping: Record<string, string[]> = {
   // Company
   sales_revenue: ['line', 'bar', 'composed'],
   profit_margin: ['line'],
@@ -76,14 +65,9 @@ const kpiToChartMapping: Record<string, string[]> = {
 };
 
 
-const getChartIcon = (chartType: string) => {
-  const chart = chartOptions.find(c => c.value === chartType);
-  return chart ? <chart.icon className="h-5 w-5 text-muted-foreground" /> : null;
-};
-
 type WidgetScope = 'company' | 'team' | 'personal';
 
-type Widget = {
+export type Widget = {
   id: string;
   title: string;
   kpi: string;
@@ -126,13 +110,6 @@ const initialSalesRecords: SalesRecord[] = [
     { id: '2025-08', year: 2025, month: 8, salesTarget: 100, salesActual: 105, achievementRate: calculateAchievementRate(105, 100) },
     { id: '2025-09', year: 2025, month: 9, salesTarget: 102, salesActual: 100, achievementRate: calculateAchievementRate(100, 102) },
 ];
-
-
-const salesChartConfig = {
-  salesActual: { label: "実績", color: "hsl(var(--primary))" },
-  salesTarget: { label: "目標", color: "hsl(var(--primary) / 0.3)" },
-  achievementRate: { label: "達成率", color: "hsl(var(--destructive))" },
-};
 
 
 function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Widget | null, onSave: (data: Omit<Widget, 'id' | 'status'>) => void, children: React.ReactNode, defaultScope: WidgetScope }) {
@@ -383,87 +360,6 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
     );
 }
 
-const previewData = [
-  { name: '1月', value: 400 },
-  { name: '2月', value: 300 },
-  { name: '3月', value: 600 },
-  { name: '4月', value: 800 },
-  { name: '5月', value: 500 },
-  { name: '6月', value: 700 },
-];
-
-const pieData = [
-  { name: '完了', value: 75 },
-  { name: '未完了', value: 25 },
-];
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--muted))'];
-
-
-function ActualSalesComposedChart({ chartData, config }: { chartData: any[], config: any }) {
-    return (
-        <ChartContainer config={config} className="h-full w-full">
-            <RechartsComposedChart accessibilityLayer data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <RechartsCartesianGrid vertical={false} />
-                <RechartsXAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 10 }} />
-                <RechartsYAxis yAxisId="left" orientation="left" stroke="hsl(var(--primary))" tick={{ fontSize: 10 }} />
-                <RechartsYAxis yAxisId="right" orientation="right" stroke="hsl(var(--destructive))" tick={{ fontSize: 10 }} />
-                <RechartsRechartsTooltip content={<ChartTooltipContent />} />
-                <RechartsLegend />
-                <RechartsBar dataKey="salesTarget" yAxisId="left" fill="var(--color-salesTarget)" radius={4} />
-                <RechartsBar dataKey="salesActual" yAxisId="left" fill="var(--color-salesActual)" radius={4} />
-                <RechartsLine type="monotone" dataKey="achievementRate" yAxisId="right" stroke="var(--color-achievementRate)" strokeWidth={2} dot={false} />
-            </RechartsComposedChart>
-        </ChartContainer>
-    );
-}
-
-function BarChartPreview() {
-  return (
-    <RechartsBarChart data={previewData}>
-      <RechartsBar dataKey="value" fill="hsl(var(--primary))" />
-    </RechartsBarChart>
-  );
-}
-
-function LineChartPreview() {
-  return (
-    <RechartsLineChart data={previewData}>
-      <RechartsLine type="monotone" dataKey="value" stroke="hsl(var(--primary))" />
-    </RechartsLineChart>
-  );
-}
-
-function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
-  return (
-    <RechartsPieChart>
-      <RechartsPie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} innerRadius={isDonut ? 40 : 0}>
-        {pieData.map((entry, index) => (
-          <RechartsCell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-        ))}
-      </RechartsPie>
-    </RechartsPieChart>
-  );
-}
-
-
-function getChartPreview(chartType: string, chartData: any[], salesChartConfig: any) {
-  switch (chartType) {
-    case 'bar':
-      return <BarChartPreview />;
-    case 'line':
-      return <LineChartPreview />;
-    case 'pie':
-      return <PieChartPreview />;
-    case 'donut':
-      return <PieChartPreview isDonut />;
-    case 'composed':
-       return <ActualSalesComposedChart chartData={chartData} config={salesChartConfig} />;
-    default:
-      return <div className='flex items-center justify-center h-full'><BarChart className="h-8 w-8 text-muted-foreground" /></div>;
-  }
-}
-
-
 function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord, onDeleteRecord, currentYear }: { 
   widgets: Widget[], 
   salesData: SalesRecord[], 
@@ -475,12 +371,6 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
   currentYear: number
 }) {
   const activeWidgets = widgets.filter(w => w.status === 'active');
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   const chartData = useMemo(() =>
     salesData
       .filter(d => d.year === currentYear)
@@ -538,13 +428,10 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
                 </DropdownMenu>
               </CardHeader>
               <CardContent className="h-40 w-full">
-                  {isMounted ? (
-                     getChartPreview(widget.chartType, chartData, salesChartConfig)
-                  ) : (
-                    <div className='flex items-center justify-center h-full bg-muted/50 rounded-md'>
-                        {getChartIcon(widget.chartType)}
-                    </div>
-                  )}
+                 <WidgetPreview 
+                   widget={widget} 
+                   chartData={chartData} 
+                 />
               </CardContent>
               <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
                  <span>
@@ -754,5 +641,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-
-    
