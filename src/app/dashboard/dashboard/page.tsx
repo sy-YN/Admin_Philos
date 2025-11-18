@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { LineChart, BarChart, PieChart, Donut, PlusCircle, MoreHorizontal, Trash2, Edit, Database, Archive, Undo, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LineChart, BarChart, PieChart, Donut, PlusCircle, MoreHorizontal, Trash2, Edit, Database, Archive, Undo, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,7 +17,7 @@ import dynamic from 'next/dynamic';
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
   ssr: false,
-  loading: () => <div className="h-full w-full flex items-center justify-center"><BarChart className="h-8 w-8 text-muted-foreground" /></div>,
+  loading: () => <div className="h-full w-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>,
 });
 
 
@@ -85,16 +85,16 @@ type SalesRecord = {
     achievementRate: number;
 }
 
+const calculateAchievementRate = (actual: number, target: number) => {
+  if (target === 0) return 0;
+  return Math.round((actual / target) * 100);
+}
+
 const initialWidgets: Widget[] = [
     { id: '1', title: '全社売上高の推移', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'active' },
     { id: '2', title: '営業チームのタスク完了率', kpi: 'task_completion_rate', scope: 'team', chartType: 'pie', status: 'active' },
     { id: '3', title: '個人の学習時間の記録', kpi: 'self_learning_time', scope: 'personal', chartType: 'line', status: 'active' },
 ];
-
-const calculateAchievementRate = (actual: number, target: number) => {
-  if (target === 0) return 0;
-  return Math.round((actual / target) * 100);
-}
 
 const initialSalesRecords: SalesRecord[] = [
     // 2023 Data
@@ -339,7 +339,16 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
                            </div>
                            <div className="grid gap-2 flex-1">
                              <Label>対象月</Label>
-                             <Input type="number" value={month} onChange={e => setMonth(Number(e.target.value))} />
+                             <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                               <SelectTrigger>
+                                 <SelectValue placeholder="月を選択" />
+                               </SelectTrigger>
+                               <SelectContent>
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                  <SelectItem key={m} value={String(m)}>{m}月</SelectItem>
+                                ))}
+                               </SelectContent>
+                             </Select>
                            </div>
                         </div>
                         <div className="grid gap-2">
@@ -373,10 +382,13 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
   const activeWidgets = widgets.filter(w => w.status === 'active');
   const chartData = useMemo(() =>
     salesData
-      .filter(d => d.year === currentYear)
-      .map(d => ({ month: `${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
-      .sort((a, b) => parseInt(a.month) - parseInt(b.month))
-    , [salesData, currentYear]);
+      .map(d => ({ month: `${d.year}/${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
+      .sort((a, b) => {
+          const [yearA, monthA] = a.month.split('/');
+          const [yearB, monthB] = b.month.split('/');
+          return new Date(Number(yearA), Number(monthA.replace('月', ''))-1).getTime() - new Date(Number(yearB), Number(monthB.replace('月', ''))-1).getTime();
+      })
+    , [salesData]);
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -520,10 +532,15 @@ export default function DashboardSettingsPage() {
     const [widgets, setWidgets] = useState<Widget[]>(initialWidgets);
     const [activeTab, setActiveTab] = useState<WidgetScope>('company');
     const [salesRecords, setSalesRecords] = useState<SalesRecord[]>(initialSalesRecords);
+    const [isMounted, setIsMounted] = useState(false);
     
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const availableYears = useMemo(() => [...new Set(salesRecords.map(d => d.year))].sort((a,b) => b-a), [salesRecords]);
     
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     useEffect(() => {
         if(availableYears.length > 0 && !availableYears.includes(currentYear)){
             setCurrentYear(availableYears[0]);
@@ -583,6 +600,14 @@ export default function DashboardSettingsPage() {
     const filteredWidgets = useMemo(() => {
         return widgets.filter(w => w.scope === activeTab);
     }, [widgets, activeTab]);
+
+  if (!isMounted) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-8">

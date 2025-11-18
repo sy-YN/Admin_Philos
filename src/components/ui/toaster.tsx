@@ -29,7 +29,7 @@ export function Toaster() {
           </Toast>
         )
       })}
-      <ToastViewport />
+      <ToastViewport className="max-h-screen overflow-y-auto" />
     </ToastProvider>
   )
 }
