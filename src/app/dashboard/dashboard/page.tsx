@@ -104,7 +104,10 @@ const initialSalesRecords: SalesRecord[] = [
     { id: '2024-05', year: 2024, month: 5, salesTarget: 85, salesActual: 88, achievementRate: calculateAchievementRate(88, 85) },
     { id: '2024-06', year: 2024, month: 6, salesTarget: 90, salesActual: 92, achievementRate: calculateAchievementRate(92, 90) },
     { id: '2024-07', year: 2024, month: 7, salesTarget: 95, salesActual: 93, achievementRate: calculateAchievementRate(93, 95) },
-    // 2025 Data
+    // Data for FY2025
+    { id: '2024-08', year: 2024, month: 8, salesTarget: 98, salesActual: 100, achievementRate: calculateAchievementRate(100, 98) },
+    { id: '2024-09', year: 2024, month: 9, salesTarget: 100, salesActual: 98, achievementRate: calculateAchievementRate(98, 100) },
+    // Data for FY2026
     { id: '2025-08', year: 2025, month: 8, salesTarget: 100, salesActual: 105, achievementRate: calculateAchievementRate(105, 100) },
     { id: '2025-09', year: 2025, month: 9, salesTarget: 102, salesActual: 100, achievementRate: calculateAchievementRate(100, 102) },
 ];
@@ -416,7 +419,7 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
                      <DropdownMenuSeparator />
                      <AlertDialog>
                       <AlertDialogTrigger asChild>
-                         <DropdownMenuItem onSelect={e => epreventDefault()} className="text-destructive">
+                         <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
                           <Archive className="mr-2 h-4 w-4"/>アーカイブ
                         </DropdownMenuItem>
                       </AlertDialogTrigger>
@@ -538,17 +541,17 @@ export default function DashboardSettingsPage() {
     });
 
     const availableYears = useMemo(() => {
-        const yearSet = new Set<number>();
-        salesRecords.forEach(record => {
-            // 8月以降のデータがあれば、その翌年を会計年度の締め年として追加
-            if (record.month >= 8) {
-                yearSet.add(record.year + 1);
-            } else {
-            // 7月以前のデータがあれば、その年を会計年度の締め年として追加
-                yearSet.add(record.year);
-            }
-        });
-        return Array.from(yearSet).sort((a,b) => b-a);
+      const yearSet = new Set<number>();
+      salesRecords.forEach(record => {
+        // 8月以降のデータは翌年度に属する
+        if (record.month >= 8) {
+          yearSet.add(record.year + 1);
+        } else {
+        // 7月以前のデータはその年に属する
+          yearSet.add(record.year);
+        }
+      });
+      return Array.from(yearSet).sort((a,b) => b-a);
     }, [salesRecords]);
 
     useEffect(() => {
