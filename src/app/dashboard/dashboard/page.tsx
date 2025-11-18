@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { LineChart, BarChart, PieChart, Donut, PlusCircle, MoreHorizontal, Trash2, Edit, Database, Archive, Undo } from 'lucide-react';
+import { LineChart, BarChart, PieChart, Donut, PlusCircle, MoreHorizontal, Trash2, Edit, Database, Archive, Undo, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -102,10 +102,20 @@ const calculateAchievementRate = (actual: number, target: number) => {
 }
 
 const initialSalesRecords: SalesRecord[] = [
+    // 2023 Data
+    { id: '2023-01', year: 2023, month: 1, salesTarget: 70, salesActual: 65, achievementRate: calculateAchievementRate(65, 70) },
+    { id: '2023-02', year: 2023, month: 2, salesTarget: 72, salesActual: 75, achievementRate: calculateAchievementRate(75, 72) },
+    { id: '2023-03', year: 2023, month: 3, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
+    // 2024 Data
     { id: '2024-04', year: 2024, month: 4, salesTarget: 80, salesActual: 75, achievementRate: calculateAchievementRate(75, 80) },
     { id: '2024-05', year: 2024, month: 5, salesTarget: 85, salesActual: 88, achievementRate: calculateAchievementRate(88, 85) },
     { id: '2024-06', year: 2024, month: 6, salesTarget: 90, salesActual: 92, achievementRate: calculateAchievementRate(92, 90) },
+    { id: '2024-07', year: 2024, month: 7, salesTarget: 95, salesActual: 93, achievementRate: calculateAchievementRate(93, 95) },
+    // 2025 Data
+    { id: '2025-08', year: 2025, month: 8, salesTarget: 100, salesActual: 105, achievementRate: calculateAchievementRate(105, 100) },
+    { id: '2025-09', year: 2025, month: 9, salesTarget: 102, salesActual: 100, achievementRate: calculateAchievementRate(100, 102) },
 ];
+
 
 const salesChartConfig = {
   salesActual: { label: "実績", color: "hsl(var(--primary))" },
@@ -362,6 +372,116 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
     );
 }
 
+function SalesChartWidget({ widget, salesData, onSave, onArchive, onSaveRecord, onDeleteRecord }: {
+  widget: Widget,
+  salesData: SalesRecord[],
+  onSave: (data: Omit<Widget, 'id' | 'status'>, id?: string) => void,
+  onArchive: (id: string) => void,
+  onSaveRecord: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void,
+  onDeleteRecord: (id: string) => void
+}) {
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const availableYears = useMemo(() => [...new Set(salesData.map(d => d.year))].sort(), [salesData]);
+
+  const chartData = useMemo(() =>
+    salesData
+      .filter(d => d.year === currentYear)
+      .map(d => ({ month: `${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget }))
+      .sort((a, b) => parseInt(a.month) - parseInt(b.month))
+    , [salesData, currentYear]);
+
+  const canGoPrev = availableYears.length > 0 && currentYear > availableYears[0];
+  const canGoNext = availableYears.length > 0 && currentYear < availableYears[availableYears.length - 1];
+  
+  const handleYearChange = (direction: 'prev' | 'next') => {
+    const currentIndex = availableYears.indexOf(currentYear);
+    if(direction === 'prev' && canGoPrev) {
+      setCurrentYear(availableYears[currentIndex - 1]);
+    }
+    if(direction === 'next' && canGoNext) {
+      setCurrentYear(availableYears[currentIndex + 1]);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className='flex-row items-center justify-between pb-2'>
+        <CardTitle className="text-base">{widget.title}</CardTitle>
+         <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope}>
+              <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                  <Edit className="mr-2 h-4 w-4"/>ウィジェット設定
+              </DropdownMenuItem>
+            </WidgetDialog>
+            {widget.kpi === 'sales_revenue' && (
+              <SalesDataManagementDialog records={salesData} onSave={onSaveRecord} onDelete={onDeleteRecord}>
+                 <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                    <Database className="mr-2 h-4 w-4"/>データ編集
+                </DropdownMenuItem>
+              </SalesDataManagementDialog>
+            )}
+            <DropdownMenuSeparator />
+             <AlertDialog>
+              <AlertDialogTrigger asChild>
+                 <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
+                  <Archive className="mr-2 h-4 w-4"/>アーカイブ
+                </DropdownMenuItem>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>ウィジェットをアーカイブしますか？</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    ウィジェット「{widget.title}」をアーカイブ（非表示）します。後から復元できます。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onArchive(widget.id)}>アーカイブ</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </CardHeader>
+      <CardContent>
+          <div className="flex items-center justify-center gap-4 my-2">
+            <Button variant="outline" size="icon" className='h-6 w-6' onClick={() => handleYearChange('prev')} disabled={!canGoPrev}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium">{currentYear}年</span>
+             <Button variant="outline" size="icon" className='h-6 w-6' onClick={() => handleYearChange('next')} disabled={!canGoNext}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <ChartContainer config={salesChartConfig} className="h-40 w-full">
+              <ComposedChart accessibilityLayer data={chartData}>
+                 <CartesianGrid vertical={false} />
+                 <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tick={{fontSize: 12}} />
+                 <ChartTooltip content={<ChartTooltipContent />} />
+                 <RechartsBar dataKey="salesTarget" fill="var(--color-salesTarget)" radius={4} />
+                 <RechartsBar dataKey="salesActual" fill="var(--color-salesActual)" radius={4} />
+              </ComposedChart>
+          </ChartContainer>
+      </CardContent>
+      <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
+         <span>
+           {kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A'}
+         </span>
+         <span>
+           {chartOptions.find(c => c.value === widget.chartType)?.label || 'N/A'}
+         </span>
+      </CardFooter>
+    </Card>
+  );
+}
+
+
 function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord, onDeleteRecord }: { 
   widgets: Widget[], 
   salesData: SalesRecord[], 
@@ -371,88 +491,77 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
   onSaveRecord: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void, 
   onDeleteRecord: (id: string) => void 
 }) {
-  const chartData = useMemo(() => 
-    salesData.map(d => ({ month: `${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget }))
-    .sort((a, b) => parseInt(a.month) - parseInt(b.month))
-    , [salesData]);
-
   const activeWidgets = widgets.filter(w => w.status === 'active');
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {activeWidgets.map(widget => (
-          <Card key={widget.id}>
-            <CardHeader className='flex-row items-center justify-between pb-2'>
-              <CardTitle className="text-base">{widget.title}</CardTitle>
-               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={scope}>
-                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                        <Edit className="mr-2 h-4 w-4"/>ウィジェット設定
-                    </DropdownMenuItem>
-                  </WidgetDialog>
-                  {widget.kpi === 'sales_revenue' && (
-                    <SalesDataManagementDialog records={salesData} onSave={onSaveRecord} onDelete={onDeleteRecord}>
-                       <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                          <Database className="mr-2 h-4 w-4"/>データ編集
+        {activeWidgets.map(widget => {
+          if (widget.kpi === 'sales_revenue' && ComposedChart) {
+            return <SalesChartWidget 
+              key={widget.id}
+              widget={widget} 
+              salesData={salesData} 
+              onSave={onSave}
+              onArchive={onArchive}
+              onSaveRecord={onSaveRecord}
+              onDeleteRecord={onDeleteRecord}
+            />
+          }
+          return (
+            <Card key={widget.id}>
+              <CardHeader className='flex-row items-center justify-between pb-2'>
+                <CardTitle className="text-base">{widget.title}</CardTitle>
+                 <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={scope}>
+                      <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                          <Edit className="mr-2 h-4 w-4"/>ウィジェット設定
                       </DropdownMenuItem>
-                    </SalesDataManagementDialog>
-                  )}
-                  <DropdownMenuSeparator />
-                   <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                       <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
-                        <Archive className="mr-2 h-4 w-4"/>アーカイブ
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>ウィジェットをアーカイブしますか？</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          ウィジェット「{widget.title}」をアーカイブ（非表示）します。後から復元できます。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onArchive(widget.id)}>アーカイブ</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </CardHeader>
-            <CardContent>
-                {widget.kpi === 'sales_revenue' && ComposedChart ? (
-                     <ChartContainer config={salesChartConfig} className="h-40 w-full">
-                        <ComposedChart accessibilityLayer data={chartData}>
-                           <CartesianGrid vertical={false} />
-                           <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tick={{fontSize: 12}} />
-                           <ChartTooltip content={<ChartTooltipContent />} />
-                           <RechartsBar dataKey="salesTarget" fill="var(--color-salesTarget)" radius={4} />
-                           <RechartsBar dataKey="salesActual" fill="var(--color-salesActual)" radius={4} />
-                        </ComposedChart>
-                    </ChartContainer>
-                ) : (
+                    </WidgetDialog>
+                     <DropdownMenuSeparator />
+                     <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                         <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
+                          <Archive className="mr-2 h-4 w-4"/>アーカイブ
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>ウィジェットをアーカイブしますか？</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            ウィジェット「{widget.title}」をアーカイブ（非表示）します。後から復元できます。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => onArchive(widget.id)}>アーカイブ</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </CardHeader>
+              <CardContent>
                   <div className='flex items-center justify-center bg-muted/50 rounded-md h-40'>
                       {getChartIcon(widget.chartType)}
                   </div>
-                )}
-            </CardContent>
-            <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
-               <span>
-                 {kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A'}
-               </span>
-               <span>
-                 {chartOptions.find(c => c.value === widget.chartType)?.label || 'N/A'}
-               </span>
-            </CardFooter>
-          </Card>
-        ))}
+              </CardContent>
+              <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
+                 <span>
+                   {kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A'}
+                 </span>
+                 <span>
+                   {chartOptions.find(c => c.value === widget.chartType)?.label || 'N/A'}
+                 </span>
+              </CardFooter>
+            </Card>
+          )
+        })}
       </div>
   );
 }
@@ -614,3 +723,4 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
