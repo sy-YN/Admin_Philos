@@ -127,7 +127,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
   const [chartType, setChartType] = useState('');
 
   const availableChartOptions = useMemo(() => {
-    if (!kpi) return chartOptions;
+    if (!kpi) return [];
     const allowedChartTypes = kpiToChartMapping[kpi] || [];
     return chartOptions.filter(option => allowedChartTypes.includes(option.value));
   }, [kpi]);
