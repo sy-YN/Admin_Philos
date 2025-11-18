@@ -16,10 +16,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import dynamic from 'next/dynamic';
 
-const ComposedChart = dynamic(() => import('recharts').then(mod => mod.ComposedChart), { ssr: false });
+const RechartsComposedChart = dynamic(() => import('recharts').then(mod => mod.ComposedChart), { ssr: false, loading: () => <div className="h-full w-full flex items-center justify-center"><LineChart className="h-5 w-5 text-muted-foreground" /></div> });
+const RechartsBarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), { ssr: false, loading: () => <div className="h-full w-full flex items-center justify-center"><BarChart className="h-5 w-5 text-muted-foreground" /></div> });
+const RechartsLineChart = dynamic(() => import('recharts').then(mod => mod.LineChart), { ssr: false, loading: () => <div className="h-full w-full flex items-center justify-center"><LineChart className="h-5 w-5 text-muted-foreground" /></div> });
+const RechartsPieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), { ssr: false, loading: () => <div className="h-full w-full flex items-center justify-center"><PieChart className="h-5 w-5 text-muted-foreground" /></div> });
+
 const RechartsBar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
-const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
-const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
+const RechartsLine = dynamic(() => import('recharts').then(mod => mod.Line), { ssr: false });
+const RechartsPie = dynamic(() => import('recharts').then(mod => mod.Pie), { ssr: false });
+const RechartsCell = dynamic(() => import('recharts').then(mod => mod.Cell), { ssr: false });
+const RechartsXAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
+const RechartsYAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
+const RechartsCartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
+const RechartsRechartsTooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
+const RechartsLegend = dynamic(() => import('recharts').then(mod => mod.Legend), { ssr: false });
 
 
 const kpiOptions = {
@@ -35,9 +45,9 @@ const kpiOptions = {
   ],
   personal: [
     { value: 'personal_sales_achievement', label: '個人の売上達成率' },
-    { value: 'task_achievement_rate', label: 'タスク達成率'},
+    { value: 'task_achievement_rate', label: 'タスク達成率' },
     { value: 'self_learning_time', label: '自己学習時間' },
-    { value: 'vacation_acquisition_rate', label: '健康管理指標（休暇取得率）'},
+    { value: 'vacation_acquisition_rate', label: '健康管理指標（休暇取得率）' },
   ],
 };
 
@@ -46,16 +56,17 @@ const chartOptions = [
   { value: 'bar', label: '棒グラフ', icon: BarChart },
   { value: 'pie', label: '円グラフ', icon: PieChart },
   { value: 'donut', label: 'ドーナツチャート', icon: Donut },
+  { value: 'composed', label: '複合グラフ', icon: BarChart }
 ];
 
 const kpiToChartMapping: Record<string, string[]> = {
   // Company
-  sales_revenue: ['line', 'bar'],
+  sales_revenue: ['line', 'bar', 'composed'],
   profit_margin: ['line'],
   new_customers: ['bar'],
   project_delivery_compliance: ['pie', 'bar'],
   // Team
-  task_completion_rate: ['pie'],
+  task_completion_rate: ['pie', 'donut'],
   project_progress: ['donut'],
   // Personal
   personal_sales_achievement: ['donut', 'bar'],
@@ -91,7 +102,7 @@ type SalesRecord = {
 }
 
 const initialWidgets: Widget[] = [
-    { id: '1', title: '全社売上高の推移', kpi: 'sales_revenue', scope: 'company', chartType: 'bar', status: 'active' },
+    { id: '1', title: '全社売上高の推移', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'active' },
     { id: '2', title: '営業チームのタスク完了率', kpi: 'task_completion_rate', scope: 'team', chartType: 'pie', status: 'active' },
     { id: '3', title: '個人の学習時間の記録', kpi: 'self_learning_time', scope: 'personal', chartType: 'line', status: 'active' },
 ];
@@ -120,6 +131,7 @@ const initialSalesRecords: SalesRecord[] = [
 const salesChartConfig = {
   salesActual: { label: "実績", color: "hsl(var(--primary))" },
   salesTarget: { label: "目標", color: "hsl(var(--primary) / 0.3)" },
+  achievementRate: { label: "達成率", color: "hsl(var(--destructive))" },
 };
 
 
@@ -140,7 +152,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
     setKpi(newKpi);
     const allowedCharts = kpiToChartMapping[newKpi] || [];
     if (!allowedCharts.includes(chartType)) {
-      setChartType('');
+      setChartType(allowedCharts[0] || '');
     }
   };
 
@@ -176,7 +188,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
             </div>
             <div className="grid gap-2">
               <Label htmlFor="widget-scope">対象単位</Label>
-              <Select value={scope} onValueChange={(v: any) => { setScope(v); setKpi(''); }}>
+              <Select value={scope} onValueChange={(v: any) => { setScope(v); setKpi(''); setChartType(''); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="company">会社単位</SelectItem>
@@ -371,89 +383,84 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
     );
 }
 
-function SalesChartWidget({ widget, salesData, onSave, onArchive, onSaveRecord, onDeleteRecord, currentYear }: {
-  widget: Widget,
-  salesData: SalesRecord[],
-  onSave: (data: Omit<Widget, 'id' | 'status'>, id?: string) => void,
-  onArchive: (id: string) => void,
-  onSaveRecord: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void,
-  onDeleteRecord: (id: string) => void,
-  currentYear: number
-}) {
-  const chartData = useMemo(() =>
-    salesData
-      .filter(d => d.year === currentYear)
-      .map(d => ({ month: `${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget }))
-      .sort((a, b) => parseInt(a.month) - parseInt(b.month))
-    , [salesData, currentYear]);
+const previewData = [
+  { name: '1月', value: 400 },
+  { name: '2月', value: 300 },
+  { name: '3月', value: 600 },
+  { name: '4月', value: 800 },
+  { name: '5月', value: 500 },
+  { name: '6月', value: 700 },
+];
 
+const pieData = [
+  { name: '完了', value: 75 },
+  { name: '未完了', value: 25 },
+];
+const COLORS = ['hsl(var(--primary))', 'hsl(var(--muted))'];
+
+
+function ActualSalesComposedChart({ chartData, config }: { chartData: any[], config: any }) {
+    return (
+        <ChartContainer config={config} className="h-full w-full">
+            <RechartsComposedChart accessibilityLayer data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <RechartsCartesianGrid vertical={false} />
+                <RechartsXAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 10 }} />
+                <RechartsYAxis yAxisId="left" orientation="left" stroke="hsl(var(--primary))" tick={{ fontSize: 10 }} />
+                <RechartsYAxis yAxisId="right" orientation="right" stroke="hsl(var(--destructive))" tick={{ fontSize: 10 }} />
+                <RechartsRechartsTooltip content={<ChartTooltipContent />} />
+                <RechartsLegend />
+                <RechartsBar dataKey="salesTarget" yAxisId="left" fill="var(--color-salesTarget)" radius={4} />
+                <RechartsBar dataKey="salesActual" yAxisId="left" fill="var(--color-salesActual)" radius={4} />
+                <RechartsLine type="monotone" dataKey="achievementRate" yAxisId="right" stroke="var(--color-achievementRate)" strokeWidth={2} dot={false} />
+            </RechartsComposedChart>
+        </ChartContainer>
+    );
+}
+
+function BarChartPreview() {
   return (
-    <Card>
-      <CardHeader className='flex-row items-center justify-between pb-2'>
-        <CardTitle className="text-base">{widget.title}</CardTitle>
-         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope}>
-              <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                  <Edit className="mr-2 h-4 w-4"/>ウィジェット設定
-              </DropdownMenuItem>
-            </WidgetDialog>
-            {widget.kpi === 'sales_revenue' && (
-              <SalesDataManagementDialog records={salesData} onSave={onSaveRecord} onDelete={onDeleteRecord}>
-                 <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                    <Database className="mr-2 h-4 w-4"/>データ編集
-                </DropdownMenuItem>
-              </SalesDataManagementDialog>
-            )}
-            <DropdownMenuSeparator />
-             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                 <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
-                  <Archive className="mr-2 h-4 w-4"/>アーカイブ
-                </DropdownMenuItem>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>ウィジェットをアーカイブしますか？</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    ウィジェット「{widget.title}」をアーカイブ（非表示）します。後から復元できます。
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onArchive(widget.id)}>アーカイブ</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </CardHeader>
-      <CardContent>
-          <ChartContainer config={salesChartConfig} className="h-40 w-full">
-              <ComposedChart accessibilityLayer data={chartData}>
-                 <CartesianGrid vertical={false} />
-                 <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tick={{fontSize: 12}} />
-                 <ChartTooltip content={<ChartTooltipContent />} />
-                 <RechartsBar dataKey="salesTarget" fill="var(--color-salesTarget)" radius={4} />
-                 <RechartsBar dataKey="salesActual" fill="var(--color-salesActual)" radius={4} />
-              </ComposedChart>
-          </ChartContainer>
-      </CardContent>
-      <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
-         <span>
-           {kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A'}
-         </span>
-         <span>
-           {chartOptions.find(c => c.value === widget.chartType)?.label || 'N/A'}
-         </span>
-      </CardFooter>
-    </Card>
+    <RechartsBarChart data={previewData}>
+      <RechartsBar dataKey="value" fill="hsl(var(--primary))" />
+    </RechartsBarChart>
   );
+}
+
+function LineChartPreview() {
+  return (
+    <RechartsLineChart data={previewData}>
+      <RechartsLine type="monotone" dataKey="value" stroke="hsl(var(--primary))" />
+    </RechartsLineChart>
+  );
+}
+
+function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
+  return (
+    <RechartsPieChart>
+      <RechartsPie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} innerRadius={isDonut ? 40 : 0}>
+        {pieData.map((entry, index) => (
+          <RechartsCell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+        ))}
+      </RechartsPie>
+    </RechartsPieChart>
+  );
+}
+
+
+function getChartPreview(chartType: string, chartData: any[], salesChartConfig: any) {
+  switch (chartType) {
+    case 'bar':
+      return <BarChartPreview />;
+    case 'line':
+      return <LineChartPreview />;
+    case 'pie':
+      return <PieChartPreview />;
+    case 'donut':
+      return <PieChartPreview isDonut />;
+    case 'composed':
+       return <ActualSalesComposedChart chartData={chartData} config={salesChartConfig} />;
+    default:
+      return <div className='flex items-center justify-center h-full'><BarChart className="h-8 w-8 text-muted-foreground" /></div>;
+  }
 }
 
 
@@ -468,22 +475,22 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
   currentYear: number
 }) {
   const activeWidgets = widgets.filter(w => w.status === 'active');
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const chartData = useMemo(() =>
+    salesData
+      .filter(d => d.year === currentYear)
+      .map(d => ({ month: `${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
+      .sort((a, b) => parseInt(a.month) - parseInt(b.month))
+    , [salesData, currentYear]);
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {activeWidgets.map(widget => {
-          if (widget.kpi === 'sales_revenue' && ComposedChart) {
-            return <SalesChartWidget 
-              key={widget.id}
-              widget={widget} 
-              salesData={salesData} 
-              onSave={onSave}
-              onArchive={onArchive}
-              onSaveRecord={onSaveRecord}
-              onDeleteRecord={onDeleteRecord}
-              currentYear={currentYear}
-            />
-          }
           return (
             <Card key={widget.id}>
               <CardHeader className='flex-row items-center justify-between pb-2'>
@@ -500,6 +507,13 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
                           <Edit className="mr-2 h-4 w-4"/>ウィジェット設定
                       </DropdownMenuItem>
                     </WidgetDialog>
+                     {widget.kpi === 'sales_revenue' && (
+                        <SalesDataManagementDialog records={salesData} onSave={onSaveRecord} onDelete={onDeleteRecord}>
+                            <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                                <Database className="mr-2 h-4 w-4"/>データ編集
+                            </DropdownMenuItem>
+                        </SalesDataManagementDialog>
+                    )}
                      <DropdownMenuSeparator />
                      <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -523,10 +537,14 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
                   </DropdownMenuContent>
                 </DropdownMenu>
               </CardHeader>
-              <CardContent>
-                  <div className='flex items-center justify-center bg-muted/50 rounded-md h-40'>
-                      {getChartIcon(widget.chartType)}
-                  </div>
+              <CardContent className="h-40 w-full">
+                  {isMounted ? (
+                     getChartPreview(widget.chartType, chartData, salesChartConfig)
+                  ) : (
+                    <div className='flex items-center justify-center h-full bg-muted/50 rounded-md'>
+                        {getChartIcon(widget.chartType)}
+                    </div>
+                  )}
               </CardContent>
               <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
                  <span>
@@ -736,3 +754,5 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
+    
