@@ -42,7 +42,6 @@ const kpiOptions = {
     { value: 'sales_revenue', label: '売上高' },
     { value: 'profit_margin', label: '営業利益率' },
     { value: 'new_customers', label: '新規顧客獲得数' },
-    { value: 'delivery_compliance', label: 'プロジェクトの納期遵守率' },
   ],
   team: [
     { value: 'task_completion_rate', label: 'タスク完了率' },
@@ -50,19 +49,27 @@ const kpiOptions = {
   ],
   personal: [
     { value: 'personal_sales_achievement', label: '個人の売上達成率' },
-    { value: 'personal_task_achievement', label: 'タスク達成率' },
     { value: 'self_learning_time', label: '自己学習時間' },
-    { value: 'leave_acquisition_rate', label: '休暇取得率' },
   ],
 };
 
 const chartOptions = [
   { value: 'line', label: '折れ線グラフ', icon: LineChart },
   { value: 'bar', label: '棒グラフ', icon: BarChart },
-  { value: 'stacked_bar', label: '積み上げ棒グラフ', icon: BarChart },
   { value: 'pie', label: '円グラフ', icon: PieChart },
   { value: 'donut', label: 'ドーナツチャート', icon: Donut },
 ];
+
+const kpiToChartMapping: Record<string, string[]> = {
+  sales_revenue: ['line', 'bar'],
+  profit_margin: ['line', 'bar'],
+  new_customers: ['line', 'bar'],
+  task_completion_rate: ['donut', 'bar'],
+  project_progress: ['donut', 'bar'],
+  personal_sales_achievement: ['donut', 'bar'],
+  self_learning_time: ['line', 'bar'],
+};
+
 
 const getChartIcon = (chartType: string) => {
   const chart = chartOptions.find(c => c.value === chartType);
@@ -119,6 +126,21 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
   const [kpi, setKpi] = useState('');
   const [chartType, setChartType] = useState('');
 
+  const availableChartOptions = useMemo(() => {
+    if (!kpi) return chartOptions;
+    const allowedChartTypes = kpiToChartMapping[kpi] || [];
+    return chartOptions.filter(option => allowedChartTypes.includes(option.value));
+  }, [kpi]);
+
+  const handleKpiChange = (newKpi: string) => {
+    setKpi(newKpi);
+    const allowedCharts = kpiToChartMapping[newKpi] || [];
+    // If current chartType is not allowed for the new KPI, reset it
+    if (!allowedCharts.includes(chartType)) {
+      setChartType('');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({ title, scope, kpi, chartType });
@@ -162,7 +184,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
             </div>
             <div className="grid gap-2">
               <Label htmlFor="widget-kpi">KPI項目</Label>
-              <Select value={kpi} onValueChange={(v: any) => setKpi(v)} required>
+              <Select value={kpi} onValueChange={handleKpiChange} required>
                 <SelectTrigger><SelectValue placeholder="KPIを選択" /></SelectTrigger>
                 <SelectContent>
                   {kpiOptions[scope].map(option => (
@@ -173,10 +195,10 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
             </div>
             <div className="grid gap-2">
               <Label htmlFor="widget-chart">グラフの種類</Label>
-              <Select value={chartType} onValueChange={(v: any) => setChartType(v)} required>
-                <SelectTrigger><SelectValue placeholder="グラフを選択" /></SelectTrigger>
+              <Select value={chartType} onValueChange={(v: any) => setChartType(v)} required disabled={!kpi}>
+                <SelectTrigger><SelectValue placeholder={!kpi ? "先にKPIを選択" : "グラフを選択"} /></SelectTrigger>
                 <SelectContent>
-                  {chartOptions.map(option => (
+                  {availableChartOptions.map(option => (
                     <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -377,19 +399,19 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
                    <AlertDialog>
                     <AlertDialogTrigger asChild>
                        <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
-                        <Trash2 className="mr-2 h-4 w-4"/>削除
+                        <Archive className="mr-2 h-4 w-4"/>アーカイブ
                       </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>ウィジェットを削除しますか？</AlertDialogTitle>
+                        <AlertDialogTitle>ウィジェットをアーカイブしますか？</AlertDialogTitle>
                         <AlertDialogDescription>
                           ウィジェット「{widget.title}」をアーカイブ（非表示）します。後から復元できます。
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onArchive(widget.id)}>削除</AlertDialogAction>
+                        <AlertDialogAction onClick={() => onArchive(widget.id)}>アーカイブ</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
