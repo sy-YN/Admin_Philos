@@ -91,10 +91,15 @@ const initialWidgets: Widget[] = [
 
 const initialSalesRecords: SalesRecord[] = [
     // 2023 Data
-    { id: '2023-01', year: 2023, month: 1, salesTarget: 70, salesActual: 65, achievementRate: calculateAchievementRate(65, 70) },
-    { id: '2023-02', year: 2023, month: 2, salesTarget: 72, salesActual: 75, achievementRate: calculateAchievementRate(75, 72) },
-    { id: '2023-03', year: 2023, month: 3, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
+    { id: '2023-08', year: 2023, month: 8, salesTarget: 70, salesActual: 65, achievementRate: calculateAchievementRate(65, 70) },
+    { id: '2023-09', year: 2023, month: 9, salesTarget: 72, salesActual: 75, achievementRate: calculateAchievementRate(75, 72) },
+    { id: '2023-10', year: 2023, month: 10, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
+    { id: '2023-11', year: 2023, month: 11, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
+    { id: '2023-12', year: 2023, month: 12, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
     // 2024 Data
+    { id: '2024-01', year: 2024, month: 1, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
+    { id: '2024-02', year: 2024, month: 2, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
+    { id: '2024-03', year: 2024, month: 3, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
     { id: '2024-04', year: 2024, month: 4, salesTarget: 80, salesActual: 75, achievementRate: calculateAchievementRate(75, 80) },
     { id: '2024-05', year: 2024, month: 5, salesTarget: 85, salesActual: 88, achievementRate: calculateAchievementRate(88, 85) },
     { id: '2024-06', year: 2024, month: 6, salesTarget: 90, salesActual: 92, achievementRate: calculateAchievementRate(92, 90) },
@@ -411,7 +416,7 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
                      <DropdownMenuSeparator />
                      <AlertDialog>
                       <AlertDialogTrigger asChild>
-                         <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
+                         <DropdownMenuItem onSelect={e => epreventDefault()} className="text-destructive">
                           <Archive className="mr-2 h-4 w-4"/>アーカイブ
                         </DropdownMenuItem>
                       </AlertDialogTrigger>
@@ -526,13 +531,30 @@ export default function DashboardSettingsPage() {
     const [salesRecords, setSalesRecords] = useState<SalesRecord[]>(initialSalesRecords);
     const [isMounted, setIsMounted] = useState(false);
     
-    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-    const availableYears = useMemo(() => [...new Set(salesRecords.map(d => d.year))].sort((a,b) => b-a), [salesRecords]);
-    
+    // 現在の年を、利用可能な会計年度の最新のものに設定
+    const [currentYear, setCurrentYear] = useState(() => {
+        const years = [...new Set(initialSalesRecords.map(d => d.year))].sort((a,b) => b-a);
+        return years[0] || new Date().getFullYear();
+    });
+
+    const availableYears = useMemo(() => {
+        const yearSet = new Set<number>();
+        salesRecords.forEach(record => {
+            // 8月以降のデータがあれば、その翌年を会計年度の締め年として追加
+            if (record.month >= 8) {
+                yearSet.add(record.year + 1);
+            } else {
+            // 7月以前のデータがあれば、その年を会計年度の締め年として追加
+                yearSet.add(record.year);
+            }
+        });
+        return Array.from(yearSet).sort((a,b) => b-a);
+    }, [salesRecords]);
+
     useEffect(() => {
         setIsMounted(true);
     }, []);
-
+    
     useEffect(() => {
         if(availableYears.length > 0 && !availableYears.includes(currentYear)){
             setCurrentYear(availableYears[0]);
@@ -594,7 +616,27 @@ export default function DashboardSettingsPage() {
     }, [widgets, activeTab]);
 
     const filteredSalesData = useMemo(() => {
-        return salesRecords.filter(d => d.year === currentYear);
+        if (!salesRecords || salesRecords.length === 0) {
+            return [];
+        }
+
+        // 選択された年は会計年度の「締め年」
+        const endYear = currentYear;
+        const startYear = endYear - 1;
+
+        const fiscalYearData = salesRecords.filter(record => {
+            // 前年の8月〜12月のデータを含める
+            if (record.year === startYear && record.month >= 8) {
+                return true;
+            }
+            // 締め年の1月〜7月のデータを含める
+            if (record.year === endYear && record.month <= 7) {
+                return true;
+            }
+            return false;
+        });
+
+        return fiscalYearData;
     }, [salesRecords, currentYear]);
 
 
@@ -620,7 +662,7 @@ export default function DashboardSettingsPage() {
                   <Button variant="outline" size="icon" className='h-7 w-7' onClick={() => handleYearChange('prev')} disabled={!canGoPrev}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm font-medium w-20 text-center">{currentYear}年</span>
+                  <span className="text-sm font-medium w-24 text-center">{currentYear}年度</span>
                    <Button variant="outline" size="icon" className='h-7 w-7' onClick={() => handleYearChange('next')} disabled={!canGoNext}>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
