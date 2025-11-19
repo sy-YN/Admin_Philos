@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import dynamic from 'next/dynamic';
 import type { Widget } from '@/components/dashboard/widget-preview';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
   ssr: false,
@@ -767,5 +768,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-
-    
