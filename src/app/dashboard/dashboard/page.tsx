@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import dynamic from 'next/dynamic';
 import type { Widget } from '@/components/dashboard/widget-preview';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
   ssr: false,
@@ -370,8 +371,16 @@ function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord 
     );
 }
 
-function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord, onDeleteRecord }: { 
-  widgets: Widget[], 
+function WidgetDisplay({ 
+    widget, 
+    salesData, 
+    onSave, 
+    onArchive, 
+    scope, 
+    onSaveRecord, 
+    onDeleteRecord 
+}: { 
+  widget: Widget | undefined, 
   salesData: SalesRecord[], 
   onSave: (data: Omit<Widget, 'id' | 'status'>, id?: string) => void, 
   onArchive: (id: string) => void, 
@@ -379,7 +388,6 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
   onSaveRecord: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void, 
   onDeleteRecord: (id: string) => void,
 }) {
-  const activeWidgets = widgets.filter(w => w.status === 'active');
   const chartData = useMemo(() =>
     salesData
       .map(d => ({ month: `${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
@@ -390,73 +398,83 @@ function WidgetList({ widgets, salesData, onSave, onArchive, scope, onSaveRecord
       })
     , [salesData]);
 
-  return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {activeWidgets.map(widget => {
-          return (
-            <Card key={widget.id}>
-              <CardHeader className='flex-row items-center justify-between pb-2'>
-                <CardTitle className="text-base">{widget.title}</CardTitle>
-                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
+  if (!widget) {
+    return (
+        <Card className="flex flex-col items-center justify-center min-h-[250px] border-dashed">
+            <div className="text-center">
+                <p className="text-sm text-muted-foreground mb-4">この単位のウィジェットはまだ設定されていません。</p>
+                <WidgetDialog onSave={(data) => onSave(data)} defaultScope={scope}>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        新規ウィジェット追加
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={scope}>
-                      <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                          <Edit className="mr-2 h-4 w-4"/>ウィジェット設定
-                      </DropdownMenuItem>
-                    </WidgetDialog>
-                     {widget.kpi === 'sales_revenue' && (
-                        <SalesDataManagementDialog records={salesData} onSave={onSaveRecord} onDelete={onDeleteRecord}>
-                            <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                                <Database className="mr-2 h-4 w-4"/>データ編集
-                            </DropdownMenuItem>
-                        </SalesDataManagementDialog>
-                    )}
-                     <DropdownMenuSeparator />
-                     <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                         <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
-                          <Archive className="mr-2 h-4 w-4"/>アーカイブ
-                        </DropdownMenuItem>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>ウィジェットをアーカイブしますか？</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            ウィジェット「{widget.title}」をアーカイブ（非表示）します。後から復元できます。
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => onArchive(widget.id)}>アーカイブ</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CardHeader>
-              <CardContent className="h-40 w-full">
-                 <WidgetPreview 
-                   widget={widget} 
-                   chartData={chartData} 
-                 />
-              </CardContent>
-              <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
-                 <span>
-                   {kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A'}
-                 </span>
-                 <span>
-                   {chartOptions.find(c => c.value === widget.chartType)?.label || 'N/A'}
-                 </span>
-              </CardFooter>
-            </Card>
-          )
-        })}
-      </div>
+                </WidgetDialog>
+            </div>
+        </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className='flex-row items-center justify-between pb-2'>
+        <CardTitle className="text-base">{widget.title}</CardTitle>
+         <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={scope}>
+              <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                  <Edit className="mr-2 h-4 w-4"/>ウィジェット設定
+              </DropdownMenuItem>
+            </WidgetDialog>
+             {widget.kpi === 'sales_revenue' && (
+                <SalesDataManagementDialog records={salesData} onSave={onSaveRecord} onDelete={onDeleteRecord}>
+                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                        <Database className="mr-2 h-4 w-4"/>データ編集
+                    </DropdownMenuItem>
+                </SalesDataManagementDialog>
+            )}
+             <DropdownMenuSeparator />
+             <AlertDialog>
+              <AlertDialogTrigger asChild>
+                 <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
+                  <Archive className="mr-2 h-4 w-4"/>アーカイブ
+                </DropdownMenuItem>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>ウィジェットをアーカイブしますか？</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    ウィジェット「{widget.title}」をアーカイブ（非表示）します。後から復元できます。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onArchive(widget.id)}>アーカイブ</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </CardHeader>
+      <CardContent className="h-60 w-full">
+         <WidgetPreview 
+           widget={widget} 
+           chartData={chartData} 
+         />
+      </CardContent>
+      <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
+         <span>
+           {kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A'}
+         </span>
+         <span>
+           {chartOptions.find(c => c.value === widget.chartType)?.label || 'N/A'}
+         </span>
+      </CardFooter>
+    </Card>
   );
 }
 
@@ -479,45 +497,51 @@ function ArchivedWidgetsDialog({ widgets, onRestore, onPermanentDelete, children
         </DialogHeader>
         <div className="py-4">
           {archivedWidgets.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>タイトル</TableHead>
-                  <TableHead>対象単位</TableHead>
-                  <TableHead>KPI</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {archivedWidgets.map(widget => (
-                  <TableRow key={widget.id}>
-                    <TableCell>{widget.title}</TableCell>
-                    <TableCell>{widget.scope}</TableCell>
-                    <TableCell>{kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => onRestore(widget.id)}><Undo className="mr-2 h-4 w-4" />復元</Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />完全に削除</Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>本当に完全に削除しますか？</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              ウィジェット「{widget.title}」を完全に削除します。この操作は元に戻せません。
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onPermanentDelete(widget.id)}>完全に削除</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+             <ScrollArea className="h-72">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>タイトル</TableHead>
+                    <TableHead>対象単位</TableHead>
+                    <TableHead>KPI</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {archivedWidgets.map(widget => (
+                    <TableRow key={widget.id}>
+                        <TableCell className="font-medium">{widget.title}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {widget.scope === 'company' ? '会社' : widget.scope === 'team' ? 'チーム' : '個人'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label}</TableCell>
+                        <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => onRestore(widget.id)}><Undo className="mr-2 h-4 w-4" />復元</Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />完全に削除</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>本当に完全に削除しますか？</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                ウィジェット「{widget.title}」を完全に削除します。この操作は元に戻せません。
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onPermanentDelete(widget.id)}>完全に削除</AlertDialogAction>
+                            </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                        </TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+                </Table>
+            </ScrollArea>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-8">アーカイブ済みのウィジェットはありません。</p>
           )}
@@ -545,7 +569,8 @@ export default function DashboardSettingsPage() {
     const availableYears = useMemo(() => {
       const yearSet = new Set<number>();
       salesRecords.forEach(record => {
-          yearSet.add(record.month >= 8 ? record.year + 1 : record.year);
+          const fiscalYear = record.month >= 8 ? record.year + 1 : record.year;
+          yearSet.add(fiscalYear);
       });
       return Array.from(yearSet).sort((a,b) => b-a);
     }, [salesRecords]);
@@ -576,9 +601,15 @@ export default function DashboardSettingsPage() {
 
     const handleSaveWidget = (data: Omit<Widget, 'id' | 'status'>, id?: string) => {
         if (id) {
+            // Editing existing widget
             setWidgets(widgets.map(w => w.id === id ? { ...w, ...data, id } : w));
         } else {
-            setWidgets([...widgets, { ...data, id: new Date().toISOString(), status: 'active' }]);
+            // Adding a new widget for the scope
+            // Archive any existing active widget for this scope
+            const newWidgets = widgets.map(w => 
+                w.scope === data.scope && w.status === 'active' ? { ...w, status: 'archived' as const } : w
+            );
+            setWidgets([...newWidgets, { ...data, id: new Date().toISOString(), status: 'active' }]);
         }
     };
 
@@ -587,7 +618,21 @@ export default function DashboardSettingsPage() {
     };
 
     const handleRestoreWidget = (id: string) => {
-      setWidgets(widgets.map(w => w.id === id ? { ...w, status: 'active'} : w));
+      const widgetToRestore = widgets.find(w => w.id === id);
+      if (!widgetToRestore) return;
+
+      const newWidgets = widgets.map(w => {
+        // Archive the currently active widget for the same scope
+        if (w.scope === widgetToRestore.scope && w.status === 'active') {
+          return { ...w, status: 'archived' as const };
+        }
+        // Restore the selected widget
+        if (w.id === id) {
+          return { ...w, status: 'active' as const };
+        }
+        return w;
+      });
+      setWidgets(newWidgets);
     }
 
     const handlePermanentDeleteWidget = (id: string) => {
@@ -610,8 +655,8 @@ export default function DashboardSettingsPage() {
         setSalesRecords(salesRecords.filter(r => r.id !== id));
     }
 
-    const filteredWidgets = useMemo(() => {
-        return widgets.filter(w => w.scope === activeTab);
+    const activeWidgetForTab = useMemo(() => {
+        return widgets.find(w => w.scope === activeTab && w.status === 'active');
     }, [widgets, activeTab]);
 
     const filteredSalesData = useMemo(() => {
@@ -674,12 +719,6 @@ export default function DashboardSettingsPage() {
                         アーカイブ済み
                     </Button>
                   </ArchivedWidgetsDialog>
-                  <WidgetDialog onSave={(data) => handleSaveWidget(data)} defaultScope={activeTab}>
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        新規ウィジェット追加
-                    </Button>
-                  </WidgetDialog>
                 </div>
             </div>
         </div>
@@ -691,16 +730,42 @@ export default function DashboardSettingsPage() {
             <TabsTrigger value="personal">個人単位</TabsTrigger>
             </TabsList>
             <TabsContent value="company">
-            <WidgetList widgets={filteredWidgets} salesData={filteredSalesData} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="company" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
+                <WidgetDisplay 
+                    widget={activeWidgetForTab} 
+                    salesData={filteredSalesData} 
+                    onSave={handleSaveWidget} 
+                    onArchive={handleArchiveWidget} 
+                    scope="company" 
+                    onSaveRecord={handleSaveRecord} 
+                    onDeleteRecord={handleDeleteRecord} 
+                />
             </TabsContent>
             <TabsContent value="team">
-            <WidgetList widgets={filteredWidgets} salesData={filteredSalesData} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="team" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
+                <WidgetDisplay 
+                    widget={activeWidgetForTab} 
+                    salesData={filteredSalesData} 
+                    onSave={handleSaveWidget} 
+                    onArchive={handleArchiveWidget} 
+                    scope="team" 
+                    onSaveRecord={handleSaveRecord} 
+                    onDeleteRecord={handleDeleteRecord} 
+                />
             </TabsContent>
             <TabsContent value="personal">
-                <WidgetList widgets={filteredWidgets} salesData={filteredSalesData} onSave={handleSaveWidget} onArchive={handleArchiveWidget} scope="personal" onSaveRecord={handleSaveRecord} onDeleteRecord={handleDeleteRecord} />
+                 <WidgetDisplay 
+                    widget={activeWidgetForTab} 
+                    salesData={filteredSalesData} 
+                    onSave={handleSaveWidget} 
+                    onArchive={handleArchiveWidget} 
+                    scope="personal" 
+                    onSaveRecord={handleSaveRecord} 
+                    onDeleteRecord={handleDeleteRecord} 
+                />
             </TabsContent>
         </Tabs>
       </div>
     </div>
   );
 }
+
+    
