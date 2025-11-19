@@ -18,7 +18,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Widget } from '@/app/dashboard/dashboard/page';
 
 const previewData = [
@@ -95,6 +95,7 @@ function BarChartPreview() {
         <Bar dataKey="value" fill="hsl(var(--primary))" />
         <XAxis dataKey="name" tick={{ fontSize: 10 }}/>
         <YAxis tick={{ fontSize: 10 }}/>
+        <Tooltip content={<ChartTooltipContent />} />
       </BarChart>
     </ChartContainer>
   );
@@ -107,6 +108,7 @@ function LineChartPreview() {
           <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" />
           <XAxis dataKey="name" tick={{ fontSize: 10 }}/>
           <YAxis tick={{ fontSize: 10 }}/>
+          <Tooltip content={<ChartTooltipContent />} />
         </LineChart>
     </ChartContainer>
   );
@@ -125,7 +127,7 @@ function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
           </Pie>
-          <Tooltip content={<ChartTooltipContent hideLabel />} />
+          <ChartTooltip content={<ChartTooltipContent hideLabel />} />
           <Legend wrapperStyle={{ fontSize: '10px' }}/>
         </PieChart>
     </ChartContainer>
@@ -159,3 +161,5 @@ export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps)
           return <BarChartPreview />;
       }
 }
+
+    
