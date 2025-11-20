@@ -1,4 +1,3 @@
-
 'use client';
 
 import { icons } from 'lucide-react';
@@ -20,4 +19,5 @@ export const DynamicIcon = ({ name, ...props }: DynamicIconProps) => {
   }, [name]);
 
 
-  return <LucideIcon {...
+  return <LucideIcon {...props} />;
+};

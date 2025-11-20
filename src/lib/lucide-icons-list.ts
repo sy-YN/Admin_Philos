@@ -120,4 +120,6 @@ export const iconCategories: IconCategory[] = [
       { name: 'Check', tags: ['tick', 'correct', 'done', 'todo'] },
       { name: 'Edit', tags: ['pen', 'pencil', 'write', 'change'] },
       { name: 'GripVertical', tags: ['drag', 'handle', 'reorder'] },
-      { name:...
+    ],
+  },
+];
