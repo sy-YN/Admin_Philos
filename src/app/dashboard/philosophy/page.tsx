@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -12,6 +12,7 @@ import { philosophyItems as initialPhilosophyItems, valuesItems as initialValues
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 type PhilosophyItem = (typeof initialPhilosophyItems)[number] | (typeof initialValuesItems)[number];
 type Category = 'philosophy' | 'values';
@@ -34,12 +35,12 @@ function PhilosophyItemDialog({
     setOpen(false);
   };
   
-  useState(() => {
+  useEffect(() => {
     if (open) {
       setTitle(item?.title || '');
       setContent(item?.content || '');
     }
-  });
+  }, [item, open]);
 
   const handleCommand = (command: string, value?: string) => {
     // Prevent default browser action and apply the command
