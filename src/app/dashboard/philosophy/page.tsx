@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -16,6 +16,10 @@ import { DynamicIcon } from '@/components/philosophy/dynamic-icon';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, orderBy } from 'firebase/firestore';
 import type { PhilosophyItem } from '@/types/philosophy';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 type Category = 'mission_vision' | 'values';
 
@@ -25,39 +29,36 @@ function PhilosophyItemDialog({
   onSave,
   children,
   category,
+  order
 }: {
   item?: PhilosophyItem | null;
   onSave: (data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
   children: React.ReactNode;
   category: Category;
+  order: number;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [icon, setIcon] = useState('Smile');
-  const [order, setOrder] = useState(0);
 
+  useEffect(() => {
+    if (open) {
+      setTitle(item?.title || '');
+      setContent(item?.content || '');
+      setIcon(item?.icon || 'Smile');
+    } else {
+      setTitle('');
+      setContent('');
+      setIcon('Smile');
+    }
+  }, [item, open]);
 
   const handleSave = () => {
     onSave({ title, content, icon, category, order });
     setOpen(false);
   };
   
-  useMemo(() => {
-    if (open) {
-      setTitle(item?.title || '');
-      setContent(item?.content || '');
-      setIcon(item?.icon || 'Smile');
-      setOrder(item?.order || 0);
-    } else {
-      setTitle('');
-      setContent('');
-      setIcon('Smile');
-      setOrder(0);
-    }
-  }, [item, open]);
-
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -96,74 +97,142 @@ function PhilosophyItemDialog({
   );
 }
 
+function SortableItem({ item, onEditItem, onDeleteItem }: { item: PhilosophyItem; onEditItem: (id: string, data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => void; onDeleteItem: (id: string) => void; }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 1 : 0,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-4 p-3 rounded-md border bg-background">
+      <div {...attributes} {...listeners} className="cursor-grab touch-none p-1">
+        <GripVertical className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <div className="w-6 h-6 flex items-center justify-center shrink-0">
+        <DynamicIcon name={item.icon} className="h-6 w-6 text-primary" />
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <p className="font-semibold">{item.title}</p>
+        <p className="text-sm text-muted-foreground truncate">{item.content.replace(/\n/g, ' ')}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <PhilosophyItemDialog
+          item={item}
+          category={item.category}
+          order={item.order}
+          onSave={(data) => onEditItem(item.id, data)}
+        >
+          <Button variant="ghost" size="icon">
+            <Edit className="h-4 w-4" />
+          </Button>
+        </PhilosophyItemDialog>
+        
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+              <AlertDialogDescription>
+                「{item.title}」を削除します。この操作は元に戻せません。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>キャンセル</AlertDialogCancel>
+              <AlertDialogAction onClick={() => onDeleteItem(item.id)}>削除</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </div>
+  );
+}
+
 
 function PhilosophyListSection({ 
   title,
   category,
-  items, 
+  items,
+  setItems, 
   onAddItem, 
   onEditItem, 
-  onDeleteItem 
+  onDeleteItem,
+  onOrderChange
 }: { 
   title: string, 
   category: Category,
-  items: PhilosophyItem[], 
+  items: PhilosophyItem[],
+  setItems: React.Dispatch<React.SetStateAction<PhilosophyItem[]>>,
   onAddItem: (data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => void, 
   onEditItem: (id: string, data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => void, 
-  onDeleteItem: (id: string) => void 
+  onDeleteItem: (id: string) => void,
+  onOrderChange: (reorderedItems: PhilosophyItem[]) => void,
 }) {
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
+  
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over!.id);
+      const reorderedItems = arrayMove(items, oldIndex, newIndex);
+      
+      const itemsWithNewOrder = reorderedItems.map((item, index) => ({
+        ...item,
+        order: index,
+      }));
+
+      const allItems = [...itemsWithNewOrder];
+      setItems(prevItems => {
+        const otherCategoryItems = prevItems.filter(i => i.category !== category);
+        const updatedCategoryItems = itemsWithNewOrder;
+        return [...otherCategoryItems, ...updatedCategoryItems].sort((a, b) => a.category.localeCompare(b.category) || a.order - b.order);
+      });
+      onOrderChange(itemsWithNewOrder);
+    }
+  };
+
+  const getNextOrder = () => {
+    if (items.length === 0) return 0;
+    return Math.max(...items.map(i => i.order)) + 1;
+  };
+  
   return (
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-4 p-3 rounded-md border bg-muted/50">
-              <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
-              <div className="w-6 h-6 flex items-center justify-center shrink-0">
-                <DynamicIcon name={item.icon} className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <p className="font-semibold">{item.title}</p>
-                <p className="text-sm text-muted-foreground truncate">{item.content.replace(/\n/g, ' ')}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <PhilosophyItemDialog
-                  item={item}
-                  category={category}
-                  onSave={(data) => onEditItem(item.id, data)}
-                >
-                  <Button variant="ghost" size="icon">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </PhilosophyItemDialog>
-                
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                       <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          「{item.title}」を削除します。この操作は元に戻せません。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDeleteItem(item.id)}>削除</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-              </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {items.map((item) => (
+                <SortableItem key={item.id} item={item} onEditItem={onEditItem} onDeleteItem={onDeleteItem} />
+              ))}
             </div>
-          ))}
-        </div>
-        <PhilosophyItemDialog onSave={onAddItem} category={category}>
+          </SortableContext>
+        </DndContext>
+        <PhilosophyItemDialog onSave={onAddItem} category={category} order={getNextOrder()}>
             <Button variant="outline" className="w-full">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 新規項目を追加
@@ -181,25 +250,33 @@ export default function PhilosophyPage() {
 
   const philosophyQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'philosophy'), orderBy('order', 'asc'));
+    return query(collection(firestore, 'philosophy'), orderBy('order'));
   }, [firestore]);
 
-  const { data: allItems, isLoading } = useCollection<PhilosophyItem>(philosophyQuery);
+  const { data: dbItems, isLoading } = useCollection<PhilosophyItem>(philosophyQuery);
+  const [items, setItems] = useState<PhilosophyItem[]>([]);
 
-  const { philosophy, values } = useMemo(() => {
-    const philosophy: PhilosophyItem[] = [];
+  useEffect(() => {
+    if(dbItems) {
+      setItems(dbItems);
+    }
+  }, [dbItems]);
+
+
+  const { mission_vision, values } = useMemo(() => {
+    const mission_vision: PhilosophyItem[] = [];
     const values: PhilosophyItem[] = [];
-    allItems?.forEach(item => {
+    items?.forEach(item => {
       if (item.category === 'mission_vision') {
-        philosophy.push(item);
+        mission_vision.push(item);
       } else if (item.category === 'values') {
         values.push(item);
       }
     });
-    return { philosophy, values };
-  }, [allItems]);
+    return { mission_vision, values };
+  }, [items]);
   
-  const handleAddItem = async (category: Category, data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleAddItem = async (data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!firestore) return;
     try {
       await addDoc(collection(firestore, 'philosophy'), {
@@ -239,6 +316,22 @@ export default function PhilosophyPage() {
       toast({ title: 'エラー', description: '項目の削除に失敗しました。', variant: 'destructive' });
     }
   };
+  
+  const handleOrderChange = async (reorderedItems: PhilosophyItem[]) => {
+    if (!firestore) return;
+    const batch = writeBatch(firestore);
+    reorderedItems.forEach((item, index) => {
+      const docRef = doc(firestore, 'philosophy', item.id);
+      batch.update(docRef, { order: index });
+    });
+    try {
+      await batch.commit();
+      toast({ title: '成功', description: '表示順を更新しました。' });
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast({ title: 'エラー', description: '表示順の更新に失敗しました。', variant: 'destructive' });
+    }
+  };
 
   const handleSeedData = async () => {
     if (!firestore) return;
@@ -274,10 +367,10 @@ export default function PhilosophyPage() {
 
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-6 max-w-5xl mx-auto">
        <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">理念・ビジョン管理</h1>
-        {allItems && allItems.length === 0 && !isLoading && (
+        {items && items.length === 0 && !isLoading && (
           <Button onClick={handleSeedData} size="sm" variant="outline" className="ml-auto flex items-center gap-2">
             <Sparkles />
             サンプルデータを生成
@@ -294,23 +387,25 @@ export default function PhilosophyPage() {
           <PhilosophyListSection 
             title="理念・ビジョン"
             category="mission_vision"
-            items={philosophy}
-            onAddItem={(data) => handleAddItem('mission_vision', data)}
+            items={mission_vision}
+            setItems={setItems}
+            onAddItem={(data) => handleAddItem(data)}
             onEditItem={handleEditItem}
             onDeleteItem={handleDeleteItem}
+            onOrderChange={handleOrderChange}
           />
           <PhilosophyListSection 
             title="考え方の継承"
             category="values"
             items={values}
-            onAddItem={(data) => handleAddItem('values', data)}
+            setItems={setItems}
+            onAddItem={(data) => handleAddItem(data)}
             onEditItem={handleEditItem}
             onDeleteItem={handleDeleteItem}
+            onOrderChange={handleOrderChange}
           />
        </div>
       )}
     </div>
   );
 }
-
-    
