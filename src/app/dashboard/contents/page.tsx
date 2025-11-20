@@ -971,7 +971,7 @@ export default function ContentsPage() {
   const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
 
   return (
-    <div className="w-full">
+    <div className="w-full max-w-7xl mx-auto">
       <div className="flex items-center mb-6">
         <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
       </div>
