@@ -7,8 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, GripVertical } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, GripVertical, Bold } from 'lucide-react';
 import { philosophyItems as initialPhilosophyItems, valuesItems as initialValuesItems } from '@/lib/company-philosophy';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -26,15 +25,14 @@ function PhilosophyItemDialog({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState(item?.title || '');
-  const [content, setContent] = useState(item?.content || '');
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
 
   const handleSave = () => {
     onSave(title, content);
     setOpen(false);
   };
   
-  // Reset state when dialog opens
   useState(() => {
     if (open) {
       setTitle(item?.title || '');
@@ -42,6 +40,9 @@ function PhilosophyItemDialog({
     }
   });
 
+  const handleBoldClick = () => {
+    document.execCommand('bold', false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -60,7 +61,19 @@ function PhilosophyItemDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="content">内容</Label>
-            <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} rows={5} />
+            <div className="rounded-md border border-input">
+              <div className="p-2 border-b">
+                 <Button type="button" variant="outline" size="icon" onMouseDown={(e) => {e.preventDefault(); handleBoldClick();}}>
+                   <Bold className="h-4 w-4" />
+                 </Button>
+              </div>
+              <div
+                dangerouslySetInnerHTML={{ __html: content }}
+                onInput={(e) => setContent(e.currentTarget.innerHTML)}
+                contentEditable
+                className="prose prose-sm min-h-[100px] w-full rounded-b-md bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -98,7 +111,10 @@ function PhilosophyListSection({
               <item.icon className="h-6 w-6 text-primary shrink-0" />
               <div className="flex-1">
                 <p className="font-semibold">{item.title}</p>
-                <p className="text-sm text-muted-foreground truncate">{item.content.split('\n')[0]}</p>
+                <div
+                  className="text-sm text-muted-foreground truncate"
+                  dangerouslySetInnerHTML={{ __html: item.content.split('<br>')[0] }}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <PhilosophyItemDialog
