@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -7,14 +6,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, GripVertical, Bold } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, GripVertical, Bold, Smile } from 'lucide-react';
 import { philosophyItems as initialPhilosophyItems, valuesItems as initialValuesItems } from '@/lib/company-philosophy';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
+import type { LucideIcon } from 'lucide-react';
+import { IconPicker } from '@/components/philosophy/icon-picker';
+import { DynamicIcon } from '@/components/philosophy/dynamic-icon';
 
-type PhilosophyItem = (typeof initialPhilosophyItems)[number] | (typeof initialValuesItems)[number];
+
+type PhilosophyItem = {
+  id: string;
+  title: string;
+  content: string;
+  icon: string; // Changed from LucideIcon to string
+};
+
 type Category = 'philosophy' | 'values';
 
 function PhilosophyItemDialog({
@@ -23,34 +31,27 @@ function PhilosophyItemDialog({
   children
 }: {
   item?: PhilosophyItem | null;
-  onSave: (title: string, content: string) => void;
+  onSave: (title: string, content: string, icon: string) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
-  const contentEditableRef = useRef<HTMLDivElement>(null);
+  const [content, setContent] = useState('');
+  const [icon, setIcon] = useState('Smile'); // Default icon
 
   const handleSave = () => {
-    const newContent = contentEditableRef.current?.innerHTML || '';
-    onSave(title, newContent);
+    onSave(title, content, icon);
     setOpen(false);
   };
   
   useEffect(() => {
     if (open) {
       setTitle(item?.title || '');
-      if (contentEditableRef.current) {
-        contentEditableRef.current.innerHTML = item?.content || '';
-      }
+      setContent(item?.content || '');
+      setIcon(item?.icon || 'Smile');
     }
   }, [item, open]);
 
-  const handleCommand = (command: string, value?: string) => {
-    // Prevent default browser action and apply the command
-    document.execCommand(command, false, value);
-  };
-
-  const colors = ['#000000', '#dc2626', '#2563eb', '#16a34a']; // Black, Red, Blue, Green
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -59,7 +60,7 @@ function PhilosophyItemDialog({
         <DialogHeader>
           <DialogTitle>{item ? '項目を編集' : '新規項目を追加'}</DialogTitle>
           <DialogDescription>
-            タイトルと内容を入力してください。
+            タイトル、内容、アイコンを入力してください。
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -67,33 +68,22 @@ function PhilosophyItemDialog({
             <Label htmlFor="title">タイトル</Label>
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
+           <div className="grid gap-2">
+            <Label>アイコン</Label>
+            <IconPicker currentIcon={icon} onIconChange={setIcon} />
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="content">内容</Label>
-            <div className="rounded-md border border-input">
-              <div className="p-2 border-b flex items-center gap-1">
-                 <Button type="button" variant="outline" size="icon" onMouseDown={(e) => {e.preventDefault(); handleCommand('bold');}}>
-                   <Bold className="h-4 w-4" />
-                 </Button>
-                 <div className="h-6 w-px bg-border mx-1"></div>
-                 {colors.map(color => (
-                    <Button
-                      key={color}
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onMouseDown={(e) => {e.preventDefault(); handleCommand('foreColor', color);}}
-                      className="h-8 w-8"
-                    >
-                      <div className="h-4 w-4 rounded-full" style={{ backgroundColor: color }} />
-                    </Button>
-                 ))}
-              </div>
-              <div
-                ref={contentEditableRef}
-                contentEditable
-                className="prose prose-sm min-h-[100px] w-full rounded-b-md bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </div>
+             <Textarea
+              id="content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={5}
+              placeholder="内容を入力... <br>や<b>タグが使えます。"
+            />
+            <p className="text-xs text-muted-foreground">
+              改行には`&lt;br&gt;`、太字には`&lt;b&gt;...&lt;/b&gt;`を使用できます。
+            </p>
           </div>
         </div>
         <DialogFooter>
@@ -114,8 +104,8 @@ function PhilosophyListSection({
 }: { 
   title: string, 
   items: PhilosophyItem[], 
-  onAddItem: (title: string, content: string) => void, 
-  onEditItem: (id: string, title: string, content: string) => void, 
+  onAddItem: (title: string, content: string, icon: string) => void, 
+  onEditItem: (id: string, title: string, content: string, icon: string) => void, 
   onDeleteItem: (id: string) => void 
 }) {
   return (
@@ -128,7 +118,9 @@ function PhilosophyListSection({
           {items.map((item) => (
             <div key={item.id} className="flex items-center gap-4 p-3 rounded-md border bg-muted/50">
               <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
-              <item.icon className="h-6 w-6 text-primary shrink-0" />
+              <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                <DynamicIcon name={item.icon} className="h-6 w-6 text-primary" />
+              </div>
               <div className="flex-1 overflow-hidden">
                 <p className="font-semibold">{item.title}</p>
                 <div
@@ -139,7 +131,7 @@ function PhilosophyListSection({
               <div className="flex items-center gap-2">
                 <PhilosophyItemDialog
                   item={item}
-                  onSave={(title, content) => onEditItem(item.id, title, content)}
+                  onSave={(title, content, icon) => onEditItem(item.id, title, content, icon)}
                 >
                   <Button variant="ghost" size="icon">
                     <Edit className="h-4 w-4" />
@@ -183,22 +175,26 @@ function PhilosophyListSection({
 
 export default function PhilosophyPage() {
   const { toast } = useToast();
-  const [philosophy, setPhilosophy] = useState(initialPhilosophyItems);
-  const [values, setValues] = useState(initialValuesItems);
+
+  const convertInitial = (items: {id: string, title: string, content: string, icon: LucideIcon}[]) => {
+      return items.map(item => ({...item, icon: item.icon.displayName || 'Smile' }))
+  }
+
+  const [philosophy, setPhilosophy] = useState(convertInitial(initialPhilosophyItems));
+  const [values, setValues] = useState(convertInitial(initialValuesItems));
   
-  const handleSaveItem = (category: Category, id: string | null, title: string, content: string) => {
+  const handleSaveItem = (category: Category, id: string | null, title: string, content: string, icon: string) => {
     const setItems = category === 'philosophy' ? setPhilosophy : setValues;
 
     if (id) { // Edit
-      setItems(prevItems => prevItems.map(item => item.id === id ? { ...item, title, content } : item));
+      setItems(prevItems => prevItems.map(item => item.id === id ? { ...item, title, content, icon } : item));
       toast({ title: '成功', description: '項目を更新しました。' });
     } else { // Add
-      const newItem = {
-        // This is a mock, so we generate a temporary ID and use a default icon
+      const newItem: PhilosophyItem = {
         id: new Date().toISOString(),
         title,
         content,
-        icon: initialPhilosophyItems[0].icon, // Use a default icon
+        icon,
       };
       setItems(prevItems => [...prevItems, newItem]);
       toast({ title: '成功', description: '新しい項目を追加しました。' });
@@ -222,19 +218,18 @@ export default function PhilosophyPage() {
           <PhilosophyListSection 
             title="理念・ビジョン"
             items={philosophy}
-            onAddItem={(title, content) => handleSaveItem('philosophy', null, title, content)}
-            onEditItem={(id, title, content) => handleSaveItem('philosophy', id, title, content)}
+            onAddItem={(title, content, icon) => handleSaveItem('philosophy', null, title, content, icon)}
+            onEditItem={(id, title, content, icon) => handleSaveItem('philosophy', id, title, content, icon)}
             onDeleteItem={(id) => handleDeleteItem('philosophy', id)}
           />
           <PhilosophyListSection 
             title="考え方の継承"
             items={values}
-            onAddItem={(title, content) => handleSaveItem('values', null, title, content)}
-            onEditItem={(id, title, content) => handleSaveItem('values', id, title, content)}
+            onAddItem={(title, content, icon) => handleSaveItem('values', null, title, content, icon)}
+            onEditItem={(id, title, content, icon) => handleSaveItem('values', id, title, content, icon)}
             onDeleteItem={(id) => handleDeleteItem('values', id)}
           />
        </div>
-
     </div>
   );
 }
