@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -28,17 +28,20 @@ function PhilosophyItemDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const contentEditableRef = useRef<HTMLDivElement>(null);
 
   const handleSave = () => {
-    onSave(title, content);
+    const newContent = contentEditableRef.current?.innerHTML || '';
+    onSave(title, newContent);
     setOpen(false);
   };
   
   useEffect(() => {
     if (open) {
       setTitle(item?.title || '');
-      setContent(item?.content || '');
+      if (contentEditableRef.current) {
+        contentEditableRef.current.innerHTML = item?.content || '';
+      }
     }
   }, [item, open]);
 
@@ -86,8 +89,7 @@ function PhilosophyItemDialog({
                  ))}
               </div>
               <div
-                dangerouslySetInnerHTML={{ __html: content }}
-                onInput={(e) => setContent(e.currentTarget.innerHTML)}
+                ref={contentEditableRef}
                 contentEditable
                 className="prose prose-sm min-h-[100px] w-full rounded-b-md bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               />
@@ -127,7 +129,7 @@ function PhilosophyListSection({
             <div key={item.id} className="flex items-center gap-4 p-3 rounded-md border bg-muted/50">
               <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
               <item.icon className="h-6 w-6 text-primary shrink-0" />
-              <div className="flex-1">
+              <div className="flex-1 overflow-hidden">
                 <p className="font-semibold">{item.title}</p>
                 <div
                   className="text-sm text-muted-foreground truncate"
