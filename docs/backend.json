@@ -241,6 +241,43 @@
         "commentsCount",
         "viewsCount"
       ]
+    },
+    "PhilosophyItem": {
+      "title": "Philosophy Item",
+      "description": "A single item representing a company philosophy, vision, or value.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The title of the item."
+        },
+        "content": {
+          "type": "string",
+          "description": "The detailed content of the item."
+        },
+        "icon": {
+          "type": "string",
+          "description": "The name of the Lucide icon to display."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category for grouping items.",
+          "enum": ["mission_vision", "values"]
+        },
+        "order": {
+          "type": "number",
+          "description": "A number to determine the display order."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["title", "content", "icon", "category", "order", "createdAt", "updatedAt"]
     }
   },
   "auth": {
@@ -290,6 +327,14 @@
         "$ref": "#/entities/Like"
       },
       "description": "Stores likes on videos, keyed by user UID."
+    },
+    "/philosophy/{philosophyId}": {
+        "schema": {
+            "$ref": "#/entities/PhilosophyItem"
+        },
+        "description": "Stores company philosophy, vision, and value items."
     }
   }
 }
+
+    
