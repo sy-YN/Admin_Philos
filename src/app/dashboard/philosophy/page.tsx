@@ -11,6 +11,7 @@ import { PlusCircle, Edit, Trash2, GripVertical, Bold } from 'lucide-react';
 import { philosophyItems as initialPhilosophyItems, valuesItems as initialValuesItems } from '@/lib/company-philosophy';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 type PhilosophyItem = (typeof initialPhilosophyItems)[number] | (typeof initialValuesItems)[number];
 type Category = 'philosophy' | 'values';
@@ -40,9 +41,12 @@ function PhilosophyItemDialog({
     }
   });
 
-  const handleBoldClick = () => {
-    document.execCommand('bold', false);
+  const handleCommand = (command: string, value?: string) => {
+    // Prevent default browser action and apply the command
+    document.execCommand(command, false, value);
   };
+
+  const colors = ['#000000', '#dc2626', '#2563eb', '#16a34a']; // Black, Red, Blue, Green
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -62,10 +66,23 @@ function PhilosophyItemDialog({
           <div className="grid gap-2">
             <Label htmlFor="content">内容</Label>
             <div className="rounded-md border border-input">
-              <div className="p-2 border-b">
-                 <Button type="button" variant="outline" size="icon" onMouseDown={(e) => {e.preventDefault(); handleBoldClick();}}>
+              <div className="p-2 border-b flex items-center gap-1">
+                 <Button type="button" variant="outline" size="icon" onMouseDown={(e) => {e.preventDefault(); handleCommand('bold');}}>
                    <Bold className="h-4 w-4" />
                  </Button>
+                 <div className="h-6 w-px bg-border mx-1"></div>
+                 {colors.map(color => (
+                    <Button
+                      key={color}
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onMouseDown={(e) => {e.preventDefault(); handleCommand('foreColor', color);}}
+                      className="h-8 w-8"
+                    >
+                      <div className="h-4 w-4 rounded-full" style={{ backgroundColor: color }} />
+                    </Button>
+                 ))}
               </div>
               <div
                 dangerouslySetInnerHTML={{ __html: content }}
