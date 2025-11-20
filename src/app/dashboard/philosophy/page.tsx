@@ -1,12 +1,13 @@
+
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, GripVertical, Bold, Smile } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, GripVertical } from 'lucide-react';
 import { philosophyItems as initialPhilosophyItems, valuesItems as initialValuesItems } from '@/lib/company-philosophy';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -79,11 +80,8 @@ function PhilosophyItemDialog({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={5}
-              placeholder="内容を入力... <br>や<b>タグが使えます。"
+              placeholder="内容を入力..."
             />
-            <p className="text-xs text-muted-foreground">
-              改行には`&lt;br&gt;`、太字には`&lt;b&gt;...&lt;/b&gt;`を使用できます。
-            </p>
           </div>
         </div>
         <DialogFooter>
@@ -123,10 +121,11 @@ function PhilosophyListSection({
               </div>
               <div className="flex-1 overflow-hidden">
                 <p className="font-semibold">{item.title}</p>
-                <div
+                <p
                   className="text-sm text-muted-foreground truncate"
-                  dangerouslySetInnerHTML={{ __html: item.content.split('<br>')[0] }}
-                />
+                >
+                  {item.content}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <PhilosophyItemDialog
