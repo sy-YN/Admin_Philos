@@ -192,23 +192,26 @@ function PhilosophyListSection({
   
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (active.id !== over?.id) {
+    if (over && active.id !== over.id) {
       const oldIndex = items.findIndex((item) => item.id === active.id);
-      const newIndex = items.findIndex((item) => item.id === over!.id);
-      const reorderedItems = arrayMove(items, oldIndex, newIndex);
+      const newIndex = items.findIndex((item) => item.id === over.id);
       
-      const itemsWithNewOrder = reorderedItems.map((item, index) => ({
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reorderedCategoryItems = arrayMove(items, oldIndex, newIndex);
+      
+      setItems(prevItems => {
+        const otherCategoryItems = prevItems.filter(i => i.category !== category);
+        const updatedItems = [...otherCategoryItems, ...reorderedCategoryItems]
+          .sort((a, b) => a.category.localeCompare(b.category) || a.order - b.order);
+        return updatedItems;
+      });
+      
+      const itemsToUpdate = reorderedCategoryItems.map((item, index) => ({
         ...item,
         order: index,
       }));
-
-      const allItems = [...itemsWithNewOrder];
-      setItems(prevItems => {
-        const otherCategoryItems = prevItems.filter(i => i.category !== category);
-        const updatedCategoryItems = itemsWithNewOrder;
-        return [...otherCategoryItems, ...updatedCategoryItems].sort((a, b) => a.category.localeCompare(b.category) || a.order - b.order);
-      });
-      onOrderChange(itemsWithNewOrder);
+      onOrderChange(itemsToUpdate);
     }
   };
 
@@ -264,16 +267,16 @@ export default function PhilosophyPage() {
 
 
   const { mission_vision, values } = useMemo(() => {
-    const mission_vision: PhilosophyItem[] = [];
-    const values: PhilosophyItem[] = [];
+    const mission_vision_items: PhilosophyItem[] = [];
+    const values_items: PhilosophyItem[] = [];
     items?.forEach(item => {
       if (item.category === 'mission_vision') {
-        mission_vision.push(item);
+        mission_vision_items.push(item);
       } else if (item.category === 'values') {
-        values.push(item);
+        values_items.push(item);
       }
     });
-    return { mission_vision, values };
+    return { mission_vision: mission_vision_items, values: values_items };
   }, [items]);
   
   const handleAddItem = async (data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -340,16 +343,16 @@ export default function PhilosophyPage() {
     
     const sampleData = [
       // Mission & Vision
-      { title: '企業理念', content: '1.五方正義\n2.顧客満足を実現する総合情報サービスの提供\n3.高品質・高付加価値の追求\n4.世界視野での斬新な挑戦\n5.業界・地域・社会貢献', icon: 'Building2', category: 'mission_vision', order: 1 },
-      { title: 'コーポレートステートメント', content: '情報技術で笑顔を創る知的集団', icon: 'Rocket', category: 'mission_vision', order: 2 },
-      { title: 'パーパス', content: '多様な人材と技術力で、日本のITを支える', icon: 'Heart', category: 'mission_vision', order: 3 },
-      { title: '経営目標', content: '続ける努力、止まらぬ歩み、進め、みんなでプライム市場', icon: 'Target', category: 'mission_vision', order: 4 },
+      { title: '企業理念', content: '1.五方正義\n2.顧客満足を実現する総合情報サービスの提供\n3.高品質・高付加価値の追求\n4.世界視野での斬新な挑戦\n5.業界・地域・社会貢献', icon: 'Building2', category: 'mission_vision' as Category, order: 1 },
+      { title: 'コーポレートステートメント', content: '情報技術で笑顔を創る知的集団', icon: 'Rocket', category: 'mission_vision' as Category, order: 2 },
+      { title: 'パーパス', content: '多様な人材と技術力で、日本のITを支える', icon: 'Heart', category: 'mission_vision' as Category, order: 3 },
+      { title: '経営目標', content: '続ける努力、止まらぬ歩み、進め、みんなでプライム市場', icon: 'Target', category: 'mission_vision' as Category, order: 4 },
       // Values
-      { title: '営業戦略', content: '市場の変化に対応し、顧客との強固な関係を築くための戦略。', icon: 'Briefcase', category: 'values', order: 1 },
-      { title: 'BP様戦略', content: 'ビジネスパートナー様との連携を強化し、共存共栄を目指す戦略。', icon: 'Handshake', category: 'values', order: 2 },
-      { title: '人事戦略', content: '多様な人材が活躍できる組織作りと、個々の成長を支援する戦略。', icon: 'Users', category: 'values', order: 3 },
-      { title: '経営リスクと危機管理', content: 'あらゆるリスクを想定し、事業の継続性を確保するための管理体制。', icon: 'Shield', category: 'values', order: 4 },
-      { title: '組織改革', content: '変化に迅速に対応できる、柔軟で強靭な組織構造への変革。', icon: 'GitBranch', category: 'values', order: 5 },
+      { title: '営業戦略', content: '市場の変化に対応し、顧客との強固な関係を築くための戦略。', icon: 'Briefcase', category: 'values' as Category, order: 1 },
+      { title: 'BP様戦略', content: 'ビジネスパートナー様との連携を強化し、共存共栄を目指す戦略。', icon: 'Handshake', category: 'values' as Category, order: 2 },
+      { title: '人事戦略', content: '多様な人材が活躍できる組織作りと、個々の成長を支援する戦略。', icon: 'Users', category: 'values' as Category, order: 3 },
+      { title: '経営リスクと危機管理', content: 'あらゆるリスクを想定し、事業の継続性を確保するための管理体制。', icon: 'Shield', category: 'values' as Category, order: 4 },
+      { title: '組織改革', content: '変化に迅速に対応できる、柔軟で強靭な組織構造への変革。', icon: 'GitBranch', category: 'values' as Category, order: 5 },
     ];
 
     try {
@@ -367,7 +370,7 @@ export default function PhilosophyPage() {
 
 
   return (
-    <div className="w-full space-y-6 max-w-5xl mx-auto">
+    <div className="w-full space-y-6 max-w-5xl">
        <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">理念・ビジョン管理</h1>
         {items && items.length === 0 && !isLoading && (

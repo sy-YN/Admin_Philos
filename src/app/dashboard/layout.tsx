@@ -88,13 +88,12 @@ export default function DashboardLayout({
   // If authorized, render the dashboard
   return (
     <TooltipProvider>
-      <div className={cn(
-        "grid min-h-screen w-full transition-all duration-300",
-        isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[280px_1fr]"
+      <div className="flex h-screen w-full bg-muted/40">
+        <aside className={cn(
+          "hidden md:flex flex-col border-r bg-background transition-all duration-300",
+           isCollapsed ? "w-20" : "w-72"
         )}>
-        <div className="hidden border-r bg-muted/40 md:block">
-          <div className="flex h-full max-h-screen flex-col gap-2">
-            <div className={cn(
+           <div className={cn(
               "flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 relative transition-all duration-300",
                isCollapsed && "px-2 justify-center"
               )}>
@@ -111,12 +110,11 @@ export default function DashboardLayout({
                 <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
               </Button>
             </div>
-            <div className="flex-1">
-              <nav className={cn(
-                "grid items-start text-sm font-medium transition-all duration-300",
-                 isCollapsed ? "px-2" : "px-4"
-                )}>
-                {navItems.map((item) => (
+            <nav className={cn(
+              "flex flex-col gap-1 py-4 text-sm font-medium transition-all duration-300",
+                isCollapsed ? "px-2" : "px-4"
+              )}>
+              {navItems.map((item) => (
                    <Tooltip key={item.href} delayDuration={0}>
                     <TooltipTrigger asChild>
                        <Link
@@ -139,8 +137,7 @@ export default function DashboardLayout({
                     )}
                   </Tooltip>
                 ))}
-              </nav>
-            </div>
+            </nav>
             <div className={cn(
               "mt-auto p-4 transition-all duration-300",
               isCollapsed && "p-2"
@@ -148,8 +145,8 @@ export default function DashboardLayout({
               <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
                      <Button 
-                        size="icon" 
-                        className={cn("w-full", !isCollapsed && "w-full")}
+                        size={isCollapsed ? 'icon' : 'default'}
+                        className="w-full"
                         variant="outline" 
                         onClick={handleLogout}
                       >
@@ -165,12 +162,13 @@ export default function DashboardLayout({
                   )}
               </Tooltip>
             </div>
-          </div>
-        </div>
-        <div className="flex flex-col">
+        </aside>
+        <div className="flex flex-col flex-1 overflow-hidden">
           {/* Mobile Header will go here */}
-          <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-muted/40 overflow-auto">
-            {children}
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+            <div className="mx-auto w-full">
+              {children}
+            </div>
           </main>
         </div>
       </div>
