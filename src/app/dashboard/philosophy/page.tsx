@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, GripVertical, Loader2, Sparkles } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, GripVertical, Loader2, Sparkles, Bold } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,6 +41,7 @@ function PhilosophyItemDialog({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [icon, setIcon] = useState('Smile');
+  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -59,6 +60,40 @@ function PhilosophyItemDialog({
     setOpen(false);
   };
   
+  const applyFormat = (tag: 'b' | 'span', color?: string) => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+
+    if (!selectedText) return; 
+
+    let formattedText;
+    if (tag === 'b') {
+      formattedText = `<b>${selectedText}</b>`;
+    } else if (tag === 'span' && color) {
+      formattedText = `<span style="color: ${color};">${selectedText}</span>`;
+    } else {
+      return;
+    }
+
+    const newValue =
+      textarea.value.substring(0, start) +
+      formattedText +
+      textarea.value.substring(end);
+    
+    setContent(newValue);
+
+    // After updating, focus the textarea and place the cursor at the end of the new insertion.
+    textarea.focus();
+    setTimeout(() => {
+      textarea.selectionStart = start + formattedText.length;
+      textarea.selectionEnd = start + formattedText.length;
+    }, 0);
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -80,8 +115,15 @@ function PhilosophyItemDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="content">内容</Label>
+             <div className="flex items-center gap-2 rounded-md border border-input p-1">
+                <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('b')}><Bold className="h-4 w-4" /></Button>
+                <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'red')}><div className="h-4 w-4 rounded-full bg-red-500" /></Button>
+                <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'blue')}><div className="h-4 w-4 rounded-full bg-blue-500" /></Button>
+                <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'green')}><div className="h-4 w-4 rounded-full bg-green-500" /></Button>
+            </div>
              <Textarea
               id="content"
+              ref={contentRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={5}
@@ -123,7 +165,7 @@ function SortableItem({ item, onEditItem, onDeleteItem }: { item: PhilosophyItem
       </div>
       <div className="flex-1 overflow-hidden">
         <p className="font-semibold">{item.title}</p>
-        <p className="text-sm text-muted-foreground truncate">{item.content.replace(/\n/g, ' ')}</p>
+        <p className="text-sm text-muted-foreground truncate">{item.content.replace(/<[^>]+>/g, '').replace(/\n/g, ' ')}</p>
       </div>
       <div className="flex items-center gap-2">
         <PhilosophyItemDialog
@@ -412,3 +454,5 @@ export default function PhilosophyPage() {
     </div>
   );
 }
+
+    
