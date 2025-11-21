@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
@@ -56,6 +55,16 @@ const EditorToolbar = ({ editor }: { editor: Editor | null }) => {
         title="青色"
       >
         <div className="h-4 w-4 rounded-full bg-[#1971C2]" />
+      </Button>
+      <Button
+        type="button"
+        variant={'outline'}
+        size="icon"
+        className="h-8 w-8"
+        onClick={() => editor.chain().focus().unsetColor().run()}
+        title="色をリセット"
+      >
+        <div className="h-4 w-4 rounded-full bg-foreground" />
       </Button>
     </div>
   );
