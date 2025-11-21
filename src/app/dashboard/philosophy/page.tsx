@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -111,8 +110,8 @@ function SortableItem({ item, onEditItem, onDeleteItem }: { item: PhilosophyItem
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-4 p-3 rounded-md border bg-background">
-      <div {...attributes} {...listeners} className="cursor-grab touch-none p-1">
+    <div ref={setNodeRef} style={style} className="flex items-start gap-4 p-3 rounded-md border bg-background">
+      <div {...attributes} {...listeners} className="cursor-grab touch-none p-1 pt-0.5">
         <GripVertical className="h-5 w-5 text-muted-foreground" />
       </div>
       <div className="w-6 h-6 flex items-center justify-center shrink-0">
@@ -120,7 +119,10 @@ function SortableItem({ item, onEditItem, onDeleteItem }: { item: PhilosophyItem
       </div>
       <div className="flex-1 overflow-hidden">
         <p className="font-semibold">{item.title}</p>
-        <p className="text-sm text-muted-foreground truncate">{item.content.replace(/<[^>]+>/g, '').replace(/\n/g, ' ')}</p>
+        <div 
+            className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&_p]:my-1" 
+            dangerouslySetInnerHTML={{ __html: item.content }} 
+        />
       </div>
       <div className="flex items-center gap-2">
         <PhilosophyItemDialog
