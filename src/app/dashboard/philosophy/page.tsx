@@ -13,13 +13,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { IconPicker } from '@/components/philosophy/icon-picker';
 import { DynamicIcon } from '@/components/philosophy/dynamic-icon';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, orderBy } from 'firebase/firestore';
 import type { PhilosophyItem } from '@/types/philosophy';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Separator } from '@/components/ui/separator';
 
 type Category = 'mission_vision' | 'values';
 
@@ -97,38 +98,53 @@ function PhilosophyItemDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>{item ? '項目を編集' : '新規項目を追加'}</DialogTitle>
           <DialogDescription>
-            タイトル、内容、アイコンを入力してください。
+            タイトル、内容、アイコンを入力してください。内容はリアルタイムでプレビューされます。
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="title">タイトル</Label>
-            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-           <div className="grid gap-2">
-            <Label>アイコン</Label>
-            <IconPicker currentIcon={icon} onIconChange={setIcon} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="content">内容</Label>
-             <div className="flex items-center gap-2 rounded-md border border-input p-1">
-                <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('b')}><Bold className="h-4 w-4" /></Button>
-                <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'red')}><div className="h-4 w-4 rounded-full bg-red-500" /></Button>
-                <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'blue')}><div className="h-4 w-4 rounded-full bg-blue-500" /></Button>
-                <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'green')}><div className="h-4 w-4 rounded-full bg-green-500" /></Button>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">タイトル</Label>
+              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
-             <Textarea
-              id="content"
-              ref={contentRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={5}
-              placeholder="内容を入力..."
-            />
+            <div className="grid gap-2">
+              <Label>アイコン</Label>
+              <IconPicker currentIcon={icon} onIconChange={setIcon} />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Editor Side */}
+            <div className="space-y-2">
+              <Label htmlFor="content">内容</Label>
+              <div className="flex items-center gap-2 rounded-md border border-input p-1">
+                  <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('b')} title="太字"><Bold className="h-4 w-4" /></Button>
+                  <Separator orientation="vertical" className="h-6" />
+                  <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'red')} title="赤色"><div className="h-4 w-4 rounded-full bg-red-500" /></Button>
+                  <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'blue')} title="青色"><div className="h-4 w-4 rounded-full bg-blue-500" /></Button>
+                  <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'green')} title="緑色"><div className="h-4 w-4 rounded-full bg-green-500" /></Button>
+              </div>
+              <Textarea
+                id="content"
+                ref={contentRef}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={8}
+                placeholder="<b>タグ</b>や<span style='color: red;'>色</span>が使えます。"
+              />
+            </div>
+            
+            {/* Preview Side */}
+            <div className="space-y-2">
+              <Label>プレビュー</Label>
+              <div className="prose dark:prose-invert rounded-md border p-3 min-h-[200px] text-sm overflow-auto">
+                 <div dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br />') }} />
+              </div>
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -292,20 +308,25 @@ function PhilosophyListSection({
 export default function PhilosophyPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
 
   const philosophyQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || isUserLoading) return null;
+    if (!user) return null; // Don't query if user is not logged in
     return query(collection(firestore, 'philosophy'), orderBy('order'));
-  }, [firestore]);
+  }, [firestore, user, isUserLoading]);
 
-  const { data: dbItems, isLoading } = useCollection<PhilosophyItem>(philosophyQuery);
+  const { data: dbItems, isLoading: isDbLoading } = useCollection<PhilosophyItem>(philosophyQuery);
   const [items, setItems] = useState<PhilosophyItem[]>([]);
 
   useEffect(() => {
     if(dbItems) {
       setItems(dbItems);
+    } else if (!isDbLoading && !user) {
+      // If loading is finished and there's no user, clear items
+      setItems([]);
     }
-  }, [dbItems]);
+  }, [dbItems, isDbLoading, user]);
 
 
   const { mission_vision, values } = useMemo(() => {
@@ -410,6 +431,7 @@ export default function PhilosophyPage() {
     }
   };
 
+  const isLoading = isUserLoading || isDbLoading;
 
   return (
     <div className="w-full space-y-6 max-w-5xl">
