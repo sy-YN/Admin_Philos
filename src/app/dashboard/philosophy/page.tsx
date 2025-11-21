@@ -1,16 +1,15 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, GripVertical, Loader2, Sparkles, Bold } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, GripVertical, Loader2, Sparkles } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from '@/components/ui/textarea';
 import { IconPicker } from '@/components/philosophy/icon-picker';
 import { DynamicIcon } from '@/components/philosophy/dynamic-icon';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
@@ -20,10 +19,9 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Separator } from '@/components/ui/separator';
+import { RichTextEditor } from '@/components/tiptap/editor';
 
 type Category = 'mission_vision' | 'values';
-
 
 function PhilosophyItemDialog({
   item,
@@ -42,7 +40,6 @@ function PhilosophyItemDialog({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [icon, setIcon] = useState('Smile');
-  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -60,49 +57,15 @@ function PhilosophyItemDialog({
     onSave({ title, content, icon, category, order });
     setOpen(false);
   };
-  
-  const applyFormat = (tag: 'b' | 'span', color?: string) => {
-    const textarea = contentRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = textarea.value.substring(start, end);
-
-    if (!selectedText) return; 
-
-    let formattedText;
-    if (tag === 'b') {
-      formattedText = `<b>${selectedText}</b>`;
-    } else if (tag === 'span' && color) {
-      formattedText = `<span style="color: ${color};">${selectedText}</span>`;
-    } else {
-      return;
-    }
-
-    const newValue =
-      textarea.value.substring(0, start) +
-      formattedText +
-      textarea.value.substring(end);
-    
-    setContent(newValue);
-
-    // After updating, focus the textarea and place the cursor at the end of the new insertion.
-    textarea.focus();
-    setTimeout(() => {
-      textarea.selectionStart = start + formattedText.length;
-      textarea.selectionEnd = start + formattedText.length;
-    }, 0);
-  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{item ? '項目を編集' : '新規項目を追加'}</DialogTitle>
           <DialogDescription>
-            タイトル、内容、アイコンを入力してください。内容はリアルタイムでプレビューされます。
+            タイトル、内容、アイコンを入力してください。
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -117,35 +80,11 @@ function PhilosophyItemDialog({
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Editor Side */}
-            <div className="space-y-2">
-              <Label htmlFor="content">内容</Label>
-              <div className="flex items-center gap-2 rounded-md border border-input p-1">
-                  <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('b')} title="太字"><Bold className="h-4 w-4" /></Button>
-                  <Separator orientation="vertical" className="h-6" />
-                  <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'red')} title="赤色"><div className="h-4 w-4 rounded-full bg-red-500" /></Button>
-                  <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'blue')} title="青色"><div className="h-4 w-4 rounded-full bg-blue-500" /></Button>
-                  <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => applyFormat('span', 'green')} title="緑色"><div className="h-4 w-4 rounded-full bg-green-500" /></Button>
-              </div>
-              <Textarea
-                id="content"
-                ref={contentRef}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={8}
-                placeholder="<b>タグ</b>や<span style='color: red;'>色</span>が使えます。"
-              />
-            </div>
-            
-            {/* Preview Side */}
-            <div className="space-y-2">
-              <Label>プレビュー</Label>
-              <div className="prose dark:prose-invert rounded-md border p-3 min-h-[200px] text-sm overflow-auto">
-                 <div dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br />') }} />
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="content">内容</Label>
+            <RichTextEditor content={content} onChange={setContent} />
           </div>
+
         </div>
         <DialogFooter>
           <Button onClick={handleSave}>保存</Button>
@@ -406,8 +345,8 @@ export default function PhilosophyPage() {
     
     const sampleData = [
       // Mission & Vision
-      { title: '企業理念', content: '1.五方正義\n2.顧客満足を実現する総合情報サービスの提供\n3.高品質・高付加価値の追求\n4.世界視野での斬新な挑戦\n5.業界・地域・社会貢献', icon: 'Building2', category: 'mission_vision' as Category, order: 1 },
-      { title: 'コーポレートステートメント', content: '情報技術で笑顔を創る知的集団', icon: 'Rocket', category: 'mission_vision' as Category, order: 2 },
+      { title: '企業理念', content: '<p>1.五方正義</p><p>2.顧客満足を実現する総合情報サービスの提供</p><p>3.高品質・高付加価値の追求</p><p>4.世界視野での斬新な挑戦</p><p>5.業界・地域・社会貢献</p>', icon: 'Building2', category: 'mission_vision' as Category, order: 1 },
+      { title: 'コーポレートステートメント', content: '<p>情報技術で<span style="color: #E03131">笑顔</span>を創る<b>知的集団</b></p>', icon: 'Rocket', category: 'mission_vision' as Category, order: 2 },
       { title: 'パーパス', content: '多様な人材と技術力で、日本のITを支える', icon: 'Heart', category: 'mission_vision' as Category, order: 3 },
       { title: '経営目標', content: '続ける努力、止まらぬ歩み、進め、みんなでプライム市場', icon: 'Target', category: 'mission_vision' as Category, order: 4 },
       // Values
@@ -476,5 +415,3 @@ export default function PhilosophyPage() {
     </div>
   );
 }
-
-    
