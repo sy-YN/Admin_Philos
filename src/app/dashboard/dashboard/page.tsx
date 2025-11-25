@@ -399,15 +399,8 @@ function WidgetList({
 }) {
   const chartData = useMemo(() =>
     salesData
-      .map(d => ({ month: `${d.year}/${d.month}月`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
-      .sort((a, b) => {
-        const [yearA, monthA] = a.month.split('/').map(s => parseInt(s.replace('月', ''), 10));
-        const [yearB, monthB] = b.month.split('/').map(s => parseInt(s.replace('月', ''), 10));
-        if (yearA !== yearB) {
-            return yearA - yearB;
-        }
-        return monthA - monthB;
-      })
+      .map(d => ({ month: `${d.year}/${String(d.month).padStart(2, '0')}`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
+      .sort((a, b) => a.month.localeCompare(b.month))
   , [salesData]);
 
   if (widgets.length === 0) {
@@ -503,46 +496,10 @@ export default function DashboardSettingsPage() {
     const [activeTab, setActiveTab] = useState<WidgetScope>('company');
     const [salesRecords, setSalesRecords] = useState<SalesRecord[]>(initialSalesRecords);
     const [isMounted, setIsMounted] = useState(false);
-    
-    const [currentYear, setCurrentYear] = useState(() => {
-        const years = [...new Set(initialSalesRecords.map(d => {
-            return d.month >= 8 ? d.year + 1 : d.year;
-        }))].sort((a,b) => b-a);
-        return years[0] || new Date().getFullYear();
-    });
-
-    const availableYears = useMemo(() => {
-      const yearSet = new Set<number>();
-      salesRecords.forEach(record => {
-          const fiscalYear = record.month >= 8 ? record.year + 1 : record.year;
-          yearSet.add(fiscalYear);
-      });
-      return Array.from(yearSet).sort((a,b) => b-a);
-    }, [salesRecords]);
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
-    
-    useEffect(() => {
-        if(availableYears.length > 0 && !availableYears.includes(currentYear)){
-            setCurrentYear(availableYears[0]);
-        }
-    }, [availableYears, currentYear]);
-
-
-    const handleYearChange = (direction: 'prev' | 'next') => {
-        const currentIndex = availableYears.indexOf(currentYear);
-        if (direction === 'prev' && currentIndex < availableYears.length - 1) {
-            setCurrentYear(availableYears[currentIndex + 1]);
-        }
-        if (direction === 'next' && currentIndex > 0) {
-            setCurrentYear(availableYears[currentIndex - 1]);
-        }
-    };
-    
-    const canGoPrev = availableYears.indexOf(currentYear) < availableYears.length - 1;
-    const canGoNext = availableYears.indexOf(currentYear) > 0;
 
     const handleSaveWidget = (data: Omit<Widget, 'id' | 'status'>, id?: string) => {
         if (id) {
@@ -594,28 +551,6 @@ export default function DashboardSettingsPage() {
       });
     }, [widgets, activeTab]);
 
-
-    const filteredSalesData = useMemo(() => {
-        if (!salesRecords || salesRecords.length === 0) {
-            return [];
-        }
-        const endYear = currentYear;
-        const startYear = endYear - 1;
-
-        const fiscalYearData = salesRecords.filter(record => {
-            if (record.year === startYear && record.month >= 8) {
-                return true;
-            }
-            if (record.year === endYear && record.month <= 7) {
-                return true;
-            }
-            return false;
-        });
-
-        return fiscalYearData;
-    }, [salesRecords, currentYear]);
-
-
   if (!isMounted) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -634,16 +569,6 @@ export default function DashboardSettingsPage() {
             </div>
 
             <div className='flex items-center gap-4'>
-               <div className="flex items-center justify-center gap-2">
-                  <Button variant="outline" size="icon" className='h-7 w-7' onClick={() => handleYearChange('prev')} disabled={!canGoPrev}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm font-medium w-24 text-center">{currentYear}年度</span>
-                   <Button variant="outline" size="icon" className='h-7 w-7' onClick={() => handleYearChange('next')} disabled={!canGoNext}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-
                 <div className='flex items-center gap-2'>
                   <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab}>
                       <Button>
@@ -664,7 +589,7 @@ export default function DashboardSettingsPage() {
             <TabsContent value="company">
                 <WidgetList 
                     widgets={widgetsForTab} 
-                    salesData={filteredSalesData} 
+                    salesData={salesRecords} 
                     onSave={handleSaveWidget} 
                     onDelete={handleDeleteWidget}
                     onSetActive={handleSetActiveWidget}
@@ -675,7 +600,7 @@ export default function DashboardSettingsPage() {
             <TabsContent value="team">
                 <WidgetList 
                     widgets={widgetsForTab} 
-                    salesData={filteredSalesData} 
+                    salesData={salesRecords} 
                     onSave={handleSaveWidget} 
                     onDelete={handleDeleteWidget}
                     onSetActive={handleSetActiveWidget}
@@ -686,7 +611,7 @@ export default function DashboardSettingsPage() {
             <TabsContent value="personal">
                  <WidgetList 
                     widgets={widgetsForTab} 
-                    salesData={filteredSalesData} 
+                    salesData={salesRecords} 
                     onSave={handleSaveWidget} 
                     onDelete={handleDeleteWidget}
                     onSetActive={handleSetActiveWidget}
@@ -699,5 +624,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-
-    
