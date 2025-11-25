@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -20,7 +20,9 @@ import {
   getFiscalYear,
   getCurrentFiscalYear,
   getFiscalYears,
+  getMonthsForFiscalYear,
 } from '@/lib/fiscal-year';
+import { useToast } from '@/hooks/use-toast';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -38,7 +40,6 @@ export type Widget = {
   status: 'active' | 'inactive';
   fiscalYear?: number;
   fiscalYearStartMonth?: number;
-  targetValue?: number;
 };
 
 
@@ -90,7 +91,7 @@ type WidgetScope = 'company' | 'team' | 'personal';
 
 
 export type SalesRecord = {
-    id: string;
+    id: string; // YYYY-MM
     year: number;
     month: number;
     salesTarget: number;
@@ -99,16 +100,16 @@ export type SalesRecord = {
 }
 
 const calculateAchievementRate = (actual: number, target: number) => {
-  if (target === 0) return 0;
+  if (target === 0) return actual > 0 ? 100 : 0;
   return Math.round((actual / target) * 100);
 }
 
 const initialWidgets: Widget[] = [
-    { id: '1', title: '全社売上高の推移 (2024年度)', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'active', fiscalYear: 2024, fiscalYearStartMonth: 8, targetValue: 1000 },
+    { id: '1', title: '全社売上高の推移 (2024年度)', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'active', fiscalYear: 2024, fiscalYearStartMonth: 8 },
     { id: '4', title: '新規顧客獲得数', kpi: 'new_customers', scope: 'company', chartType: 'bar', status: 'inactive' },
     { id: '2', title: '営業チームのタスク完了率', kpi: 'task_completion_rate', scope: 'team', chartType: 'pie', status: 'active' },
     { id: '3', title: '個人の学習時間の記録', kpi: 'self_learning_time', scope: 'personal', chartType: 'line', status: 'active' },
-    { id: '5', title: '全社売上高の推移 (2025年度)', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'inactive', fiscalYear: 2025, fiscalYearStartMonth: 8, targetValue: 1200 },
+    { id: '5', title: '全社売上高の推移 (2025年度)', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'inactive', fiscalYear: 2025, fiscalYearStartMonth: 8 },
 ];
 
 const initialSalesRecords: SalesRecord[] = [
@@ -116,16 +117,16 @@ const initialSalesRecords: SalesRecord[] = [
     { id: '2023-08', year: 2023, month: 8, salesTarget: 70, salesActual: 65, achievementRate: calculateAchievementRate(65, 70) },
     { id: '2023-09', year: 2023, month: 9, salesTarget: 72, salesActual: 75, achievementRate: calculateAchievementRate(75, 72) },
     { id: '2023-10', year: 2023, month: 10, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
-    { id: '2023-11', year: 2023, month: 11, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
-    { id: '2023-12', year: 2023, month: 12, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
+    { id: '2023-11', year: 2023, month: 11, salesTarget: 78, salesActual: 70, achievementRate: calculateAchievementRate(70, 78) },
+    { id: '2023-12', year: 2023, month: 12, salesTarget: 80, salesActual: 85, achievementRate: calculateAchievementRate(85, 80) },
     // 2024 Data (FY2024, Aug start)
-    { id: '2024-01', year: 2024, month: 1, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
-    { id: '2024-02', year: 2024, month: 2, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
-    { id: '2024-03', year: 2024, month: 3, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
+    { id: '2024-01', year: 2024, month: 1, salesTarget: 82, salesActual: 83, achievementRate: calculateAchievementRate(83, 82) },
+    { id: '2024-02', year: 2024, month: 2, salesTarget: 85, salesActual: 80, achievementRate: calculateAchievementRate(80, 85) },
+    { id: '2024-03', year: 2024, month: 3, salesTarget: 88, salesActual: 90, achievementRate: calculateAchievementRate(90, 88) },
     { id: '2024-04', year: 2024, month: 4, salesTarget: 80, salesActual: 75, achievementRate: calculateAchievementRate(75, 80) },
     { id: '2024-05', year: 2024, month: 5, salesTarget: 85, salesActual: 88, achievementRate: calculateAchievementRate(88, 85) },
     { id: '2024-06', year: 2024, month: 6, salesTarget: 90, salesActual: 92, achievementRate: calculateAchievementRate(92, 90) },
-    { id: '2024-07', year: 2024, month: 7, salesTarget: 95, salesActual: 93, achievementRate: calculateAchievementRate(93, 95) },
+    { id: '2024-07', year: 2024, month: 7, salesTarget: 95, salesActual: 98, achievementRate: calculateAchievementRate(98, 95) },
     // Data for FY2025
     { id: '2024-08', year: 2024, month: 8, salesTarget: 98, salesActual: 100, achievementRate: calculateAchievementRate(100, 98) },
     { id: '2024-09', year: 2024, month: 9, salesTarget: 100, salesActual: 98, achievementRate: calculateAchievementRate(98, 100) },
@@ -143,7 +144,6 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
   const [chartType, setChartType] = useState('');
   const [fiscalYear, setFiscalYear] = useState<number>(getCurrentFiscalYear());
   const [fiscalYearStartMonth, setFiscalYearStartMonth] = useState<number>(8);
-  const [targetValue, setTargetValue] = useState<number | undefined>(undefined);
 
   const availableChartOptions = useMemo(() => {
     if (!kpi) return [];
@@ -166,9 +166,8 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
       scope, 
       kpi, 
       chartType, 
-      fiscalYear: kpi === 'sales_revenue' ? fiscalYear : undefined,
-      fiscalYearStartMonth: kpi === 'sales_revenue' ? fiscalYearStartMonth : undefined,
-      targetValue: kpi === 'sales_revenue' ? targetValue : undefined,
+      fiscalYear: needsFiscalYear ? fiscalYear : undefined,
+      fiscalYearStartMonth: needsFiscalYear ? fiscalYearStartMonth : undefined,
     });
     setOpen(false);
   };
@@ -176,13 +175,13 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
   useEffect(() => {
     if (open) {
       const initialScope = widget?.scope || defaultScope;
+      const startMonth = widget?.fiscalYearStartMonth || 8;
       setTitle(widget?.title || '');
       setScope(initialScope);
       setKpi(widget?.kpi || '');
       setChartType(widget?.chartType || '');
-      setFiscalYear(widget?.fiscalYear || getCurrentFiscalYear(widget?.fiscalYearStartMonth || 8));
-      setFiscalYearStartMonth(widget?.fiscalYearStartMonth || 8);
-      setTargetValue(widget?.targetValue);
+      setFiscalYear(widget?.fiscalYear || getCurrentFiscalYear(startMonth));
+      setFiscalYearStartMonth(startMonth);
     } else {
       // Reset form on close
       setTitle('');
@@ -191,7 +190,6 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
       setChartType('');
       setFiscalYear(getCurrentFiscalYear());
       setFiscalYearStartMonth(8);
-      setTargetValue(undefined);
     }
   }, [widget, open, defaultScope]);
 
@@ -237,18 +235,6 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
                  </div>
               </div>
             )}
-             {needsFiscalYear && (
-                <div className="grid gap-2">
-                  <Label htmlFor="widget-target-value">目標値 (百万円)</Label>
-                  <Input 
-                    id="widget-target-value" 
-                    type="number" 
-                    value={targetValue || ''} 
-                    onChange={e => setTargetValue(e.target.value === '' ? undefined : Number(e.target.value))} 
-                    placeholder="例: 1000" 
-                  />
-                </div>
-              )}
             <div className="grid gap-2">
               <Label htmlFor="widget-scope">対象単位</Label>
               <Select value={scope} onValueChange={(v: any) => { setScope(v); setKpi(''); setChartType(''); }}>
@@ -293,167 +279,142 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
 }
 
 function SalesDataManagementDialog({
-  records,
+  widget,
+  salesRecords,
   onSave,
-  onDelete,
   children
 }: {
-  records: SalesRecord[];
-  onSave: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void;
-  onDelete: (id: string) => void;
+  widget: Widget;
+  salesRecords: SalesRecord[];
+  onSave: (records: SalesRecord[]) => void;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+
+  const [monthlyData, setMonthlyData] = useState<Map<string, { target: string; actual: string }>>(new Map());
+
+  const fiscalYearMonths = useMemo(() => {
+    if (!widget.fiscalYear) return [];
+    return getMonthsForFiscalYear(widget.fiscalYear, widget.fiscalYearStartMonth);
+  }, [widget.fiscalYear, widget.fiscalYearStartMonth]);
+  
+  useEffect(() => {
+    if (open) {
+      const initialData = new Map();
+      fiscalYearMonths.forEach(({ year, month }) => {
+        const id = `${year}-${String(month).padStart(2, '0')}`;
+        const record = salesRecords.find(r => r.id === id);
+        initialData.set(id, {
+          target: record?.salesTarget.toString() || '0',
+          actual: record?.salesActual.toString() || '0',
+        });
+      });
+      setMonthlyData(initialData);
+    }
+  }, [open, salesRecords, fiscalYearMonths]);
+
+  const handleInputChange = (id: string, field: 'target' | 'actual', value: string) => {
+    setMonthlyData(prev => {
+      const newData = new Map(prev);
+      const current = newData.get(id) || { target: '0', actual: '0' };
+      current[field] = value;
+      newData.set(id, current);
+      return newData;
+    });
+  };
+
+  const handleSave = () => {
+    const newRecords: SalesRecord[] = [];
+    let hasError = false;
+
+    monthlyData.forEach((values, id) => {
+        const [year, month] = id.split('-').map(Number);
+        const salesTarget = parseFloat(values.target) || 0;
+        const salesActual = parseFloat(values.actual) || 0;
+        
+        if (isNaN(salesTarget) || isNaN(salesActual)) {
+            hasError = true;
+        }
+
+        newRecords.push({
+            id,
+            year,
+            month,
+            salesTarget,
+            salesActual,
+            achievementRate: calculateAchievementRate(salesActual, salesTarget),
+        });
+    });
+    
+    if (hasError) {
+        toast({ title: "入力エラー", description: "有効な数値を入力してください。", variant: "destructive" });
+        return;
+    }
+
+    onSave(newRecords);
+    toast({ title: "成功", description: "売上データを保存しました。" });
+    setOpen(false);
+  };
+  
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>売上実績データ管理</DialogTitle>
-          <DialogDescription>月次の売上目標と実績を登録・管理します。ここで登録したデータがグラフに反映されます。</DialogDescription>
+          <DialogTitle>売上実績データ編集 ({widget.fiscalYear}年度)</DialogTitle>
+          <DialogDescription>
+            {widget.fiscalYear}年度（{widget.fiscalYearStartMonth}月始まり）の月次売上目標と実績を入力します。
+          </DialogDescription>
         </DialogHeader>
-        <SalesRecordTable records={records} onSave={onSave} onDelete={onDelete} />
+        <div className="max-h-[60vh] overflow-y-auto pr-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">年月</TableHead>
+                <TableHead>売上目標 (百万円)</TableHead>
+                <TableHead>売上実績 (百万円)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {fiscalYearMonths.map(({ year, month }) => {
+                 const id = `${year}-${String(month).padStart(2, '0')}`;
+                 const values = monthlyData.get(id) || { target: '0', actual: '0' };
+                 return (
+                  <TableRow key={id}>
+                    <TableCell className="font-medium">{year}年 {month}月</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        value={values.target}
+                        onChange={(e) => handleInputChange(id, 'target', e.target.value)}
+                        placeholder="0"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        value={values.actual}
+                        onChange={(e) => handleInputChange(id, 'actual', e.target.value)}
+                        placeholder="0"
+                      />
+                    </TableCell>
+                  </TableRow>
+                 )
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
+          <Button onClick={handleSave}>一括保存</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-
-function SalesRecordTable({
-  records,
-  onSave,
-  onDelete
-}: {
-  records: SalesRecord[];
-  onSave: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void;
-  onDelete: (id: string) => void;
-}) {
-    return (
-        <Card>
-            <CardContent className='pt-6 max-h-[60vh] overflow-y-auto'>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>年月</TableHead>
-                            <TableHead>売上目標</TableHead>
-                            <TableHead>売上実績</TableHead>
-                            <TableHead>達成率</TableHead>
-                            <TableHead><span className='sr-only'>Actions</span></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {records.sort((a, b) => b.id.localeCompare(a.id)).map(record => (
-                            <TableRow key={record.id}>
-                                <TableCell>{record.year}年{record.month}月</TableCell>
-                                <TableCell>{record.salesTarget}百万円</TableCell>
-                                <TableCell>{record.salesActual}百万円</TableCell>
-                                <TableCell>{record.achievementRate}%</TableCell>
-                                <TableCell>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent>
-                                            <SalesRecordDialog record={record} onSave={(data) => onSave(data, record.id)}>
-                                                <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
-                                            </SalesRecordDialog>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">削除</DropdownMenuItem>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => onDelete(record.id)}>削除</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-            <CardFooter>
-                <SalesRecordDialog onSave={(data) => onSave(data)}>
-                    <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>新規実績を登録</Button>
-                </SalesRecordDialog>
-            </CardFooter>
-        </Card>
-    )
-}
-
-function SalesRecordDialog({ record, onSave, children }: { record?: SalesRecord | null, onSave: (data: Omit<SalesRecord, 'id' | 'achievementRate'>) => void, children: React.ReactNode }) {
-    const [open, setOpen] = useState(false);
-    const [year, setYear] = useState(new Date().getFullYear());
-    const [month, setMonth] = useState(new Date().getMonth() + 1);
-    const [salesTarget, setSalesTarget] = useState(0);
-    const [salesActual, setSalesActual] = useState(0);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave({ year, month, salesTarget, salesActual });
-        setOpen(false);
-    };
-
-    useEffect(() => {
-        if(open) {
-            setYear(record?.year || new Date().getFullYear());
-            setMonth(record?.month || new Date().getMonth() + 1);
-            setSalesTarget(record?.salesTarget || 0);
-            setSalesActual(record?.salesActual || 0);
-        }
-    }, [record, open]);
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent>
-                <form onSubmit={handleSubmit}>
-                    <DialogHeader>
-                        <DialogTitle>{record ? '売上実績を編集' : '新規売上実績を登録'}</DialogTitle>
-                    </DialogHeader>
-                     <div className="grid gap-4 py-4">
-                        <div className='flex gap-2'>
-                           <div className="grid gap-2 flex-1">
-                             <Label>対象年</Label>
-                             <Input type="number" value={year} onChange={e => setYear(Number(e.target.value))} />
-                           </div>
-                           <div className="grid gap-2 flex-1">
-                             <Label>対象月</Label>
-                             <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-                               <SelectTrigger>
-                                 <SelectValue placeholder="月を選択" />
-                               </SelectTrigger>
-                               <SelectContent>
-                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                  <SelectItem key={m} value={String(m)}>{m}月</SelectItem>
-                                ))}
-                               </SelectContent>
-                             </Select>
-                           </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>売上目標 (百万円)</Label>
-                            <Input type="number" value={salesTarget} onChange={e => setSalesTarget(Number(e.target.value))} />
-                        </div>
-                         <div className="grid gap-2">
-                            <Label>売上実績 (百万円)</Label>
-                            <Input type="number" value={salesActual} onChange={e => setSalesActual(Number(e.target.value))} />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button type="submit">保存</Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
-}
 
 function WidgetList({
   widgets,
@@ -461,30 +422,46 @@ function WidgetList({
   onSave,
   onDelete,
   onSetActive,
-  onSaveRecord,
-  onDeleteRecord,
+  onSaveRecords
 }: {
   widgets: Widget[];
   salesData: SalesRecord[];
   onSave: (data: Omit<Widget, 'id' | 'status'>, id?: string) => void;
   onDelete: (id: string) => void;
   onSetActive: (id: string) => void;
-  onSaveRecord: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void;
-  onDeleteRecord: (id: string) => void;
+  onSaveRecords: (records: SalesRecord[]) => void;
 }) {
 
-  const getChartDataForWidget = (widget: Widget): ChartData[] => {
-    let dataForChart = salesData;
+  const getChartDataForWidget = useCallback((widget: Widget): ChartData[] => {
+    let dataForChart: SalesRecord[] = [];
 
     if (widget.kpi === 'sales_revenue' && widget.fiscalYear) {
       const startMonth = widget.fiscalYearStartMonth || 8;
-      dataForChart = salesData.filter(record => getFiscalYear(record.year, record.month, startMonth) === widget.fiscalYear);
+      const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
+      
+      dataForChart = fiscalYearMonths.map(({ year, month }) => {
+        const id = `${year}-${String(month).padStart(2, '0')}`;
+        const found = salesData.find(record => record.id === id);
+        if (found) return found;
+
+        // If no record, return a default object
+        return {
+          id,
+          year,
+          month,
+          salesTarget: 0,
+          salesActual: 0,
+          achievementRate: 0,
+        };
+      });
+    } else {
+        // Handle non-sales kpi data generation if needed
     }
     
     return dataForChart
       .map(d => ({ month: `${d.year}-${String(d.month).padStart(2, '0')}`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
       .sort((a, b) => a.month.localeCompare(b.month));
-  };
+  }, [salesData]);
 
 
   if (widgets.length === 0) {
@@ -525,7 +502,7 @@ function WidgetList({
                   </DropdownMenuItem>
                 </WidgetDialog>
                  {widget.kpi === 'sales_revenue' && (
-                    <SalesDataManagementDialog records={salesData} onSave={onSaveRecord} onDelete={onDeleteRecord}>
+                    <SalesDataManagementDialog widget={widget} salesRecords={salesData} onSave={onSaveRecords}>
                         <DropdownMenuItem onSelect={e => e.preventDefault()}>
                             <Database className="mr-2 h-4 w-4"/>データ編集
                         </DropdownMenuItem>
@@ -611,22 +588,15 @@ export default function DashboardSettingsPage() {
       }));
     };
 
-    const handleSaveRecord = (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => {
-        const achievementRate = calculateAchievementRate(data.salesActual, data.salesTarget);
-        const recordId = id || `${data.year}-${String(data.month).padStart(2, '0')}`;
-        const exists = salesRecords.some(r => r.id === recordId);
-        
-        if (exists) {
-            setSalesRecords(salesRecords.map(r => (r.id === recordId ? { ...data, id: recordId, achievementRate } : r)));
-        } else {
-            setSalesRecords([...salesRecords, { ...data, id: recordId, achievementRate }].sort((a,b) => a.id.localeCompare(b.id)));
-        }
-    }
+    const handleSaveRecords = (newRecords: SalesRecord[]) => {
+      setSalesRecords(prevRecords => {
+        const newRecordIds = new Set(newRecords.map(r => r.id));
+        // Keep old records that are not in the new batch
+        const oldRecordsToKeep = prevRecords.filter(r => !newRecordIds.has(r.id));
+        return [...oldRecordsToKeep, ...newRecords].sort((a,b) => a.id.localeCompare(b.id));
+      });
+    };
 
-    const handleDeleteRecord = (id: string) => {
-        setSalesRecords(salesRecords.filter(r => r.id !== id));
-    }
-    
     const widgetsForTab = useMemo(() => {
       return widgets.filter(w => w.scope === activeTab).sort((a, b) => {
         if (a.status === 'active' && b.status !== 'active') return -1;
@@ -677,8 +647,7 @@ export default function DashboardSettingsPage() {
                     onSave={handleSaveWidget} 
                     onDelete={handleDeleteWidget}
                     onSetActive={handleSetActiveWidget}
-                    onSaveRecord={handleSaveRecord} 
-                    onDeleteRecord={handleDeleteRecord} 
+                    onSaveRecords={handleSaveRecords}
                 />
             </TabsContent>
             <TabsContent value="team">
@@ -688,8 +657,7 @@ export default function DashboardSettingsPage() {
                     onSave={handleSaveWidget} 
                     onDelete={handleDeleteWidget}
                     onSetActive={handleSetActiveWidget}
-                    onSaveRecord={handleSaveRecord} 
-                    onDeleteRecord={handleDeleteRecord} 
+                    onSaveRecords={handleSaveRecords}
                 />
             </TabsContent>
             <TabsContent value="personal">
@@ -699,8 +667,7 @@ export default function DashboardSettingsPage() {
                     onSave={handleSaveWidget} 
                     onDelete={handleDeleteWidget}
                     onSetActive={handleSetActiveWidget}
-                    onSaveRecord={handleSaveRecord} 
-                    onDeleteRecord={handleDeleteRecord} 
+                    onSaveRecords={handleSaveRecords}
                 />
             </TabsContent>
         </Tabs>

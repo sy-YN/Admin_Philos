@@ -17,6 +17,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  ReferenceLine,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Widget } from '@/app/dashboard/dashboard/page';
@@ -42,13 +43,12 @@ const pieData = [
   { name: '未完了', value: 25 },
 ];
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--muted))'];
+const PIE_CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--muted))'];
 
 export const salesChartConfig = {
   salesActual: { label: '実績', color: 'hsl(var(--primary))' },
-  salesTarget: { label: '目標', color: 'hsl(var(--primary) / 0.3)' },
-  overachievement: { label: '目標超過', color: 'hsl(var(--destructive))' },
-  achievementRate: { label: '達成率', color: 'hsl(var(--primary))' },
+  salesTarget: { label: '目標', color: 'hsl(var(--secondary))' },
+  achievementRate: { label: '達成率', color: 'hsl(20.2 90.5% 48.4%)' }, // using yellow-ish color
 };
 
 function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
@@ -57,19 +57,13 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
     }
     
     const processedData = useMemo(() => {
-        return chartData.map(d => {
-            const { salesTarget, salesActual } = d;
-            const overachievement = salesActual > salesTarget ? salesActual - salesTarget : 0;
-            const base = salesActual > salesTarget ? salesTarget : salesActual;
-            const shortfall = salesActual < salesTarget ? salesTarget - salesActual : 0;
-
-            return {
-                ...d,
-                base,
-                overachievement,
-                shortfall,
-            };
-        });
+        return chartData.map(d => ({
+            ...d,
+            displayTarget: d.salesTarget,
+            // Create segments for the stacked bar
+            base: Math.min(d.salesActual, d.salesTarget),
+            over: d.salesActual > d.salesTarget ? d.salesActual - d.salesTarget : 0,
+        }));
     }, [chartData]);
 
 
@@ -79,17 +73,15 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--primary))" tick={{ fontSize: 10 }} unit="M" />
-                <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--destructive))" tick={{ fontSize: 10 }} unit="%" />
+                <YAxis yAxisId="right" orientation="right" stroke="hsl(20.2 90.5% 48.4%)" tick={{ fontSize: 10 }} unit="%" />
                 <Tooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
                 
-                <Bar yAxisId="left" dataKey="base" stackId="a" fill="var(--color-salesActual)" radius={[4, 4, 0, 0]} unit="M" name="実績" />
-                
-                <Bar yAxisId="left" dataKey="shortfall" stackId="a" fill="var(--color-salesTarget)" unit="M" name="目標" />
+                <Bar dataKey="salesTarget" name="目標" fill="var(--color-salesTarget)" yAxisId="left" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="base" name="実績 (達成)" stackId="a" fill="var(--color-salesActual)" yAxisId="left" />
+                <Bar dataKey="over" name="実績 (超過)" stackId="a" fill="hsl(var(--destructive))" yAxisId="left" />
 
-                <Bar yAxisId="left" dataKey="overachievement" stackId="a" fill="var(--color-overachievement)" radius={[4, 4, 0, 0]} unit="M" name="目標超過" />
-
-                <Line type="monotone" dataKey="achievementRate" stroke="var(--color-salesActual)" yAxisId="right" dot={false} unit="%" name="達成率" />
+                <Line type="monotone" dataKey="achievementRate" stroke="var(--color-achievementRate)" yAxisId="right" dot={false} unit="%" name="達成率" />
             </ComposedChart>
         </ChartContainer>
     );
@@ -131,7 +123,7 @@ function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
         <PieChart>
           <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} innerRadius={isDonut ? 40 : 0}>
               {pieData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
               ))}
           </Pie>
           <ChartTooltip content={<ChartTooltipContent hideLabel />} />
