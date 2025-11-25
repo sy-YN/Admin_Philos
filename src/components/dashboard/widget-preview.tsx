@@ -12,6 +12,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Widget } from '@/app/dashboard/dashboard/page';
@@ -21,6 +22,82 @@ export type ChartData = {
     salesActual: number;
     salesTarget: number;
     achievementRate: number;
+}
+
+export const salesChartConfig = {
+  salesActual: { label: '実績', color: 'hsl(var(--primary))' },
+  salesTarget: { label: '目標', color: 'hsl(var(--secondary))' },
+  achievementRate: { label: '達成率', color: 'hsl(24.6 95% 53.1%)' }, // using orange-ish color
+  overAchievement: { label: '超過分', color: 'hsl(var(--destructive))' },
+  shortfall: { label: '不足分', color: 'hsl(var(--secondary))' },
+};
+
+
+function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
+    if (!chartData || chartData.length === 0) {
+        return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
+    }
+    
+    const processedData = useMemo(() => {
+        return chartData.map(d => {
+            const hasActual = d.salesActual > 0;
+            if (hasActual) {
+                return {
+                    ...d,
+                    base: Math.min(d.salesActual, d.salesTarget),
+                    over: d.salesActual > d.salesTarget ? d.salesActual - d.salesTarget : 0,
+                    shortfall: 0,
+                    targetOnly: 0,
+                }
+            }
+            // No actual data, show target only
+            return {
+                ...d,
+                base: 0,
+                over: 0,
+                shortfall: d.salesTarget,
+                targetOnly: d.salesTarget,
+            }
+        });
+    }, [chartData]);
+
+
+    return (
+        <ChartContainer config={salesChartConfig} className="h-full w-full">
+            <ComposedChart accessibilityLayer data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+                <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="M" />
+                <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="%" />
+                <Tooltip 
+                  content={<ChartTooltipContent 
+                    formatter={(value, name, props) => {
+                      if (name === 'targetOnly') return null;
+                      const { payload } = props;
+                      if (name === 'base' && payload.over > 0) return `${payload.salesTarget}M (目標達成)`;
+                      if (name === 'base' && payload.salesActual > 0) return `${payload.salesActual}M`;
+                      if (name === 'over') return `${payload.salesActual}M`;
+                      if (name === 'achievementRate') return `${value}%`;
+                      return `${value}M`;
+                    }}
+                    labelFormatter={(label, payload) => {
+                      if (payload && payload.length > 0) {
+                         return `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`;
+                      }
+                      return label;
+                    }}
+                  />} 
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+
+                <Bar dataKey="base" name="実績" fill="var(--color-salesActual)" yAxisId="left" stackId="a" />
+                <Bar dataKey="over" name="超過達成" fill="var(--color-overAchievement)" yAxisId="left" stackId="a" />
+                <Bar dataKey="targetOnly" name="目標" fill="var(--color-salesTarget)" yAxisId="left" stackId="a" />
+                
+                <Line type="monotone" dataKey="achievementRate" stroke="var(--color-achievementRate)" yAxisId="right" dot={false} strokeWidth={2} name="達成率" />
+            </ComposedChart>
+        </ChartContainer>
+    );
 }
 
 const previewData = [
@@ -38,53 +115,6 @@ const pieData = [
 ];
 
 const PIE_CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--muted))'];
-
-export const salesChartConfig = {
-  salesActual: { label: '実績', color: 'hsl(var(--primary))' },
-  salesTarget: { label: '目標', color: 'hsl(var(--secondary))' },
-  achievementRate: { label: '達成率', color: 'hsl(38 91% 63%)' }, // using yellow-ish color
-  overAchievement: { label: '超過分', color: 'hsl(var(--destructive))' },
-};
-
-
-function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
-    if (!chartData || chartData.length === 0) {
-        return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
-    }
-    
-    const processedData = useMemo(() => {
-        return chartData.map(d => {
-            const hasActual = d.salesActual > 0;
-            return {
-                ...d,
-                // For bars
-                base: hasActual ? Math.min(d.salesActual, d.salesTarget) : 0,
-                over: hasActual && d.salesActual > d.salesTarget ? d.salesActual - d.salesTarget : 0,
-                targetOnly: hasActual ? 0 : d.salesTarget,
-            };
-        });
-    }, [chartData]);
-
-
-    return (
-        <ChartContainer config={salesChartConfig} className="h-full w-full">
-            <ComposedChart accessibilityLayer data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
-                <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="M" />
-                <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="%" />
-                <Tooltip content={<ChartTooltipContent />} />
-                <ChartLegend content={<ChartLegendContent />} />
-
-                <Bar dataKey="targetOnly" name="目標" fill="var(--color-salesTarget)" yAxisId="left" stackId="a" />
-                <Bar dataKey="base" name="実績" fill="var(--color-salesActual)" yAxisId="left" stackId="a" />
-                <Bar dataKey="over" name="超過達成" fill="var(--color-overAchievement)" yAxisId="left" stackId="a" />
-                
-                <Line type="monotone" dataKey="achievementRate" stroke="var(--color-achievementRate)" yAxisId="right" dot={false} strokeWidth={2} name="達成率" />
-            </ComposedChart>
-        </ChartContainer>
-    );
-}
 
 function BarChartPreview() {
   return (
