@@ -21,6 +21,13 @@ import {
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Widget } from '@/app/dashboard/dashboard/page';
 
+export type ChartData = {
+    month: string;
+    salesActual: number;
+    salesTarget: number;
+    achievementRate: number;
+}
+
 const previewData = [
   { name: '1月', value: 400 },
   { name: '2月', value: 300 },
@@ -44,7 +51,7 @@ export const salesChartConfig = {
   achievementRate: { label: '達成率', color: 'hsl(var(--primary))' },
 };
 
-function ActualSalesComposedChart({ chartData }: { chartData: any[] }) {
+function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
     if (!chartData || chartData.length === 0) {
         return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
     }
@@ -70,7 +77,7 @@ function ActualSalesComposedChart({ chartData }: { chartData: any[] }) {
         <ChartContainer config={salesChartConfig} className="h-full w-full">
             <ComposedChart accessibilityLayer data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 10 }} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--primary))" tick={{ fontSize: 10 }} unit="M" />
                 <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--destructive))" tick={{ fontSize: 10 }} unit="%" />
                 <Tooltip content={<ChartTooltipContent />} />
@@ -137,7 +144,7 @@ function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
 
 interface WidgetPreviewProps {
     widget: Widget;
-    chartData: any[];
+    chartData: ChartData[];
 }
 
 export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps) {
@@ -161,5 +168,3 @@ export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps)
           return <BarChartPreview />;
       }
 }
-
-    

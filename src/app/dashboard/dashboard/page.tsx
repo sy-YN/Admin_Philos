@@ -8,21 +8,36 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Archive, Undo, ChevronLeft, ChevronRight, Loader2, Star } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import dynamic from 'next/dynamic';
-import type { Widget } from '@/components/dashboard/widget-preview';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
+import type { ChartData } from '@/components/dashboard/widget-preview';
 import { cn } from '@/lib/utils';
+import {
+  getFiscalYear,
+  getCurrentFiscalYear,
+  getFiscalYears,
+} from '@/lib/fiscal-year';
+
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
   ssr: false,
   loading: () => <div className="h-full w-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>,
 });
+
+
+export type Widget = {
+  id: string;
+  title: string;
+  scope: 'company' | 'team' | 'personal';
+  kpi: string;
+  chartType: string;
+  status: 'active' | 'inactive';
+  fiscalYear?: number;
+};
 
 
 const kpiOptions = {
@@ -87,20 +102,21 @@ const calculateAchievementRate = (actual: number, target: number) => {
 }
 
 const initialWidgets: Widget[] = [
-    { id: '1', title: '全社売上高の推移', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'active' },
+    { id: '1', title: '全社売上高の推移 (2024年度)', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'active', fiscalYear: 2024 },
     { id: '4', title: '新規顧客獲得数', kpi: 'new_customers', scope: 'company', chartType: 'bar', status: 'inactive' },
     { id: '2', title: '営業チームのタスク完了率', kpi: 'task_completion_rate', scope: 'team', chartType: 'pie', status: 'active' },
     { id: '3', title: '個人の学習時間の記録', kpi: 'self_learning_time', scope: 'personal', chartType: 'line', status: 'active' },
+    { id: '5', title: '全社売上高の推移 (2025年度)', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'inactive', fiscalYear: 2025 },
 ];
 
 const initialSalesRecords: SalesRecord[] = [
-    // 2023 Data
+    // 2023 Data (FY2024)
     { id: '2023-08', year: 2023, month: 8, salesTarget: 70, salesActual: 65, achievementRate: calculateAchievementRate(65, 70) },
     { id: '2023-09', year: 2023, month: 9, salesTarget: 72, salesActual: 75, achievementRate: calculateAchievementRate(75, 72) },
     { id: '2023-10', year: 2023, month: 10, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
     { id: '2023-11', year: 2023, month: 11, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
     { id: '2023-12', year: 2023, month: 12, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
-    // 2024 Data
+    // 2024 Data (FY2024)
     { id: '2024-01', year: 2024, month: 1, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
     { id: '2024-02', year: 2024, month: 2, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
     { id: '2024-03', year: 2024, month: 3, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
@@ -123,6 +139,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
   const [scope, setScope] = useState<WidgetScope>(defaultScope);
   const [kpi, setKpi] = useState('');
   const [chartType, setChartType] = useState('');
+  const [fiscalYear, setFiscalYear] = useState<number>(getCurrentFiscalYear());
 
   const availableChartOptions = useMemo(() => {
     if (!kpi) return [];
@@ -140,7 +157,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ title, scope, kpi, chartType });
+    onSave({ title, scope, kpi, chartType, fiscalYear: kpi === 'sales_revenue' ? fiscalYear : undefined });
     setOpen(false);
   };
   
@@ -151,14 +168,18 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
       setScope(initialScope);
       setKpi(widget?.kpi || '');
       setChartType(widget?.chartType || '');
+      setFiscalYear(widget?.fiscalYear || getCurrentFiscalYear());
     } else {
       // Reset form on close
       setTitle('');
       setScope(defaultScope);
       setKpi('');
       setChartType('');
+      setFiscalYear(getCurrentFiscalYear());
     }
   }, [widget, open, defaultScope]);
+
+  const needsFiscalYear = kpi === 'sales_revenue';
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -174,6 +195,19 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
               <Label htmlFor="widget-title">ウィジェットタイトル</Label>
               <Input id="widget-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="例: 全社の売上推移" required />
             </div>
+            {needsFiscalYear && (
+              <div className="grid gap-2">
+                <Label htmlFor="widget-fiscal-year">対象年度</Label>
+                 <Select value={String(fiscalYear)} onValueChange={(v) => setFiscalYear(Number(v))}>
+                  <SelectTrigger id="widget-fiscal-year"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {getFiscalYears().map(year => (
+                      <SelectItem key={year} value={String(year)}>{year}年度</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="widget-scope">対象単位</Label>
               <Select value={scope} onValueChange={(v: any) => { setScope(v); setKpi(''); setChartType(''); }}>
@@ -266,7 +300,7 @@ function SalesRecordTable({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {records.sort((a, b) => a.id.localeCompare(b.id)).map(record => (
+                        {records.sort((a, b) => b.id.localeCompare(a.id)).map(record => (
                             <TableRow key={record.id}>
                                 <TableCell>{record.year}年{record.month}月</TableCell>
                                 <TableCell>{record.salesTarget}百万円</TableCell>
@@ -397,11 +431,19 @@ function WidgetList({
   onSaveRecord: (data: Omit<SalesRecord, 'id' | 'achievementRate'>, id?: string) => void;
   onDeleteRecord: (id: string) => void;
 }) {
-  const chartData = useMemo(() =>
-    salesData
+
+  const getChartDataForWidget = (widget: Widget): ChartData[] => {
+    let dataForChart = salesData;
+
+    if (widget.kpi === 'sales_revenue' && widget.fiscalYear) {
+      dataForChart = salesData.filter(record => getFiscalYear(record.year, record.month) === widget.fiscalYear);
+    }
+    
+    return dataForChart
       .map(d => ({ month: `${d.year}/${String(d.month).padStart(2, '0')}`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
-      .sort((a, b) => a.month.localeCompare(b.month))
-  , [salesData]);
+      .sort((a, b) => a.month.localeCompare(b.month));
+  };
+
 
   if (widgets.length === 0) {
     return (
@@ -473,7 +515,7 @@ function WidgetList({
           <CardContent className="h-60 w-full flex-grow">
              <WidgetPreview 
                widget={widget} 
-               chartData={chartData} 
+               chartData={getChartDataForWidget(widget)}
              />
           </CardContent>
           <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
@@ -545,9 +587,9 @@ export default function DashboardSettingsPage() {
     
     const widgetsForTab = useMemo(() => {
       return widgets.filter(w => w.scope === activeTab).sort((a, b) => {
-        if (a.status === 'active') return -1;
-        if (b.status === 'active') return 1;
-        return 0;
+        if (a.status === 'active' && b.status !== 'active') return -1;
+        if (b.status === 'active' && a.status !== 'active') return 1;
+        return (b.fiscalYear ?? 0) - (a.fiscalYear ?? 0) || a.title.localeCompare(b.title);
       });
     }, [widgets, activeTab]);
 
