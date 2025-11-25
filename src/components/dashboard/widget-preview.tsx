@@ -25,11 +25,11 @@ export type ChartData = {
 }
 
 export const salesChartConfig = {
-  salesActual: { label: '実績', color: 'hsl(var(--primary))' },
+  salesActual: { label: '実績(達成)', color: 'hsl(var(--primary))' },
   salesTarget: { label: '目標', color: 'hsl(var(--secondary))' },
-  achievementRate: { label: '達成率', color: 'hsl(24.6 95% 53.1%)' }, // using orange-ish color
+  achievementRate: { label: '達成率', color: 'hsl(38 92% 50%)' }, // 黄色に変更
   overAchievement: { label: '超過分', color: 'hsl(var(--destructive))' },
-  shortfall: { label: '不足分', color: 'hsl(var(--secondary))' }, // Same as target
+  shortfall: { label: '目標/不足分', color: 'hsl(var(--primary))' }, // 緑に変更
 };
 
 
@@ -46,17 +46,17 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                     // 目標達成または超過
                     return {
                         ...d,
-                        base: d.salesTarget, // 濃い緑
-                        over: d.salesActual - d.salesTarget, // 赤
+                        base: d.salesTarget,
+                        over: d.salesActual - d.salesTarget,
                         shortfall: 0,
                     };
                 } else {
                     // 目標未達
                     return {
                         ...d,
-                        base: d.salesActual, // 濃い緑
+                        base: d.salesActual,
                         over: 0,
-                        shortfall: d.salesTarget - d.salesActual, // 薄い緑
+                        shortfall: d.salesTarget - d.salesActual,
                     };
                 }
             }
@@ -65,7 +65,7 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                 ...d,
                 base: 0,
                 over: 0,
-                shortfall: d.salesTarget, // 薄い緑 (目標値全体)
+                shortfall: d.salesTarget, // 目標値全体を不足分として表示
             };
         });
     }, [chartData]);
@@ -81,10 +81,10 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                 <Tooltip 
                   content={<ChartTooltipContent 
                     formatter={(value, name, props) => {
+                      if (name === 'achievementRate') return `${value}%`;
+
                       const { payload } = props;
                       if (!payload) return null;
-                      
-                      if (name === 'achievementRate') return `${value}%`;
 
                       if (payload.salesActual > 0) {
                          return `${payload.salesActual}M / ${payload.salesTarget}M`;
@@ -110,9 +110,9 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                   wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
                 />
 
-                <Bar dataKey="base" name="実績" fill="var(--color-salesActual)" yAxisId="left" stackId="a" />
-                <Bar dataKey="shortfall" name="不足分" fill="var(--color-shortfall)" yAxisId="left" stackId="a" />
-                <Bar dataKey="over" name="超過達成" fill="var(--color-overAchievement)" yAxisId="left" stackId="a" />
+                <Bar dataKey="base" name="実績" fill="var(--color-salesActual)" stackId="a" yAxisId="left" />
+                <Bar dataKey="shortfall" name="不足分" fill="var(--color-shortfall)" stackId="a" yAxisId="left" fillOpacity={0.4} />
+                <Bar dataKey="over" name="超過達成" fill="var(--color-overAchievement)" stackId="a" yAxisId="left" />
                 
                 <Line type="monotone" dataKey="achievementRate" stroke="var(--color-achievementRate)" yAxisId="right" dot={false} strokeWidth={2} name="達成率" />
             </ComposedChart>
