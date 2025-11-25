@@ -29,7 +29,7 @@ export const salesChartConfig = {
   salesTarget: { label: '目標', color: 'hsl(var(--secondary))' },
   achievementRate: { label: '達成率', color: 'hsl(24.6 95% 53.1%)' }, // using orange-ish color
   overAchievement: { label: '超過分', color: 'hsl(var(--destructive))' },
-  shortfall: { label: '不足分', color: 'hsl(var(--secondary))' },
+  shortfall: { label: '不足分', color: 'hsl(var(--secondary))' }, // Same as target
 };
 
 
@@ -42,22 +42,31 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
         return chartData.map(d => {
             const hasActual = d.salesActual > 0;
             if (hasActual) {
-                return {
-                    ...d,
-                    base: Math.min(d.salesActual, d.salesTarget),
-                    over: d.salesActual > d.salesTarget ? d.salesActual - d.salesTarget : 0,
-                    shortfall: 0,
-                    targetOnly: 0,
+                if (d.salesActual >= d.salesTarget) {
+                    // 目標達成または超過
+                    return {
+                        ...d,
+                        base: d.salesTarget, // 濃い緑
+                        over: d.salesActual - d.salesTarget, // 赤
+                        shortfall: 0,
+                    };
+                } else {
+                    // 目標未達
+                    return {
+                        ...d,
+                        base: d.salesActual, // 濃い緑
+                        over: 0,
+                        shortfall: d.salesTarget - d.salesActual, // 薄い緑
+                    };
                 }
             }
-            // No actual data, show target only
+            // 実績未入力
             return {
                 ...d,
                 base: 0,
                 over: 0,
-                shortfall: d.salesTarget,
-                targetOnly: d.salesTarget,
-            }
+                shortfall: d.salesTarget, // 薄い緑 (目標値全体)
+            };
         });
     }, [chartData]);
 
@@ -72,27 +81,38 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                 <Tooltip 
                   content={<ChartTooltipContent 
                     formatter={(value, name, props) => {
-                      if (name === 'targetOnly') return null;
                       const { payload } = props;
-                      if (name === 'base' && payload.over > 0) return `${payload.salesTarget}M (目標達成)`;
-                      if (name === 'base' && payload.salesActual > 0) return `${payload.salesActual}M`;
-                      if (name === 'over') return `${payload.salesActual}M`;
+                      if (!payload) return null;
+                      
                       if (name === 'achievementRate') return `${value}%`;
-                      return `${value}M`;
-                    }}
-                    labelFormatter={(label, payload) => {
-                      if (payload && payload.length > 0) {
-                         return `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`;
+
+                      if (payload.salesActual > 0) {
+                         return `${payload.salesActual}M / ${payload.salesTarget}M`;
                       }
-                      return label;
+                      return `${payload.salesTarget}M (目標)`;
+                    }}
+                    labelFormatter={(label) => {
+                       return `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`;
                     }}
                   />} 
                 />
-                <ChartLegend content={<ChartLegendContent />} />
+                <ChartLegend 
+                  content={
+                    <ChartLegendContent 
+                      payload={[
+                        { value: '実績(達成)', type: 'square', color: salesChartConfig.salesActual.color },
+                        { value: '実績(超過)', type: 'square', color: salesChartConfig.overAchievement.color },
+                        { value: '目標/不足分', type: 'square', color: salesChartConfig.shortfall.color },
+                        { value: '達成率', type: 'line', color: salesChartConfig.achievementRate.color },
+                      ]} 
+                    />
+                  } 
+                  wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                />
 
                 <Bar dataKey="base" name="実績" fill="var(--color-salesActual)" yAxisId="left" stackId="a" />
+                <Bar dataKey="shortfall" name="不足分" fill="var(--color-shortfall)" yAxisId="left" stackId="a" />
                 <Bar dataKey="over" name="超過達成" fill="var(--color-overAchievement)" yAxisId="left" stackId="a" />
-                <Bar dataKey="targetOnly" name="目標" fill="var(--color-salesTarget)" yAxisId="left" stackId="a" />
                 
                 <Line type="monotone" dataKey="achievementRate" stroke="var(--color-achievementRate)" yAxisId="right" dot={false} strokeWidth={2} name="達成率" />
             </ComposedChart>
