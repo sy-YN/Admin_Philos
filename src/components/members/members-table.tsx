@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -41,6 +42,8 @@ import { EditMemberDialog } from './edit-member-dialog';
 interface MembersTableProps {
   members: Member[];
   isLoading: boolean;
+  companyOptions: { value: string; label: string }[];
+  departmentOptions: { value: string; label: string }[];
 }
 
 // Separate component for the row to manage its own state
@@ -166,21 +169,8 @@ function MemberTableRow({ member, companyOptions, departmentOptions }: { member:
 }
 
 
-export function MembersTable({ members, isLoading }: MembersTableProps) {
+export function MembersTable({ members, isLoading, companyOptions, departmentOptions }: MembersTableProps) {
   
-  const { companyOptions, departmentOptions } = useMemo(() => {
-    if (!members) {
-      return { companyOptions: [], departmentOptions: [] };
-    }
-    const companies = new Set(members.map(m => m.company).filter(Boolean));
-    const departments = new Set(members.map(m => m.department).filter(Boolean));
-
-    return {
-      companyOptions: Array.from(companies).map(c => ({ value: c as string, label: c as string})),
-      departmentOptions: Array.from(departments).map(d => ({ value: d as string, label: d as string })),
-    };
-  }, [members]);
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-10">

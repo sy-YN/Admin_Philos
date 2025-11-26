@@ -1,3 +1,4 @@
+
 'use client';
 import { useMemo } from 'react';
 import { File, Search, Upload } from 'lucide-react';
@@ -12,6 +13,14 @@ import type { Member } from '@/types/member';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns-tz';
 import { ImportMembersDialog } from '@/components/members/import-members-dialog';
+
+const PREDEFINED_DEPARTMENTS = [
+  '人材開発G',
+  '営業事務G',
+  '第1事業部',
+  '第2事業部',
+  '営業部',
+];
 
 export default function MembersPage() {
   const firestore = useFirestore();
@@ -29,7 +38,7 @@ export default function MembersPage() {
       return { companyOptions: [], departmentOptions: [] };
     }
     const companies = new Set(members.map(m => m.company).filter(Boolean));
-    const departments = new Set(members.map(m => m.department).filter(Boolean));
+    const departments = new Set([...PREDEFINED_DEPARTMENTS, ...members.map(m => m.department).filter(Boolean)]);
 
     return {
       companyOptions: Array.from(companies).map(c => ({ value: c as string, label: c as string})),
@@ -121,7 +130,7 @@ export default function MembersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <MembersTable members={members || []} isLoading={isLoading} />
+          <MembersTable members={members || []} isLoading={isLoading} companyOptions={companyOptions} departmentOptions={departmentOptions}/>
         </CardContent>
       </Card>
     </>
