@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -20,14 +19,17 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Combobox } from '../ui/combobox';
 
 interface EditMemberDialogProps {
   member: Member;
   onSuccess?: () => void;
   children: React.ReactNode;
+  companyOptions: { value: string; label: string }[];
+  departmentOptions: { value: string; label: string }[];
 }
 
-export function EditMemberDialog({ member, onSuccess, children }: EditMemberDialogProps) {
+export function EditMemberDialog({ member, onSuccess, children, companyOptions, departmentOptions }: EditMemberDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -143,25 +145,31 @@ export function EditMemberDialog({ member, onSuccess, children }: EditMemberDial
               <Label htmlFor="company" className="text-right">
                 所属会社
               </Label>
-              <Input
-                id="company"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                className="col-span-3"
-                disabled={isLoading}
-              />
+              <Combobox
+                  options={companyOptions}
+                  value={company}
+                  onChange={setCompany}
+                  placeholder="会社を選択・入力..."
+                  searchPlaceholder="会社を検索..."
+                  emptyResultText="会社が見つかりません。"
+                  className="col-span-3"
+                  disabled={isLoading}
+                />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="department" className="text-right">
                 所属部署
               </Label>
-              <Input
-                id="department"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="col-span-3"
-                disabled={isLoading}
-              />
+              <Combobox
+                  options={departmentOptions}
+                  value={department}
+                  onChange={setDepartment}
+                  placeholder="部署を選択・入力..."
+                  searchPlaceholder="部署を検索..."
+                  emptyResultText="部署が見つかりません。"
+                  className="col-span-3"
+                  disabled={isLoading}
+                />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">

@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -34,7 +33,7 @@ import {
 import type { Member } from '@/types/member';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { EditMemberDialog } from './edit-member-dialog';
@@ -45,10 +44,11 @@ interface MembersTableProps {
 }
 
 // Separate component for the row to manage its own state
-function MemberTableRow({ member }: { member: Member }) {
+function MemberTableRow({ member, companyOptions, departmentOptions }: { member: Member, companyOptions: {value: string, label: string}[], departmentOptions: {value: string, label: string}[] }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user: currentUser } = useUser();
 
   const handleDeleteMember = async (uid: string) => {
     if (!firestore) {
@@ -92,6 +92,8 @@ function MemberTableRow({ member }: { member: Member }) {
     }
   };
 
+  const isCurrentUser = currentUser?.uid === member.uid;
+
   return (
     <TableRow>
       <TableCell>
@@ -108,7 +110,7 @@ function MemberTableRow({ member }: { member: Member }) {
         {member.department || 'N/A'}
       </TableCell>
       <TableCell>
-        <Badge variant="secondary">{member.role}</Badge>
+        <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>{member.role}</Badge>
       </TableCell>
       <TableCell className="hidden md:table-cell">
         {formatDate(member.createdAt)}
@@ -123,7 +125,7 @@ function MemberTableRow({ member }: { member: Member }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>操作</DropdownMenuLabel>
-            <EditMemberDialog member={member} onSuccess={() => setIsMenuOpen(false)}>
+            <EditMemberDialog member={member} onSuccess={() => setIsMenuOpen(false)} companyOptions={companyOptions} departmentOptions={departmentOptions}>
               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                 編集
               </DropdownMenuItem>
@@ -133,6 +135,7 @@ function MemberTableRow({ member }: { member: Member }) {
                  <DropdownMenuItem 
                     onSelect={(e) => e.preventDefault()}
                     className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    disabled={isCurrentUser}
                   >
                     削除
                  </DropdownMenuItem>
@@ -164,6 +167,20 @@ function MemberTableRow({ member }: { member: Member }) {
 
 
 export function MembersTable({ members, isLoading }: MembersTableProps) {
+  
+  const { companyOptions, departmentOptions } = useMemo(() => {
+    if (!members) {
+      return { companyOptions: [], departmentOptions: [] };
+    }
+    const companies = new Set(members.map(m => m.company).filter(Boolean));
+    const departments = new Set(members.map(m => m.department).filter(Boolean));
+
+    return {
+      companyOptions: Array.from(companies).map(c => ({ value: c as string, label: c as string})),
+      departmentOptions: Array.from(departments).map(d => ({ value: d as string, label: d as string })),
+    };
+  }, [members]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-10">
@@ -197,11 +214,14 @@ export function MembersTable({ members, isLoading }: MembersTableProps) {
       </TableHeader>
       <TableBody>
         {members.map((member) => (
-          <MemberTableRow key={member.uid} member={member} />
+          <MemberTableRow 
+            key={member.uid} 
+            member={member} 
+            companyOptions={companyOptions}
+            departmentOptions={departmentOptions}
+          />
         ))}
       </TableBody>
     </Table>
   );
 }
-
-    

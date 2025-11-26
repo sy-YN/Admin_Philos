@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -21,8 +20,15 @@ import { useFirestore, useUser, useAuth } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Combobox } from '../ui/combobox';
 
-export function AddMemberDialog() {
+interface AddMemberDialogProps {
+  companyOptions: { value: string; label: string }[];
+  departmentOptions: { value: string; label: string }[];
+}
+
+
+export function AddMemberDialog({ companyOptions, departmentOptions }: AddMemberDialogProps) {
   const { user } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
@@ -40,6 +46,16 @@ export function AddMemberDialog() {
   const [role, setRole] = useState<Member['role'] | ''>('');
   
   const isFirstAdmin = !user;
+  
+  const resetForm = () => {
+      setEmail('');
+      setPassword('');
+      setDisplayName('');
+      setEmployeeId('');
+      setCompany('');
+      setDepartment('');
+      setRole('');
+  }
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,13 +110,7 @@ export function AddMemberDialog() {
         description: `新しいメンバー「${displayName}」が追加されました。`,
       });
       
-      setEmail('');
-      setPassword('');
-      setDisplayName('');
-      setEmployeeId('');
-      setCompany('');
-      setDepartment('');
-      setRole('');
+      resetForm();
       setOpen(false);
 
     } catch (error: any) {
@@ -136,7 +146,12 @@ export function AddMemberDialog() {
 
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) {
+            resetForm();
+        }
+    }}>
       <DialogTrigger asChild>
         {triggerButton}
       </DialogTrigger>
@@ -207,25 +222,31 @@ export function AddMemberDialog() {
               <Label htmlFor="company" className="text-right">
                 所属会社
               </Label>
-              <Input
-                id="company"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                className="col-span-3"
-                disabled={isLoading}
-              />
+              <Combobox
+                  options={companyOptions}
+                  value={company}
+                  onChange={setCompany}
+                  placeholder="会社を選択・入力..."
+                  searchPlaceholder="会社を検索..."
+                  emptyResultText="会社が見つかりません。"
+                  className="col-span-3"
+                  disabled={isLoading}
+                />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="department" className="text-right">
                 所属部署
               </Label>
-              <Input
-                id="department"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="col-span-3"
-                disabled={isLoading}
-              />
+              <Combobox
+                  options={departmentOptions}
+                  value={department}
+                  onChange={setDepartment}
+                  placeholder="部署を選択・入力..."
+                  searchPlaceholder="部署を検索..."
+                  emptyResultText="部署が見つかりません。"
+                  className="col-span-3"
+                  disabled={isLoading}
+                />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">

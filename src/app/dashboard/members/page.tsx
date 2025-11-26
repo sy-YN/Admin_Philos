@@ -1,5 +1,5 @@
-
 'use client';
+import { useMemo } from 'react';
 import { File, Search, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +23,19 @@ export default function MembersPage() {
   }, [firestore]);
 
   const { data: members, isLoading } = useCollection<Member>(membersQuery);
+
+  const { companyOptions, departmentOptions } = useMemo(() => {
+    if (!members) {
+      return { companyOptions: [], departmentOptions: [] };
+    }
+    const companies = new Set(members.map(m => m.company).filter(Boolean));
+    const departments = new Set(members.map(m => m.department).filter(Boolean));
+
+    return {
+      companyOptions: Array.from(companies).map(c => ({ value: c as string, label: c as string})),
+      departmentOptions: Array.from(departments).map(d => ({ value: d as string, label: d as string })),
+    };
+  }, [members]);
 
   const handleExport = () => {
     if (!members || members.length === 0) {
@@ -92,7 +105,7 @@ export default function MembersPage() {
               エクスポート
             </span>
           </Button>
-          <AddMemberDialog />
+          <AddMemberDialog companyOptions={companyOptions} departmentOptions={departmentOptions} />
         </div>
       </div>
       
@@ -114,5 +127,3 @@ export default function MembersPage() {
     </>
   );
 }
-
-    
