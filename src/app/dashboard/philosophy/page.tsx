@@ -253,9 +253,8 @@ export default function PhilosophyPage() {
 
   const philosophyQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading) return null;
-    if (!user) return null; // Don't query if user is not logged in
     return query(collection(firestore, 'philosophy'), orderBy('order'));
-  }, [firestore, user, isUserLoading]);
+  }, [firestore, isUserLoading]);
 
   const { data: dbItems, isLoading: isDbLoading } = useCollection<PhilosophyItem>(philosophyQuery);
   const [items, setItems] = useState<PhilosophyItem[]>([]);
