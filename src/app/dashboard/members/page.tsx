@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { MembersTable } from '@/components/members/members-table';
 import { AddMemberDialog } from '@/components/members/add-member-dialog';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import type { Member } from '@/types/member';
 import { useToast } from '@/hooks/use-toast';
@@ -24,12 +24,13 @@ const PREDEFINED_DEPARTMENTS = [
 
 export default function MembersPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   
   const membersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: members, isLoading } = useCollection<Member>(membersQuery);
 
