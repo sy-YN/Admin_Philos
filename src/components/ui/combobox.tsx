@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -58,6 +59,7 @@ export function Combobox({
             placeholder={placeholder}
             className="pr-8"
             disabled={disabled}
+            onClick={() => setOpen(true)}
           />
           <Button
             variant="ghost"
