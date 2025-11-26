@@ -28,13 +28,6 @@ interface AddMemberDialogProps {
   departmentOptions?: { value: string; label: string }[];
 }
 
-const RequiredLabel = ({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) => (
-  <Label htmlFor={htmlFor} className="text-right">
-    {children}
-    <span className="text-destructive ml-1">*</span>
-  </Label>
-);
-
 export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }: AddMemberDialogProps) {
   const { user } = useUser();
   const auth = useAuth();
@@ -177,7 +170,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <RequiredLabel htmlFor="displayName">氏名</RequiredLabel>
+              <Label htmlFor="displayName" className="text-right">氏名</Label>
               <Input
                 id="displayName"
                 value={displayName}
@@ -187,7 +180,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
               />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
-              <RequiredLabel htmlFor="email">メール</RequiredLabel>
+              <Label htmlFor="email" className="text-right">メール</Label>
               <Input
                 id="email"
                 type="email"
@@ -198,7 +191,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
               />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
-              <RequiredLabel htmlFor="password">パスワード</RequiredLabel>
+              <Label htmlFor="password" className="text-right">パスワード</Label>
               <Input
                 id="password"
                 type="password"
@@ -210,7 +203,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <RequiredLabel htmlFor="employeeId">社員番号</RequiredLabel>
+              <Label htmlFor="employeeId" className="text-right">社員番号</Label>
               <Input
                 id="employeeId"
                 value={employeeId}
@@ -220,7 +213,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <RequiredLabel htmlFor="company">所属会社</RequiredLabel>
+              <Label htmlFor="company" className="text-right">所属会社</Label>
               <Combobox
                   options={companyOptions}
                   value={company}
@@ -233,7 +226,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
                 />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <RequiredLabel htmlFor="department">所属部署</RequiredLabel>
+              <Label htmlFor="department" className="text-right">所属部署</Label>
               <Combobox
                   options={departmentOptions}
                   value={department}
@@ -257,7 +250,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
                 </>
               ) : (
                 <>
-                  <RequiredLabel htmlFor="role">権限</RequiredLabel>
+                  <Label htmlFor="role" className="text-right">権限</Label>
                   <Select
                     value={role}
                     onValueChange={(value) => setRole(value as Member['role'])}
