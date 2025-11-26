@@ -52,10 +52,18 @@ export default function DashboardLayout({
     // Check user role in Firestore
     const userDocRef = doc(firestore, 'users', user.uid);
     getDoc(userDocRef).then(userDoc => {
-      if (userDoc.exists() && (userDoc.data() as Member).role === 'admin') {
-        setIsAuthorized(true); // User is an admin, grant access
+      if (userDoc.exists()) {
+        const userRole = (userDoc.data() as Member).role;
+        if (userRole === 'admin' || userRole === 'executive') {
+          setIsAuthorized(true); // User is an admin or executive, grant access
+        } else {
+           // Not an admin or executive, sign out and redirect
+           auth.signOut().then(() => {
+            router.replace('/login');
+          });
+        }
       } else {
-        // Not an admin or doc doesn't exist, sign out and redirect
+        // Doc doesn't exist, sign out and redirect
         auth.signOut().then(() => {
           router.replace('/login');
         });

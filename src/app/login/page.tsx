@@ -49,17 +49,29 @@ export default function LoginPage() {
       const userDocRef = doc(firestore, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
 
-      if (userDoc.exists() && (userDoc.data() as Member).role === 'admin') {
-        router.replace('/dashboard');
+      if (userDoc.exists()) {
+        const userRole = (userDoc.data() as Member).role;
+        if (userRole === 'admin' || userRole === 'executive') {
+          router.replace('/dashboard');
+        } else {
+          // Not an authorized role, sign them out and show an error
+          await auth.signOut();
+          toast({
+            title: 'ログインエラー',
+            description: '管理者または経営層のアカウントでログインしてください。',
+            variant: 'destructive',
+          });
+          setIsCheckingRole(false); // Stop checking and show login form
+        }
       } else {
-        // Not an admin or no document, sign them out and show an error
+        // User doc doesn't exist, they can't be authorized
         await auth.signOut();
         toast({
           title: 'ログインエラー',
-          description: '管理者権限を持つアカウントでログインしてください。',
+          description: '有効なユーザーではありません。',
           variant: 'destructive',
         });
-        setIsCheckingRole(false); // Stop checking and show login form
+        setIsCheckingRole(false);
       }
     };
 
@@ -88,19 +100,30 @@ export default function LoginPage() {
       const userDocRef = doc(firestore, 'users', loggedInUser.uid);
       const userDoc = await getDoc(userDocRef);
 
-      if (userDoc.exists() && (userDoc.data() as Member).role === 'admin') {
-        toast({
-          title: 'ログイン成功',
-          description: 'ダッシュボードへようこそ！',
-        });
-        // The useEffect will handle the redirection.
+      if (userDoc.exists()) {
+        const userRole = (userDoc.data() as Member).role;
+        if (userRole === 'admin' || userRole === 'executive') {
+            toast({
+            title: 'ログイン成功',
+            description: 'ダッシュボードへようこそ！',
+            });
+            // The useEffect will handle the redirection.
+        } else {
+            // If not an authorized role, sign out and show error.
+            await auth.signOut();
+            toast({
+                title: 'ログインエラー',
+                description: '管理者または経営層の権限がありません。',
+                variant: 'destructive',
+            });
+        }
       } else {
-        // If not an admin or document doesn't exist, sign out and show error.
+        // If document doesn't exist, sign out and show error.
         await auth.signOut();
         toast({
-          title: 'ログインエラー',
-          description: '管理者権限がありません。',
-          variant: 'destructive',
+            title: 'ログインエラー',
+            description: '指定されたユーザーは存在しません。',
+            variant: 'destructive',
         });
       }
     } catch (error: any) {
