@@ -42,30 +42,51 @@ export function Combobox({
   className,
   disabled = false,
 }: ComboboxProps) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(false)
+  const [inputValue, setInputValue] = React.useState(value)
+
+  // Sync internal state if the external value changes
+  React.useEffect(() => {
+    setInputValue(value)
+  }, [value])
 
   const handleSelect = (currentValue: string) => {
-    onChange(currentValue === value ? "" : currentValue);
-    setOpen(false);
-  };
+    const newValue = currentValue === value ? "" : currentValue
+    onChange(newValue)
+    setInputValue(newValue) // Also update internal state
+    setOpen(false)
+  }
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(event.target.value)
+    // To allow free-form input, we can call onChange on every keystroke
+    onChange(event.target.value)
+  }
+
+  const handleBlur = () => {
+    // On blur, ensure the final input value is propagated
+    onChange(inputValue);
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <div className={cn("relative w-full", className)}>
           <Input
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
+            value={inputValue}
+            onChange={handleInputChange}
+            onBlur={handleBlur}
             placeholder={placeholder}
             className="pr-8"
             disabled={disabled}
             onClick={() => setOpen(true)}
           />
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             className="absolute right-0 top-0 h-full px-2 text-muted-foreground"
-            onClick={() => setOpen(!open)}
+            onClick={() => setOpen((prev) => !prev)}
             disabled={disabled}
           >
             <ChevronsUpDown className="h-4 w-4" />
