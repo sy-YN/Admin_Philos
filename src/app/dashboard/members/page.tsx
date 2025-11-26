@@ -17,8 +17,8 @@ import { ImportMembersDialog } from '@/components/members/import-members-dialog'
 const PREDEFINED_DEPARTMENTS = [
   '人材開発G',
   '営業事務G',
-  '第1事業部',
-  '第2事業部',
+  '第1事業部3SEシステム部',
+  '第2事業部3SEシステム部',
   '営業部',
 ];
 
