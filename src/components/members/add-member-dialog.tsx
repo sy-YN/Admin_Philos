@@ -21,14 +21,21 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Combobox } from '../ui/combobox';
+import { cn } from '@/lib/utils';
 
 interface AddMemberDialogProps {
-  companyOptions: { value: string; label: string }[];
-  departmentOptions: { value: string; label: string }[];
+  companyOptions?: { value: string; label: string }[];
+  departmentOptions?: { value: string; label: string }[];
 }
 
+const RequiredLabel = ({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) => (
+  <Label htmlFor={htmlFor} className="text-right">
+    {children}
+    <span className="text-destructive ml-1">*</span>
+  </Label>
+);
 
-export function AddMemberDialog({ companyOptions, departmentOptions }: AddMemberDialogProps) {
+export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }: AddMemberDialogProps) {
   const { user } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
@@ -71,10 +78,15 @@ export function AddMemberDialog({ companyOptions, departmentOptions }: AddMember
       return;
     }
     
-    if (!role && !isFirstAdmin) {
-      toast({
-        title: 'エラー',
-        description: '権限を選択してください。',
+    // Comprehensive check for all required fields
+    const requiredFields = [displayName, email, password, employeeId, company, department];
+    if (!isFirstAdmin) {
+        requiredFields.push(role);
+    }
+    if (requiredFields.some(field => !field)) {
+       toast({
+        title: '入力エラー',
+        description: 'すべての必須項目を入力してください。',
         variant: 'destructive',
       });
       setIsLoading(false);
@@ -165,51 +177,40 @@ export function AddMemberDialog({ companyOptions, departmentOptions }: AddMember
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="displayName" className="text-right">
-                氏名
-              </Label>
+              <RequiredLabel htmlFor="displayName">氏名</RequiredLabel>
               <Input
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 className="col-span-3"
-                required
                 disabled={isLoading}
               />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                メール
-              </Label>
+              <RequiredLabel htmlFor="email">メール</RequiredLabel>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="col-span-3"
-                required
                 disabled={isLoading}
               />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="password" className="text-right">
-                パスワード
-              </Label>
+              <RequiredLabel htmlFor="password">パスワード</RequiredLabel>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="col-span-3"
-                required
                 disabled={isLoading}
                 placeholder="6文字以上"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="employeeId" className="text-right">
-                社員番号
-              </Label>
+              <RequiredLabel htmlFor="employeeId">社員番号</RequiredLabel>
               <Input
                 id="employeeId"
                 value={employeeId}
@@ -219,9 +220,7 @@ export function AddMemberDialog({ companyOptions, departmentOptions }: AddMember
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="company" className="text-right">
-                所属会社
-              </Label>
+              <RequiredLabel htmlFor="company">所属会社</RequiredLabel>
               <Combobox
                   options={companyOptions}
                   value={company}
@@ -234,9 +233,7 @@ export function AddMemberDialog({ companyOptions, departmentOptions }: AddMember
                 />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="department" className="text-right">
-                所属部署
-              </Label>
+              <RequiredLabel htmlFor="department">所属部署</RequiredLabel>
               <Combobox
                   options={departmentOptions}
                   value={department}
@@ -249,31 +246,34 @@ export function AddMemberDialog({ companyOptions, departmentOptions }: AddMember
                 />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="role" className="text-right">
-                権限
-              </Label>
-              {isFirstAdmin ? (
-                <Input
-                  value="管理者 (admin)"
-                  className="col-span-3"
-                  disabled
-                />
+               {isFirstAdmin ? (
+                <>
+                  <Label className="text-right">権限</Label>
+                  <Input
+                    value="管理者 (admin)"
+                    className="col-span-3"
+                    disabled
+                  />
+                </>
               ) : (
-                <Select
-                  value={role}
-                  onValueChange={(value) => setRole(value as Member['role'])}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="権限を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">管理者 (admin)</SelectItem>
-                    <SelectItem value="executive">経営層 (executive)</SelectItem>
-                    <SelectItem value="manager">マネージャー (manager)</SelectItem>
-                    <SelectItem value="employee">従業員 (employee)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <>
+                  <RequiredLabel htmlFor="role">権限</RequiredLabel>
+                  <Select
+                    value={role}
+                    onValueChange={(value) => setRole(value as Member['role'])}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="権限を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">管理者 (admin)</SelectItem>
+                      <SelectItem value="executive">経営層 (executive)</SelectItem>
+                      <SelectItem value="manager">マネージャー (manager)</SelectItem>
+                      <SelectItem value="employee">従業員 (employee)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
               )}
             </div>
           </div>
