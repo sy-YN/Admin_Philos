@@ -201,7 +201,6 @@ function DailyMessageListTab() {
   const { user } = useUser();
 
   const messagesQuery = useMemoFirebase(() => {
-    // Wait for both firestore and user to be available
     if (!firestore || !user) return null;
     return query(collection(firestore, 'calendarMessages'), orderBy('order'));
   }, [firestore, user]);
@@ -240,7 +239,6 @@ function DailyMessageListTab() {
     } catch (error) {
       console.error('Error updating order:', error);
       toast({ title: 'エラー', description: '表示順の更新に失敗しました。', variant: 'destructive' });
-      // Revert local state on failure
       if(dbItems) setItems(dbItems);
     }
   };
@@ -262,7 +260,7 @@ function DailyMessageListTab() {
   };
 
   const handleEditItem = async (id: string, data: Partial<CalendarMessage>) => {
-    if (!firestore || !user) return;
+    if (!firestore) return;
     try {
       await updateDoc(doc(firestore, 'calendarMessages', id), {
         ...data,
@@ -349,7 +347,6 @@ function ScheduledMessageListTab() {
   const { user } = useUser();
 
   const messagesQuery = useMemoFirebase(() => {
-    // Wait for both firestore and user to be available
     if (!firestore || !user) return null;
     return query(collection(firestore, 'fixedCalendarMessages'), orderBy('startDate', 'desc'));
   }, [firestore, user]);
@@ -374,7 +371,7 @@ function ScheduledMessageListTab() {
   };
 
   const handleEditItem = async (id: string, data: Partial<FixedCalendarMessage>) => {
-    if (!firestore || !user) return;
+    if (!firestore) return;
     try {
       await updateDoc(doc(firestore, 'fixedCalendarMessages', id), {
         ...data,
@@ -444,5 +441,3 @@ export default function CalendarSettingsPage() {
     </div>
   );
 }
-
-    
