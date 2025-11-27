@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, UserPlus } from 'lucide-react';
 import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore, useUser, useAuth } from '@/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Combobox } from '../ui/combobox';
@@ -87,9 +87,14 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
     }
 
     try {
+      // Step 1: Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
+      // Step 2: Update the profile of the new user in Firebase Auth
+      await updateProfile(newUser, { displayName });
+
+      // Step 3: Prepare data for Firestore
       const avatarUrl = `https://picsum.photos/seed/${newUser.uid}/100/100`;
       const finalRole = isFirstAdmin ? 'admin' : role;
 
@@ -108,6 +113,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
       
       const userDocRef = doc(firestore, 'users', newUser.uid);
       
+      // Step 4: Save user data to Firestore
       await setDoc(userDocRef, newMemberData);
 
       toast({

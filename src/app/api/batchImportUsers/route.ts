@@ -88,6 +88,8 @@ export async function POST(req: Request) {
         let errorMessage = error.message || '不明なエラーが発生しました。';
         if (error.code === 'auth/insufficient-permission') {
             errorMessage = 'Firebaseの操作権限が不足しています。サービスアカウントに必要なIAMロールが付与されているか確認してください。';
+        } else if (error.code === 'auth/email-already-exists') {
+            errorMessage = 'このメールアドレスは既に使用されています。';
         }
         
         return { 
@@ -120,10 +122,11 @@ export async function POST(req: Request) {
       stack: error.stack 
     });
     // This is the crucial part: always return a JSON response, even on catastrophic failure
+    const requestBody = await req.json().catch(() => ({ users: [] }));
     return NextResponse.json({ 
       total: 0,
       successCount: 0,
-      errorCount: (await req.json()).users.length || 1, // Attempt to get total from body
+      errorCount: requestBody.users.length || 1, // Attempt to get total from body
       results: [{ email: 'unknown', success: false, error: `サーバーで予期せぬエラーが発生しました: ${error.message}` }]
     }, { status: 500 });
   }
