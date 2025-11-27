@@ -310,6 +310,20 @@
         }
       },
       "required": ["mode", "dailyLoopCounter"]
+    },
+    "CalendarMessage": {
+      "title": "Calendar Message",
+      "description": "A single message for the 'daily' calendar rotation.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string", "description": "Can contain HTML from rich text editor." },
+        "icon": { "type": "string", "description": "Lucide icon name." },
+        "order": { "type": "number", "description": "Display order for the daily loop." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "icon", "order", "createdAt", "updatedAt"]
     }
   },
   "auth": {
@@ -371,6 +385,12 @@
             "$ref": "#/entities/CalendarDisplaySettings"
         },
         "description": "Stores the display settings for the user-facing calendar."
+    },
+    "/calendarMessages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/CalendarMessage"
+      },
+      "description": "Stores messages for the daily calendar rotation."
     }
   }
 }
