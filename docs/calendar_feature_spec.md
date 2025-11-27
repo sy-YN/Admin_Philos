@@ -46,6 +46,8 @@ graph TD
 
     style C fill:#ffe4e1,stroke:#b22222
 ```
+*   **G (処理終了)**: 上記のいずれかのパス（CまたはG）を経て、その時点での表示ロジックが完了したことを示します。日付が変わっておらず、カウンター更新が不要な場合（EのYesパス）もここに合流します。
+
 
 ### 2.1. `calendarMessages` コレクション (日替わり用)
 
@@ -57,6 +59,8 @@ graph TD
     -   `content` (string): メッセージの本文（HTML形式）
     -   `icon` (string): アイコン名
     -   `order` (number): 表示順を決定する数値（昇順）
+    -   `authorId` (string): 作成者のUID
+    -   `authorName` (string): 作成者の表示名
 
 ### 2.2. `fixedCalendarMessages` コレクション (期間指定用)
 
@@ -69,6 +73,8 @@ graph TD
     -   `icon` (string): アイコン名
     -   `startDate` (Timestamp): このメッセージの**表示開始日**
     -   `endDate` (Timestamp): このメッセージの**表示終了日**
+    -   `authorId` (string): 作成者のUID
+    -   `authorName` (string): 作成者の表示名
 
 ### 2.3. `settings/calendarDisplay` ドキュメント
 
@@ -89,7 +95,8 @@ graph TD
 1.  **【最優先】期間指定メッセージの検索**:
     -   まず、`fixedCalendarMessages`コレクションを検索し、**今日の日付が`startDate`と`endDate`の範囲内に含まれる**ドキュメントがあるかを確認します。
     -   該当するドキュメントが**見つかった場合**、そのメッセージを表示し、以降の処理はすべて中断します。日替わりカウンターの更新も行われません。
-    -   もし複数のメッセージが該当期間にある場合は、`startDate`が最も新しいものが優先されます。
+    -   **もし複数のメッセージが該当期間にある場合は、`startDate`が最も新しいものが優先されます。**
+    -   `G((処理終了))`
 
 2.  **【通常】日替わりメッセージの表示**:
     -   上記1.で該当するメッセージが**見つからなかった場合**にのみ、こちらのロジックが実行されます。
