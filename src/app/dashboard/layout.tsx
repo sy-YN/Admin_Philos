@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft, CalendarDays } from 'lucide-react';
+import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft, CalendarDays, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { useEffect, useState } from 'react';
@@ -12,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Member } from '@/types/member';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 
 const navItems = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users },
@@ -121,7 +123,7 @@ export default function DashboardLayout({
               </Button>
             </div>
             <nav className={cn(
-              "flex flex-col gap-1 py-4 text-sm font-medium transition-all duration-300",
+              "flex flex-col gap-1 py-4 text-sm font-medium transition-all duration-300 flex-grow",
                 isCollapsed ? "px-2" : "px-4"
               )}>
               {navItems.map((item) => (
@@ -149,9 +151,37 @@ export default function DashboardLayout({
                 ))}
             </nav>
             <div className={cn(
-              "mt-auto p-4 transition-all duration-300",
+              "mt-auto p-4 transition-all duration-300 space-y-4",
               isCollapsed && "p-2"
               )}>
+                
+              <Separator />
+
+              <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
+                 <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={user?.photoURL || undefined} />
+                      <AvatarFallback>
+                        <User className="h-5 w-5"/>
+                      </AvatarFallback>
+                    </Avatar>
+                  </TooltipTrigger>
+                   {isCollapsed && user && (
+                    <TooltipContent side="right">
+                       <p>{user.displayName}</p>
+                       <p className="text-muted-foreground">{user.email}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+                 {!isCollapsed && user && (
+                    <div className="flex-1 overflow-hidden">
+                        <p className="text-sm font-semibold truncate">{user.displayName}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    </div>
+                 )}
+              </div>
+              
               <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
                      <Button 
