@@ -411,7 +411,7 @@ function ScheduledMessageListTab() {
   };
 
   const handleEditItem = async (id: string, data: Partial<FixedCalendarMessage>) => {
-    if (!firestore) return;
+    if (!firestore || !user) return;
     try {
       await updateDoc(doc(firestore, 'fixedCalendarMessages', id), {
         ...data,
