@@ -284,32 +284,12 @@
       "description": "Settings for how content is displayed on the user-facing calendar.",
       "type": "object",
       "properties": {
-        "mode": {
-          "type": "string",
-          "enum": ["daily", "fixed"],
-          "description": "The display mode for the calendar content. 'daily' for rotating content, 'fixed' for a single item over a period."
-        },
-        "fixedContent": {
-            "type": ["object", "null"],
-            "description": "The original content to display when mode is 'fixed'. Null if mode is 'daily'.",
-            "properties": {
-                "title": { "type": "string" },
-                "content": { "type": "string" },
-                "icon": { "type": "string" }
-            },
-            "required": ["title", "content", "icon"]
-        },
-        "fixedEndDate": {
-          "type": ["string", "null"],
-          "format": "date-time",
-          "description": "The end date for the 'fixed' mode."
-        },
         "dailyLoopCounter": {
           "type": "number",
           "description": "A counter to keep track of the current item in the 'daily' rotation."
         }
       },
-      "required": ["mode", "dailyLoopCounter"]
+      "required": ["dailyLoopCounter"]
     },
     "CalendarMessage": {
       "title": "Calendar Message",
@@ -324,6 +304,21 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "content", "icon", "order", "createdAt", "updatedAt"]
+    },
+    "FixedCalendarMessage": {
+      "title": "Fixed Calendar Message",
+      "description": "A message scheduled to be displayed for a specific date range.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string", "description": "Can contain HTML from rich text editor." },
+        "icon": { "type": "string", "description": "Lucide icon name." },
+        "startDate": { "type": "string", "format": "date-time", "description": "The start date for the display period." },
+        "endDate": { "type": "string", "format": "date-time", "description": "The end date for the display period." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "icon", "startDate", "endDate", "createdAt", "updatedAt"]
     }
   },
   "auth": {
@@ -391,6 +386,12 @@
         "$ref": "#/entities/CalendarMessage"
       },
       "description": "Stores messages for the daily calendar rotation."
+    },
+    "/fixedCalendarMessages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/FixedCalendarMessage"
+      },
+      "description": "Stores scheduled messages for specific date ranges."
     }
   }
 }

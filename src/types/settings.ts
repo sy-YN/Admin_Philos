@@ -4,28 +4,34 @@
 import type { Timestamp } from 'firebase/firestore';
 
 /**
- * Represents the content to be displayed in a fixed mode on the calendar.
- * This is stored as a nested object within CalendarDisplaySettings.
+ * DEPRECATED: This type is no longer used for fixed content.
+ * Fixed content is now managed in the 'fixedCalendarMessages' collection.
+ * @deprecated
  */
 export type FixedCalendarContent = {
   title: string;
-  content: string; // Can contain HTML from the rich text editor
+  content: string;
   icon: string;
 };
 
 export type CalendarDisplaySettings = {
   id: 'calendarDisplay'; // Document ID is fixed
-  mode: 'daily' | 'fixed';
   /**
-   * The content to display when mode is 'fixed'.
-   * Null if mode is 'daily'.
+   * DEPRECATED: The mode is now determined implicitly. 
+   * If an active fixed message exists, 'fixed' mode is used, otherwise 'daily'.
+   * @deprecated
    */
-  fixedContent: FixedCalendarContent | null;
+  mode?: 'daily' | 'fixed';
   /**
-   * The end date for the 'fixed' mode display.
-   * Null if mode is 'daily'.
+   * DEPRECATED: Fixed content is now stored in the `fixedCalendarMessages` collection.
+   * @deprecated
    */
-  fixedEndDate: Timestamp | null;
+  fixedContent?: FixedCalendarContent | null;
+  /**
+   * DEPRECATED: End date is now stored with each message in `fixedCalendarMessages`.
+   * @deprecated
+   */
+  fixedEndDate?: Timestamp | null;
   /**
    * A counter to keep track of the current item in the 'daily' rotation.
    */
