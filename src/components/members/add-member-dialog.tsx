@@ -15,13 +15,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, UserPlus } from 'lucide-react';
-import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { useFirestore, useUser, useAuth } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { useUser, useAuth } from '@/firebase';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Combobox } from '../ui/combobox';
-import { cn } from '@/lib/utils';
+import type { NewUserPayload } from '@/types/functions';
 
 interface AddMemberDialogProps {
   companyOptions?: { value: string; label: string }[];
@@ -31,7 +29,6 @@ interface AddMemberDialogProps {
 export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }: AddMemberDialogProps) {
   const { user } = useUser();
   const auth = useAuth();
-  const firestore = useFirestore();
   const { toast } = useToast();
   
   const [open, setOpen] = useState(false);
@@ -61,7 +58,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
     e.preventDefault();
     setIsLoading(true);
 
-    if (!firestore || !auth) {
+    if (!auth) {
       toast({
         title: 'エラー',
         description: 'システムが初期化されていません。',
@@ -71,7 +68,6 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
       return;
     }
     
-    // Comprehensive check for all required fields
     const requiredFields = [displayName, email, password, employeeId, company, department];
     if (!isFirstAdmin) {
         requiredFields.push(role);
@@ -86,41 +82,30 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
       return;
     }
 
+    const newUserPayload: NewUserPayload = {
+      email,
+      password,
+      displayName,
+      role: (isFirstAdmin ? 'admin' : role) as Member['role'],
+      employeeId,
+      company,
+      department,
+    };
+
     try {
-      // Step 1: Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const newUser = userCredential.user;
+      // Use the existing batch import API route to create a single user.
+      // This is more secure and robust than creating the user on the client.
+      const response = await fetch('/api/batchImportUsers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users: [newUserPayload] }),
+      });
 
-      // Step 2: Update the profile of the new user in Firebase Auth
-      await updateProfile(newUser, { displayName });
-      
-      // Step 2.5: Reload the current user to get the updated profile data immediately
-      if (auth.currentUser) {
-        await auth.currentUser.reload();
+      const result = await response.json();
+
+      if (!response.ok || result.errorCount > 0) {
+        throw new Error(result.results[0]?.error || '不明なサーバーエラーが発生しました。');
       }
-
-
-      // Step 3: Prepare data for Firestore
-      const avatarUrl = `https://picsum.photos/seed/${newUser.uid}/100/100`;
-      const finalRole = isFirstAdmin ? 'admin' : role;
-
-      const newMemberData: Omit<Member, 'updatedAt' | 'createdAt'> & { updatedAt: any, createdAt: any } = {
-        uid: newUser.uid,
-        email,
-        displayName,
-        employeeId,
-        company,
-        department,
-        role: finalRole as Member['role'],
-        avatarUrl: avatarUrl,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-      
-      const userDocRef = doc(firestore, 'users', newUser.uid);
-      
-      // Step 4: Save user data to Firestore
-      await setDoc(userDocRef, newMemberData);
 
       toast({
         title: '成功',
@@ -131,12 +116,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
       setOpen(false);
 
     } catch (error: any) {
-      let description = 'メンバーの追加中にエラーが発生しました。';
-      if (error.code === 'auth/email-already-in-use') {
-        description = 'このメールアドレスは既に使用されています。';
-      } else if (error.code === 'auth/weak-password') {
-        description = 'パスワードは6文字以上で入力してください。';
-      }
+      let description = error.message || 'メンバーの追加中にエラーが発生しました。';
       toast({
         title: 'エラー',
         description,
