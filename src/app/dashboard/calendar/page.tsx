@@ -266,8 +266,6 @@ function DailyMessageListTab() {
     try {
       await updateDoc(doc(firestore, 'calendarMessages', id), {
         ...data,
-        authorId: user.uid,
-        authorName: user.displayName || '不明なユーザー',
         updatedAt: serverTimestamp(),
       });
       toast({ title: '成功', description: 'メッセージを更新しました。' });
@@ -380,8 +378,6 @@ function ScheduledMessageListTab() {
     try {
       await updateDoc(doc(firestore, 'fixedCalendarMessages', id), {
         ...data,
-        authorId: user.uid,
-        authorName: user.displayName || '不明なユーザー',
         updatedAt: serverTimestamp(),
       });
       toast({ title: '成功', description: 'メッセージを更新しました。' });
@@ -448,3 +444,5 @@ export default function CalendarSettingsPage() {
     </div>
   );
 }
+
+    
