@@ -287,9 +287,14 @@
         "dailyLoopCounter": {
           "type": "number",
           "description": "A counter to keep track of the current item in the 'daily' rotation."
+        },
+        "lastUpdatedDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The last date the dailyLoopCounter was updated. Used to ensure the counter increments only once per day."
         }
       },
-      "required": ["dailyLoopCounter"]
+      "required": ["dailyLoopCounter", "lastUpdatedDate"]
     },
     "CalendarMessage": {
       "title": "Calendar Message",
