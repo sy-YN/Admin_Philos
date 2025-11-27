@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, doc } from 'firebase/firestore';
 import type { CalendarMessage } from '@/types/calendar';
 import type { FixedCalendarMessage } from '@/types/fixed-calendar-message';
 import { Loader2, PlusCircle, Edit, Trash2, GripVertical, Calendar as CalendarIcon } from 'lucide-react';
@@ -51,21 +51,23 @@ function BaseMessageDialog({
 
   useEffect(() => {
     if (open) {
-      setTitle(item?.title || '');
-      setContent(item?.content || '');
-      setIcon(item?.icon || 'Smile');
-      if (isFixed && item) {
-        const fixedItem = item as FixedCalendarMessage;
-        setDateRange({
-          from: fixedItem.startDate?.toDate(),
-          to: fixedItem.endDate?.toDate(),
-        });
+      if (item) {
+        setTitle(item.title || '');
+        setContent(item.content || '');
+        setIcon(item.icon || 'Smile');
+        if (isFixed) {
+          const fixedItem = item as FixedCalendarMessage;
+          setDateRange({
+            from: fixedItem.startDate?.toDate(),
+            to: fixedItem.endDate?.toDate(),
+          });
+        }
+      } else {
+        setTitle('');
+        setContent('');
+        setIcon('Smile');
+        setDateRange(undefined);
       }
-    } else {
-      setTitle('');
-      setContent('');
-      setIcon('Smile');
-      setDateRange(undefined);
     }
   }, [item, open, isFixed]);
 
@@ -207,11 +209,10 @@ function DailyMessageListTab() {
       const newIndex = items.findIndex((item) => item.id === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
 
-      const reorderedItems = arrayMove(items, oldIndex, newIndex);
+      const reorderedItems = arrayMove(items, oldIndex, newIndex).map((item, index) => ({ ...item, order: index }));
       setItems(reorderedItems);
 
-      const itemsToUpdate = reorderedItems.map((item, index) => ({ ...item, order: index }));
-      handleOrderChange(itemsToUpdate);
+      handleOrderChange(reorderedItems);
     }
   };
 
@@ -228,6 +229,8 @@ function DailyMessageListTab() {
     } catch (error) {
       console.error('Error updating order:', error);
       toast({ title: 'エラー', description: '表示順の更新に失敗しました。', variant: 'destructive' });
+      // Revert local state on failure
+      if(dbItems) setItems(dbItems);
     }
   };
   
@@ -330,6 +333,7 @@ function ScheduledMessageListTab() {
       await addDoc(collection(firestore, 'fixedCalendarMessages'), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       toast({ title: '成功', description: '新しい期間指定メッセージを追加しました。' });
     } catch (error) {
+      console.error(error);
       toast({ title: 'エラー', description: 'メッセージの追加に失敗しました。', variant: 'destructive' });
     }
   };
@@ -340,6 +344,7 @@ function ScheduledMessageListTab() {
       await updateDoc(doc(firestore, 'fixedCalendarMessages', id), { ...data, updatedAt: serverTimestamp() });
       toast({ title: '成功', description: 'メッセージを更新しました。' });
     } catch (error) {
+      console.error(error);
       toast({ title: 'エラー', description: 'メッセージの更新に失敗しました。', variant: 'destructive' });
     }
   };
@@ -350,6 +355,7 @@ function ScheduledMessageListTab() {
       await deleteDoc(doc(firestore, 'fixedCalendarMessages', id));
       toast({ title: '成功', description: 'メッセージを削除しました。' });
     } catch (error) {
+      console.error(error);
       toast({ title: 'エラー', description: 'メッセージの削除に失敗しました。', variant: 'destructive' });
     }
   };
