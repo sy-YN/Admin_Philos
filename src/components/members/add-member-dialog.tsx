@@ -93,6 +93,12 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
 
       // Step 2: Update the profile of the new user in Firebase Auth
       await updateProfile(newUser, { displayName });
+      
+      // Step 2.5: Reload the current user to get the updated profile data immediately
+      if (auth.currentUser) {
+        await auth.currentUser.reload();
+      }
+
 
       // Step 3: Prepare data for Firestore
       const avatarUrl = `https://picsum.photos/seed/${newUser.uid}/100/100`;
