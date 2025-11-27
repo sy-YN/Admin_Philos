@@ -23,6 +23,16 @@ export type FixedCalendarMessage = {
    * The end date for the display period.
    */
   endDate: Timestamp;
+  /**
+   * The UID of the user who created or last updated the message.
+   */
+  authorId: string;
+  /**
+   * The display name of the user who created or last updated the message.
+   */
+  authorName: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };
+
+    

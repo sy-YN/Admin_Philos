@@ -19,6 +19,16 @@ export type CalendarMessage = {
    * A number to determine the display order in the daily loop.
    */
   order: number;
+  /**
+   * The UID of the user who created or last updated the message.
+   */
+  authorId: string;
+  /**
+   * The display name of the user who created or last updated the message.
+   */
+  authorName: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };
+
+    

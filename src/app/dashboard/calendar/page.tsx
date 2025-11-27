@@ -5,11 +5,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirestore, useMemoFirebase, useCollection, useUser } from '@/firebase';
 import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, doc } from 'firebase/firestore';
 import type { CalendarMessage } from '@/types/calendar';
 import type { FixedCalendarMessage } from '@/types/fixed-calendar-message';
-import { Loader2, PlusCircle, Edit, Trash2, GripVertical, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, GripVertical, Calendar as CalendarIcon, User } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -37,7 +37,7 @@ function BaseMessageDialog({
   order,
   isFixed = false,
 }: {
-  item?: CalendarMessage | FixedCalendarMessage | null;
+  item?: (CalendarMessage | FixedCalendarMessage) & { authorName?: string };
   onSave: (data: any) => void;
   children: React.ReactNode;
   order?: number;
@@ -161,10 +161,11 @@ function BaseMessageDialog({
   );
 }
 
+const formatDate = (ts: Timestamp | undefined) => ts ? format(ts.toDate(), 'yyyy/MM/dd HH:mm', { locale: ja }) : 'N/A';
 
 // --- 日替わりメッセージタブ ---
 
-function SortableMessageItem({ item, onEdit, onDelete }: { item: CalendarMessage; onEdit: (id: string, data: Omit<CalendarMessage, 'id' | 'createdAt' | 'updatedAt'>) => void; onDelete: (id: string) => void; }) {
+function SortableMessageItem({ item, onEdit, onDelete }: { item: CalendarMessage; onEdit: (id: string, data: Partial<CalendarMessage>) => void; onDelete: (id: string) => void; }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 1 : 0, };
 
@@ -175,6 +176,10 @@ function SortableMessageItem({ item, onEdit, onDelete }: { item: CalendarMessage
       <div className="flex-1 overflow-hidden">
         <p className="font-semibold">{item.title}</p>
         <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&_p]:my-1" dangerouslySetInnerHTML={{ __html: item.content }} />
+        <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+          <User className="h-3 w-3" />
+          <span>{item.authorName || '不明'} at {formatDate(item.createdAt)}</span>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <BaseMessageDialog item={item} order={item.order} onSave={(data) => onEdit(item.id, data)}><Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button></BaseMessageDialog>
@@ -193,6 +198,7 @@ function SortableMessageItem({ item, onEdit, onDelete }: { item: CalendarMessage
 function DailyMessageListTab() {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const messagesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'calendarMessages'), orderBy('order')) : null, [firestore]);
   const { data: dbItems, isLoading } = useCollection<CalendarMessage>(messagesQuery);
@@ -234,20 +240,31 @@ function DailyMessageListTab() {
     }
   };
   
-  const handleAddItem = async (data: Omit<CalendarMessage, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!firestore) return;
+  const handleAddItem = async (data: Partial<CalendarMessage>) => {
+    if (!firestore || !user) return;
     try {
-      await addDoc(collection(firestore, 'calendarMessages'), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      await addDoc(collection(firestore, 'calendarMessages'), {
+        ...data,
+        authorId: user.uid,
+        authorName: user.displayName || '不明なユーザー',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
       toast({ title: '成功', description: '新しいメッセージを追加しました。' });
     } catch (error) {
       toast({ title: 'エラー', description: 'メッセージの追加に失敗しました。', variant: 'destructive' });
     }
   };
 
-  const handleEditItem = async (id: string, data: Omit<CalendarMessage, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!firestore) return;
+  const handleEditItem = async (id: string, data: Partial<CalendarMessage>) => {
+    if (!firestore || !user) return;
     try {
-      await updateDoc(doc(firestore, 'calendarMessages', id), { ...data, updatedAt: serverTimestamp() });
+      await updateDoc(doc(firestore, 'calendarMessages', id), {
+        ...data,
+        authorId: user.uid,
+        authorName: user.displayName || '不明なユーザー',
+        updatedAt: serverTimestamp(),
+      });
       toast({ title: '成功', description: 'メッセージを更新しました。' });
     } catch (error) {
       toast({ title: 'エラー', description: 'メッセージの更新に失敗しました。', variant: 'destructive' });
@@ -292,8 +309,7 @@ function DailyMessageListTab() {
 
 // --- 期間指定メッセージタブ ---
 
-function FixedMessageItem({ item, onEdit, onDelete }: { item: FixedCalendarMessage; onEdit: (id: string, data: Omit<FixedCalendarMessage, 'id' | 'createdAt' | 'updatedAt'>) => void; onDelete: (id: string) => void; }) {
-  const formatDate = (ts: Timestamp | undefined) => ts ? format(ts.toDate(), 'yyyy/MM/dd', { locale: ja }) : '未設定';
+function FixedMessageItem({ item, onEdit, onDelete }: { item: FixedCalendarMessage; onEdit: (id: string, data: Partial<FixedCalendarMessage>) => void; onDelete: (id: string) => void; }) {
   
   return (
     <div className="flex items-start gap-4 p-3 rounded-md border bg-background">
@@ -301,9 +317,13 @@ function FixedMessageItem({ item, onEdit, onDelete }: { item: FixedCalendarMessa
       <div className="flex-1 overflow-hidden">
         <p className="font-semibold">{item.title}</p>
         <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&_p]:my-1" dangerouslySetInnerHTML={{ __html: item.content }} />
-        <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+        <div className="text-xs text-muted-foreground mt-2 flex items-center gap-2">
           <CalendarIcon className="h-3 w-3" />
-          {formatDate(item.startDate)} ~ {formatDate(item.endDate)}
+          <span>{formatDate(item.startDate)} ~ {formatDate(item.endDate)}</span>
+        </div>
+        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+          <User className="h-3 w-3" />
+          <span>{item.authorName || '不明'} at {formatDate(item.createdAt)}</span>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -323,14 +343,21 @@ function FixedMessageItem({ item, onEdit, onDelete }: { item: FixedCalendarMessa
 function ScheduledMessageListTab() {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const messagesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'fixedCalendarMessages'), orderBy('startDate', 'desc')) : null, [firestore]);
   const { data: items, isLoading } = useCollection<FixedCalendarMessage>(messagesQuery);
 
-  const handleAddItem = async (data: Omit<FixedCalendarMessage, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!firestore) return;
+  const handleAddItem = async (data: Partial<FixedCalendarMessage>) => {
+    if (!firestore || !user) return;
     try {
-      await addDoc(collection(firestore, 'fixedCalendarMessages'), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      await addDoc(collection(firestore, 'fixedCalendarMessages'), {
+        ...data,
+        authorId: user.uid,
+        authorName: user.displayName || '不明なユーザー',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
       toast({ title: '成功', description: '新しい期間指定メッセージを追加しました。' });
     } catch (error) {
       console.error(error);
@@ -338,10 +365,15 @@ function ScheduledMessageListTab() {
     }
   };
 
-  const handleEditItem = async (id: string, data: Omit<FixedCalendarMessage, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!firestore) return;
+  const handleEditItem = async (id: string, data: Partial<FixedCalendarMessage>) => {
+    if (!firestore || !user) return;
     try {
-      await updateDoc(doc(firestore, 'fixedCalendarMessages', id), { ...data, updatedAt: serverTimestamp() });
+      await updateDoc(doc(firestore, 'fixedCalendarMessages', id), {
+        ...data,
+        authorId: user.uid,
+        authorName: user.displayName || '不明なユーザー',
+        updatedAt: serverTimestamp(),
+      });
       toast({ title: '成功', description: 'メッセージを更新しました。' });
     } catch (error) {
       console.error(error);
@@ -406,3 +438,5 @@ export default function CalendarSettingsPage() {
     </div>
   );
 }
+
+    
