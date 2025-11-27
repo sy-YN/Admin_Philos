@@ -6,42 +6,46 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, orderBy, setDoc, Timestamp } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import type { CalendarDisplaySettings } from '@/types/settings';
-import type { PhilosophyItem } from '@/types/philosophy';
 import { Loader2, Calendar as CalendarIcon, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { IconPicker } from '@/components/philosophy/icon-picker';
+import { RichTextEditor } from '@/components/tiptap/editor';
+
 
 export default function CalendarSettingsPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  // Firestore references
+  // Firestore reference
   const settingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'calendarDisplay') : null, [firestore]);
-  const philosophyQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'philosophy'), orderBy('order')) : null, [firestore]);
 
   // Data from hooks
   const { data: settings, isLoading: isLoadingSettings } = useDoc<CalendarDisplaySettings>(settingsRef);
-  const { data: philosophyItems, isLoading: isLoadingPhilosophy } = useCollection<PhilosophyItem>(philosophyQuery);
 
   // Component state
   const [mode, setMode] = useState<'daily' | 'fixed'>('daily');
-  const [activeContentId, setActiveContentId] = useState<string | null>(null);
   const [fixedEndDate, setFixedEndDate] = useState<Date | undefined>(undefined);
+  const [fixedTitle, setFixedTitle] = useState('');
+  const [fixedIcon, setFixedIcon] = useState('Smile');
+  const [fixedContent, setFixedContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync component state with data from Firestore
   useEffect(() => {
     if (settings) {
       setMode(settings.mode);
-      setActiveContentId(settings.activeContentId);
+      setFixedTitle(settings.fixedContent?.title || '');
+      setFixedIcon(settings.fixedContent?.icon || 'Smile');
+      setFixedContent(settings.fixedContent?.content || '');
       if (settings.fixedEndDate) {
         setFixedEndDate(settings.fixedEndDate.toDate());
       } else {
@@ -51,13 +55,13 @@ export default function CalendarSettingsPage() {
   }, [settings]);
 
   const handleSave = async () => {
-    if (!firestore) return;
+    if (!firestore || !settingsRef) return;
 
     // Validation for 'fixed' mode
-    if (mode === 'fixed' && (!activeContentId || !fixedEndDate)) {
+    if (mode === 'fixed' && (!fixedTitle || !fixedContent || !fixedEndDate)) {
       toast({
         title: '入力エラー',
-        description: '期間固定モードでは、コンテンツと終了日の両方を指定する必要があります。',
+        description: '期間固定モードでは、タイトル、内容、終了日のすべてを指定する必要があります。',
         variant: 'destructive',
       });
       return;
@@ -66,14 +70,18 @@ export default function CalendarSettingsPage() {
     setIsSaving(true);
     
     try {
-      const newSettings: Omit<CalendarDisplaySettings, 'id'> = {
+      const newSettings: Partial<CalendarDisplaySettings> = {
         mode,
-        activeContentId: mode === 'fixed' ? activeContentId : null,
+        fixedContent: mode === 'fixed' ? {
+          title: fixedTitle,
+          icon: fixedIcon,
+          content: fixedContent,
+        } : null,
         fixedEndDate: mode === 'fixed' && fixedEndDate ? Timestamp.fromDate(fixedEndDate) : null,
         dailyLoopCounter: settings?.dailyLoopCounter ?? 0, // Keep existing counter or initialize to 0
       };
       
-      await setDoc(settingsRef!, newSettings, { merge: true });
+      await setDoc(settingsRef, newSettings, { merge: true });
 
       toast({
         title: '保存しました',
@@ -92,9 +100,7 @@ export default function CalendarSettingsPage() {
     }
   };
 
-  const isLoading = isLoadingSettings || isLoadingPhilosophy;
-
-  if (isLoading) {
+  if (isLoadingSettings) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -130,34 +136,37 @@ export default function CalendarSettingsPage() {
                 <Label htmlFor="fixed">期間固定表示</Label>
               </div>
                <p className="pl-6 text-sm text-muted-foreground">
-                指定した期間、特定のコンテンツを毎日表示します。こちらが優先されます。
+                指定した期間、オリジナルのコンテンツを毎日表示します。こちらが優先されます。
               </p>
             </RadioGroup>
           </div>
 
           {mode === 'fixed' && (
             <Card className="bg-muted/50 p-6 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="content-select">固定表示するコンテンツ</Label>
-                <Select value={activeContentId ?? ''} onValueChange={setActiveContentId}>
-                  <SelectTrigger id="content-select">
-                    <SelectValue placeholder="コンテンツを選択してください" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {philosophyItems && philosophyItems.length > 0 ? (
-                      philosophyItems.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.title}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="none" disabled>
-                        表示できるコンテンツがありません
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fixed-title">タイトル</Label>
+                  <Input 
+                    id="fixed-title" 
+                    value={fixedTitle} 
+                    onChange={(e) => setFixedTitle(e.target.value)}
+                    placeholder="今週の標語"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>アイコン</Label>
+                  <IconPicker currentIcon={fixedIcon} onIconChange={setFixedIcon} />
+                </div>
               </div>
+
+               <div className="space-y-2">
+                <Label htmlFor="fixed-content">内容</Label>
+                <RichTextEditor
+                    content={fixedContent}
+                    onChange={setFixedContent}
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="date-picker">固定表示の終了日</Label>
                 <Popover>
@@ -166,7 +175,7 @@ export default function CalendarSettingsPage() {
                       id="date-picker"
                       variant={'outline'}
                       className={cn(
-                        'w-full justify-start text-left font-normal',
+                        'w-full justify-start text-left font-normal bg-background',
                         !fixedEndDate && 'text-muted-foreground'
                       )}
                     >

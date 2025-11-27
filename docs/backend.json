@@ -289,9 +289,15 @@
           "enum": ["daily", "fixed"],
           "description": "The display mode for the calendar content. 'daily' for rotating content, 'fixed' for a single item over a period."
         },
-        "activeContentId": {
-          "type": ["string", "null"],
-          "description": "The ID of the philosophy item to display when mode is 'fixed'."
+        "fixedContent": {
+            "type": ["object", "null"],
+            "description": "The original content to display when mode is 'fixed'. Null if mode is 'daily'.",
+            "properties": {
+                "title": { "type": "string" },
+                "content": { "type": "string" },
+                "icon": { "type": "string" }
+            },
+            "required": ["title", "content", "icon"]
         },
         "fixedEndDate": {
           "type": ["string", "null"],
