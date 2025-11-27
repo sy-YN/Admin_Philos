@@ -322,12 +322,13 @@
         "icon": { "type": "string", "description": "Lucide icon name." },
         "startDate": { "type": "string", "format": "date-time", "description": "The start date for the display period." },
         "endDate": { "type": "string", "format": "date-time", "description": "The end date for the display period." },
+        "order": { "type": "number", "description": "Display priority if dates overlap. Lower is higher." },
         "authorId": { "type": "string", "description": "The UID of the author who created the message." },
         "authorName": { "type": "string", "description": "The display name of the author." },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["title", "content", "icon", "startDate", "endDate", "authorId", "authorName", "createdAt", "updatedAt"]
+      "required": ["title", "content", "icon", "startDate", "endDate", "order", "authorId", "authorName", "createdAt", "updatedAt"]
     }
   },
   "auth": {

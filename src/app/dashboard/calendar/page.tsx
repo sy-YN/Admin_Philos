@@ -83,7 +83,7 @@ function BaseMessageDialog({
 
     const baseData = { title, content, icon };
     const finalData = isFixed
-      ? { ...baseData, startDate: Timestamp.fromDate(dateRange!.from!), endDate: Timestamp.fromDate(dateRange!.to!) }
+      ? { ...baseData, startDate: Timestamp.fromDate(dateRange!.from!), endDate: Timestamp.fromDate(dateRange!.to!), order: order! }
       : { ...baseData, order: order! };
       
     onSave(finalData);
@@ -161,7 +161,7 @@ function BaseMessageDialog({
   );
 }
 
-const formatDate = (ts: Timestamp | undefined) => ts ? format(ts.toDate(), 'yyyy/MM/dd HH:mm', { locale: ja }) : 'N/A';
+const formatDate = (ts: Timestamp | undefined) => ts ? format(ts.toDate(), 'yyyy/MM/dd', { locale: ja }) : 'N/A';
 
 // --- 日替わりメッセージタブ ---
 
@@ -198,12 +198,12 @@ function SortableMessageItem({ item, onEdit, onDelete }: { item: CalendarMessage
 function DailyMessageListTab() {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
 
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || isUserLoading || !user) return null;
     return query(collection(firestore, 'calendarMessages'), orderBy('order'));
-  }, [firestore, user]);
+  }, [firestore, isUserLoading, user]);
 
   const { data: dbItems, isLoading } = useCollection<CalendarMessage>(messagesQuery);
   const [items, setItems] = useState<CalendarMessage[]>([]);
@@ -310,10 +310,13 @@ function DailyMessageListTab() {
 
 // --- 期間指定メッセージタブ ---
 
-function FixedMessageItem({ item, onEdit, onDelete }: { item: FixedCalendarMessage; onEdit: (id: string, data: Partial<FixedCalendarMessage>) => void; onDelete: (id: string) => void; }) {
-  
+function SortableFixedMessageItem({ item, onEdit, onDelete }: { item: FixedCalendarMessage; onEdit: (id: string, data: Partial<FixedCalendarMessage>) => void; onDelete: (id: string) => void; }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 1 : 0, };
+
   return (
-    <div className="flex items-start gap-4 p-3 rounded-md border bg-background">
+    <div ref={setNodeRef} style={style} className="flex items-start gap-4 p-3 rounded-md border bg-background">
+      <div {...attributes} {...listeners} className="cursor-grab touch-none p-1 pt-0.5"><GripVertical className="h-5 w-5 text-muted-foreground" /></div>
       <div className="w-6 h-6 flex items-center justify-center shrink-0"><DynamicIcon name={item.icon} className="h-6 w-6 text-primary" /></div>
       <div className="flex-1 overflow-hidden">
         <p className="font-semibold">{item.title}</p>
@@ -328,7 +331,7 @@ function FixedMessageItem({ item, onEdit, onDelete }: { item: FixedCalendarMessa
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <BaseMessageDialog isFixed item={item} onSave={(data) => onEdit(item.id, data)}><Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button></BaseMessageDialog>
+        <BaseMessageDialog isFixed item={item} order={item.order} onSave={(data) => onEdit(item.id, data)}><Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button></BaseMessageDialog>
         <AlertDialog>
           <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
           <AlertDialogContent>
@@ -344,14 +347,51 @@ function FixedMessageItem({ item, onEdit, onDelete }: { item: FixedCalendarMessa
 function ScheduledMessageListTab() {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
 
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'fixedCalendarMessages'), orderBy('startDate', 'desc'));
-  }, [firestore, user]);
+    if (!firestore || isUserLoading || !user) return null;
+    return query(collection(firestore, 'fixedCalendarMessages'), orderBy('order'));
+  }, [firestore, isUserLoading, user]);
 
-  const { data: items, isLoading } = useCollection<FixedCalendarMessage>(messagesQuery);
+  const { data: dbItems, isLoading } = useCollection<FixedCalendarMessage>(messagesQuery);
+  const [items, setItems] = useState<FixedCalendarMessage[]>([]);
+
+  useEffect(() => { if (dbItems) setItems(dbItems); }, [dbItems]);
+  
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reorderedItems = arrayMove(items, oldIndex, newIndex).map((item, index) => ({ ...item, order: index }));
+      setItems(reorderedItems);
+
+      handleOrderChange(reorderedItems);
+    }
+  };
+  
+   const handleOrderChange = async (reorderedItems: FixedCalendarMessage[]) => {
+    if (!firestore) return;
+    const batch = writeBatch(firestore);
+    reorderedItems.forEach(item => {
+      const docRef = doc(firestore, 'fixedCalendarMessages', item.id);
+      batch.update(docRef, { order: item.order });
+    });
+    try {
+      await batch.commit();
+      toast({ title: '成功', description: '表示順を更新しました。' });
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast({ title: 'エラー', description: '表示順の更新に失敗しました。', variant: 'destructive' });
+      if(dbItems) setItems(dbItems);
+    }
+  };
+
 
   const handleAddItem = async (data: Partial<FixedCalendarMessage>) => {
     if (!firestore || !user) return;
@@ -394,24 +434,30 @@ function ScheduledMessageListTab() {
       toast({ title: 'エラー', description: 'メッセージの削除に失敗しました。', variant: 'destructive' });
     }
   };
+  
+  const getNextOrder = () => items.length > 0 ? Math.max(...items.map(i => i.order)) + 1 : 0;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>期間指定メッセージ一覧</CardTitle>
         <CardDescription>
-            ここで登録したメッセージが、指定した期間中、日替わりメッセージより優先して表示されます。
+            期間が重複した場合、このリストの上が優先されます。ドラッグ＆ドロップで優先順位を変更できます。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? (
           <div className="flex h-48 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : (
-            <div className="space-y-2">
-                {(items || []).map((item) => <FixedMessageItem key={item.id} item={item} onEdit={handleEditItem} onDelete={handleDeleteItem} />)}
-            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={items} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                        {items.map((item) => <SortableFixedMessageItem key={item.id} item={item} onEdit={handleEditItem} onDelete={handleDeleteItem} />)}
+                    </div>
+                </SortableContext>
+            </DndContext>
         )}
-        <BaseMessageDialog onSave={handleAddItem} isFixed>
+        <BaseMessageDialog onSave={handleAddItem} isFixed order={getNextOrder()}>
             <Button variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4" />新規メッセージを追加</Button>
         </BaseMessageDialog>
       </CardContent>

@@ -24,6 +24,10 @@ export type FixedCalendarMessage = {
    */
   endDate: Timestamp;
   /**
+   * A number to determine the display priority if dates overlap. Lower numbers have higher priority.
+   */
+  order: number;
+  /**
    * The UID of the user who created or last updated the message.
    */
   authorId: string;
