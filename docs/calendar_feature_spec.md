@@ -21,14 +21,16 @@ graph TD
         D[日替わりメッセージを表示];
         E{カウンター更新日<br>は今日か？};
         F[カウンターを+1<br>更新日を今日に];
+        G((処理終了));
         
         A --> B;
         B -- Yes --> C;
         B -- No --> D;
         D --> E;
         E -- No --> F;
-        E -- Yes --> G((処理終了));
+        E -- Yes --> G;
         F --> G;
+        C --> G
     end
 
     subgraph "Firestoreデータベース"
