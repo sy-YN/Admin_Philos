@@ -200,7 +200,12 @@ function DailyMessageListTab() {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const messagesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'calendarMessages'), orderBy('order')) : null, [firestore]);
+  const messagesQuery = useMemoFirebase(() => {
+    // Wait for both firestore and user to be available
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'calendarMessages'), orderBy('order'));
+  }, [firestore, user]);
+
   const { data: dbItems, isLoading } = useCollection<CalendarMessage>(messagesQuery);
   const [items, setItems] = useState<CalendarMessage[]>([]);
 
@@ -345,7 +350,12 @@ function ScheduledMessageListTab() {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const messagesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'fixedCalendarMessages'), orderBy('startDate', 'desc')) : null, [firestore]);
+  const messagesQuery = useMemoFirebase(() => {
+    // Wait for both firestore and user to be available
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'fixedCalendarMessages'), orderBy('startDate', 'desc'));
+  }, [firestore, user]);
+
   const { data: items, isLoading } = useCollection<FixedCalendarMessage>(messagesQuery);
 
   const handleAddItem = async (data: Partial<FixedCalendarMessage>) => {
