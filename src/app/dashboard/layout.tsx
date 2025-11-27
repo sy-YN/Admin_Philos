@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft } from 'lucide-react';
+import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { useEffect, useState } from 'react';
@@ -17,6 +17,7 @@ const navItems = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users },
   { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film },
   { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen },
+  { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays },
   { href: '/dashboard/dashboard', label: 'ダッシュボード設定', icon: BarChart3 },
   { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy },
 ];
@@ -46,6 +47,7 @@ export default function DashboardLayout({
 
     if (!firestore) {
       // Firestore might not be ready, handle this case if necessary
+      setIsAuthorized(false); // Can't verify role without firestore
       return;
     }
 
@@ -58,19 +60,19 @@ export default function DashboardLayout({
           setIsAuthorized(true); // User is an admin or executive, grant access
         } else {
            // Not an admin or executive, sign out and redirect
-           auth.signOut().then(() => {
+           auth?.signOut().then(() => {
             router.replace('/login');
           });
         }
       } else {
         // Doc doesn't exist, sign out and redirect
-        auth.signOut().then(() => {
+        auth?.signOut().then(() => {
           router.replace('/login');
         });
       }
     }).catch(() => {
       // Error fetching document, sign out and redirect
-      auth.signOut().then(() => {
+      auth?.signOut().then(() => {
         router.replace('/login');
       });
     });

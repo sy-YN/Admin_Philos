@@ -278,6 +278,32 @@
         }
       },
       "required": ["title", "content", "icon", "category", "order", "createdAt", "updatedAt"]
+    },
+     "CalendarDisplaySettings": {
+      "title": "Calendar Display Settings",
+      "description": "Settings for how content is displayed on the user-facing calendar.",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["daily", "fixed"],
+          "description": "The display mode for the calendar content. 'daily' for rotating content, 'fixed' for a single item over a period."
+        },
+        "activeContentId": {
+          "type": ["string", "null"],
+          "description": "The ID of the philosophy item to display when mode is 'fixed'."
+        },
+        "fixedEndDate": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "The end date for the 'fixed' mode."
+        },
+        "dailyLoopCounter": {
+          "type": "number",
+          "description": "A counter to keep track of the current item in the 'daily' rotation."
+        }
+      },
+      "required": ["mode", "dailyLoopCounter"]
     }
   },
   "auth": {
@@ -333,8 +359,12 @@
             "$ref": "#/entities/PhilosophyItem"
         },
         "description": "Stores company philosophy, vision, and value items."
+    },
+    "/settings/calendarDisplay": {
+        "schema": {
+            "$ref": "#/entities/CalendarDisplaySettings"
+        },
+        "description": "Stores the display settings for the user-facing calendar."
     }
   }
 }
-
-    
