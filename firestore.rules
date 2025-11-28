@@ -1,9 +1,91 @@
 rules_version = '2';
 
+function isUserAuthenticated() {
+  return request.auth != null;
+}
+
+function isUserRole(role) {
+  return exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+}
+
+function isAdmin() {
+  return isUserRole('admin');
+}
+
+function isExecutive() {
+  return isUserRole('executive');
+}
+
+function isOwner(userId) {
+  return request.auth.uid == userId;
+}
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Users can only read/write their own profile
+    match /users/{userId} {
+      allow read, update: if isUserAuthenticated() && isOwner(userId);
+      allow create, delete: if isAdmin(); // Only admins can create/delete users
+    }
+
+    // Only authenticated users can read content.
+    // Only admins or executives can write content.
+    match /executiveMessages/{messageId} {
+      allow read: if isUserAuthenticated();
+      allow create, update, delete: if isAdmin() || isExecutive();
+      
+      // Comments and likes can be managed by any authenticated user for their own items
+      match /comments/{commentId} {
+        allow read: if isUserAuthenticated();
+        allow create: if isUserAuthenticated() && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if isUserAuthenticated() && resource.data.authorId == request.auth.uid;
+      }
+      match /likes/{userId} {
+        allow read: if isUserAuthenticated();
+        allow create, delete: if isUserAuthenticated() && isOwner(userId);
+      }
+    }
+    
+    match /videos/{videoId} {
+      allow read: if isUserAuthenticated();
+      allow create, update, delete: if isAdmin() || isExecutive();
+      
+      match /comments/{commentId} {
+        allow read: if isUserAuthenticated();
+        allow create: if isUserAuthenticated() && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if isUserAuthenticated() && resource.data.authorId == request.auth.uid;
+      }
+      match /likes/{userId} {
+        allow read: if isUserAuthenticated();
+        allow create, delete: if isUserAuthenticated() && isOwner(userId);
+      }
+    }
+    
+    // Philosophy, Calendar, and Dashboard settings can be read by any authenticated user,
+    // but only modified by admins/executives.
+    match /philosophy/{philosophyId} {
+      allow read: if isUserAuthenticated();
+      allow create, update, delete: if isAdmin() || isExecutive();
+    }
+    
+    match /calendarMessages/{messageId} {
+        allow read: if isUserAuthenticated();
+        allow create, update, delete: if isAdmin() || isExecutive();
+    }
+
+    match /fixedCalendarMessages/{messageId} {
+        allow read: if isUserAuthenticated();
+        allow create, update, delete: if isAdmin() || isExecutive();
+    }
+
+    match /settings/{settingId} {
+        allow read: if isUserAuthenticated();
+        allow write: if isAdmin() || isExecutive();
+    }
+
+    // Default deny all other paths
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }
