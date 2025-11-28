@@ -55,7 +55,7 @@ function LivePreview({ title, content, icon }: { title: string; content: string;
             <p className="text-sm font-medium text-muted-foreground mb-4 text-center">
               今日の行動指針
             </p>
-            <div className="flex items-start justify-start gap-2 mb-3">
+            <div className="flex items-center justify-center gap-2 mb-3 text-center">
               <IconComponent name={icon} className="w-6 h-6 text-primary shrink-0" />
               <h1 className="text-2xl font-bold text-foreground leading-snug break-words">
                 {title || 'タイトル'}
