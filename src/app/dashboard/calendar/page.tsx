@@ -50,13 +50,13 @@ function LivePreview({ title, content, icon }: { title: string; content: string;
             <path d="M0 4 Q 5 10, 10 4 Q 15 10, 20 4 Q 25 10, 30 4 Q 35 10, 40 4 Q 45 10, 50 4 Q 55 10, 60 4 Q 65 10, 70 4 Q 75 10, 80 4 Q 85 10, 90 4 Q 95 10, 100 4 Q 105 10, 110 4 Q 115 10, 120 4 Q 125 10, 130 4 Q 135 10, 140 4 Q 145 10, 150 4 Q 155 10, 160 4 Q 165 10, 170 4 Q 175 10, 180 4 Q 185 10, 190 4 Q 195 10, 200 4 Q 205 10, 210 4 Q 215 10, 220 4 Q 225 10, 230 4 Q 235 10, 240 4 Q 245 10, 250 4 Q 255 10, 260 4 Q 265 10, 270 4 Q 275 10, 280 4 Q 285 10, 290 4 Q 295 10, 300 4 Q 305 10, 310 4 Q 315 10, 320 4 L 320 0 L 0 0 Z" />
           </svg>
         </div>
-        <main className="flex-1 flex flex-col items-center justify-start text-center bg-card z-0 pt-6">
+        <main className="flex-1 flex flex-col items-start justify-start text-left bg-card z-0 pt-6">
           <div className="w-full">
             <p className="text-sm font-medium text-muted-foreground mb-4 text-center">
               今日の行動指針
             </p>
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <IconComponent name={icon} className="w-6 h-6 text-primary" />
+            <div className="flex items-start justify-start gap-2 mb-3">
+              <IconComponent name={icon} className="w-6 h-6 text-primary shrink-0" />
               <h1 className="text-2xl font-bold text-foreground leading-snug break-words">
                 {title || 'タイトル'}
               </h1>
