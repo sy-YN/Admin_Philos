@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LucideIcon, Heart, Eye, X } from 'lucide-react';
+import { LucideIcon, Heart, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { collection, query, Timestamp, doc, getDoc, getDocs, writeBatch, orderBy, where, limit } from 'firebase/firestore';
 import * as LucideIcons from 'lucide-react';
@@ -12,10 +12,6 @@ import { isToday, startOfDay, format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser } from '@/firebase';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 
 type Message = {
   id: string;
@@ -59,12 +55,6 @@ export default function CalendarPage() {
   const [likes, setLikes] = useState(111);
   const [isLiked, setIsLiked] = useState(false);
   
-  // --- Preview State ---
-  const [isPreviewing, setIsPreviewing] = useState(false);
-  const [previewTitle, setPreviewTitle] = useState('プレビュータイトル');
-  const [previewContent, setPreviewContent] = useState('<p>ここに<b>プレビュー</b>の<span style="color: #E03131">内容</span>が表示されます。</p>');
-
-
   useEffect(() => {
     const handleDarkMode = () => {
       const isDark = document.documentElement.classList.contains('dark');
@@ -82,11 +72,6 @@ export default function CalendarPage() {
       return;
     };
     
-    if (isPreviewing) {
-        setLoading(false);
-        return;
-    };
-
     const fetchDailyContent = async () => {
       const settingsRef = doc(firestore, 'settings', 'calendarDisplay');
       const settingsSnap = await getDoc(settingsRef);
@@ -175,10 +160,10 @@ export default function CalendarPage() {
     };
 
     fetchContent();
-  }, [firestore, today, isPreviewing]);
+  }, [firestore, today]);
 
   const handlePageFlip = () => {
-    if (isFlipping || isPreviewing) return;
+    if (isFlipping) return;
     setIsFlipping(true);
     setTimeout(() => {
       router.push('/dashboard');
@@ -205,32 +190,28 @@ export default function CalendarPage() {
       );
     }
 
-    const itemToRender = isPreviewing 
-        ? { title: previewTitle, content: previewContent, icon: 'Eye', authorName: 'プレビュー' } 
-        : displayItem;
-
-    if (!itemToRender) {
+    if (!displayItem) {
        return <div className="text-center text-muted-foreground">表示するコンテンツがありません。</div>;
     }
 
-    const IconComponent = getIcon(itemToRender.icon);
+    const IconComponent = getIcon(displayItem.icon);
     return (
       <>
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 mb-3">
             <IconComponent className="w-6 h-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground leading-snug">
-                {itemToRender.title}
+                {displayItem.title}
             </h1>
           </div>
           <div
               className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground"
-              dangerouslySetInnerHTML={{ __html: itemToRender.content }}
+              dangerouslySetInnerHTML={{ __html: displayItem.content }}
           />
         </div>
         <div className="mt-6 w-full flex justify-between items-center text-xs text-muted-foreground">
-          {itemToRender.authorName ? (
-             <p>作成者: {itemToRender.authorName}</p>
+          {displayItem.authorName ? (
+             <p>作成者: {displayItem.authorName}</p>
            ) : <div />}
            <div className="flex items-center gap-2">
                 <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleLike}>
@@ -285,64 +266,22 @@ export default function CalendarPage() {
                 <main className="flex-1 flex flex-col items-center justify-start text-center bg-card z-0 pt-8">
                   <div className="w-full">
                      <p className="text-sm font-medium text-muted-foreground mb-4 text-center">
-                        {isPreviewing ? 'プレビューモード' : '今日の行動指針'}
+                        今日の行動指針
                      </p>
                     <RenderContent />
                   </div>
                 </main>
                 
                 <footer className="h-10 text-center bg-card pb-4">
-                   {!isPreviewing && (
                     <div className="absolute bottom-6 text-xs text-muted-foreground animate-pulse w-full text-center">
                           タップして進む
                     </div>
-                   )}
                 </footer>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-       {/* --- Preview Controls --- */}
-       <Card className="w-full max-w-md">
-            <CardContent className="pt-6">
-            {!isPreviewing ? (
-                 <Button onClick={() => setIsPreviewing(true)} className="w-full">
-                    <Eye className="mr-2 h-4 w-4" />
-                    プレビューを試す
-                </Button>
-            ) : (
-                <div className="space-y-4">
-                     <div className="flex justify-between items-center">
-                        <h3 className="font-semibold">プレビュー入力</h3>
-                        <Button onClick={() => setIsPreviewing(false)} variant="ghost" size="sm">
-                            <X className="mr-2 h-4 w-4" />
-                            終了
-                        </Button>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="preview-title">タイトル</Label>
-                        <Input 
-                            id="preview-title"
-                            value={previewTitle}
-                            onChange={(e) => setPreviewTitle(e.target.value)}
-                        />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="preview-content">内容 (HTMLタグが使えます)</Label>
-                        <Textarea 
-                            id="preview-content"
-                            value={previewContent}
-                            onChange={(e) => setPreviewContent(e.target.value)}
-                            rows={5}
-                            placeholder="<p>ここに<b>表示したい</b>内容を入力</p>"
-                        />
-                    </div>
-                </div>
-            )}
-            </CardContent>
-        </Card>
     </main>
   );
 }

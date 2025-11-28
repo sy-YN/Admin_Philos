@@ -9,7 +9,7 @@ import { useFirestore, useMemoFirebase, useCollection, useUser } from '@/firebas
 import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, doc } from 'firebase/firestore';
 import type { CalendarMessage } from '@/types/calendar';
 import type { FixedCalendarMessage } from '@/types/fixed-calendar-message';
-import { Loader2, PlusCircle, Edit, Trash2, GripVertical, Calendar as CalendarIcon, User, Eye, Smartphone } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, GripVertical, Calendar as CalendarIcon, User } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -27,48 +27,8 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import { Separator } from '@/components/ui/separator';
 
 // --- Shared Components ---
-
-function CalendarPreview({ title, content, icon, date }: { title: string; content: string; icon: string; date: Date; }) {
-  const formattedDate = format(date, 'yyyy年M月d日 (E)', { locale: ja });
-  const IconComponent = DynamicIcon;
-
-  return (
-    <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center p-4">
-      <div className="phone-bezel">
-        <div className="phone-screen">
-          <div className="relative h-full w-full flex flex-col items-center justify-center bg-background p-4">
-             <div className="w-full max-w-sm h-full bg-card rounded-lg shadow-md flex flex-col p-6 font-serif">
-                <header className="text-center pb-1">
-                   <p className="text-sm font-medium text-muted-foreground tracking-widest">{formattedDate}</p>
-                </header>
-                <div className="relative -mt-1 h-3 w-full overflow-hidden">
-                  <svg viewBox="0 0 320 16" preserveAspectRatio="none" className="absolute top-0 left-0 w-full h-full text-card fill-current">
-                    <path d="M0 4 Q 5 10, 10 4 Q 15 10, 20 4 Q 25 10, 30 4 Q 35 10, 40 4 Q 45 10, 50 4 Q 55 10, 60 4 Q 65 10, 70 4 Q 75 10, 80 4 Q 85 10, 90 4 Q 95 10, 100 4 Q 105 10, 110 4 Q 115 10, 120 4 Q 125 10, 130 4 Q 135 10, 140 4 Q 145 10, 150 4 Q 155 10, 160 4 Q 165 10, 170 4 Q 175 10, 180 4 Q 185 10, 190 4 Q 195 10, 200 4 Q 205 10, 210 4 Q 215 10, 220 4 Q 225 10, 230 4 Q 235 10, 240 4 Q 245 10, 250 4 Q 255 10, 260 4 Q 265 10, 270 4 Q 275 10, 280 4 Q 285 10, 290 4 Q 295 10, 300 4 Q 305 10, 310 4 Q 315 10, 320 4 L 320 0 L 0 0 Z" />
-                  </svg>
-                </div>
-                <main className="flex-1 flex flex-col items-center justify-start text-center bg-card z-0 pt-6">
-                    <p className="text-xs font-medium text-muted-foreground mb-2 text-center">今日の行動指針</p>
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                        <IconComponent name={icon} className="w-5 h-5 text-primary" />
-                        <h1 className="text-xl font-bold text-foreground leading-snug">
-                            {title || 'タイトル'}
-                        </h1>
-                    </div>
-                    <div
-                        className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground text-left"
-                        dangerouslySetInnerHTML={{ __html: content || '<p>ここに内容が表示されます</p>' }}
-                    />
-                </main>
-              </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function BaseMessageDialog({
   item,
@@ -133,80 +93,67 @@ function BaseMessageDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-6xl h-[80vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-0">
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
           <DialogTitle>{item ? 'メッセージを編集' : '新規メッセージを追加'}</DialogTitle>
         </DialogHeader>
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-0 overflow-hidden">
-            {/* Left side: Form */}
-            <div className="flex flex-col h-full">
-                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                        <Label htmlFor="title">タイトル</Label>
-                        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
-                        </div>
-                        <div className="grid gap-2">
-                        <Label>アイコン</Label>
-                        <IconPicker currentIcon={icon} onIconChange={setIcon} />
-                        </div>
-                    </div>
-                    {isFixed && (
-                        <div className="space-y-2">
-                            <Label htmlFor="date-picker">表示期間</Label>
-                            <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                id="date-picker"
-                                variant={'outline'}
-                                className={cn(
-                                    'w-full justify-start text-left font-normal bg-background',
-                                    !dateRange && 'text-muted-foreground'
-                                )}
-                                >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (
-                                    dateRange.to ? (
-                                    <>
-                                        {format(dateRange.from, 'PPP', { locale: ja })} -{' '}
-                                        {format(dateRange.to, 'PPP', { locale: ja })}
-                                    </>
-                                    ) : (
-                                    format(dateRange.from, 'PPP', { locale: ja })
-                                    )
-                                ) : (
-                                    <span>日付を選択</span>
-                                )}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                mode="range"
-                                selected={dateRange}
-                                onSelect={setDateRange}
-                                initialFocus
-                                locale={ja}
-                                />
-                            </PopoverContent>
-                            </Popover>
-                        </div>
-                    )}
-                    <div className="space-y-2">
-                        <Label htmlFor="content">内容</Label>
-                        <RichTextEditor content={content} onChange={setContent} />
-                    </div>
+        <div className="py-4 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                <Label htmlFor="title">タイトル</Label>
+                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                </div>
+                <div className="grid gap-2">
+                <Label>アイコン</Label>
+                <IconPicker currentIcon={icon} onIconChange={setIcon} />
                 </div>
             </div>
-            {/* Right side: Preview */}
-            <div className="hidden md:flex flex-col h-full border-l">
-                 <div className="flex items-center gap-2 p-3 border-b bg-muted/50">
-                    <Smartphone className="h-5 w-5 text-muted-foreground" />
-                    <h3 className="text-sm font-semibold text-muted-foreground">プレビュー</h3>
+            {isFixed && (
+                <div className="space-y-2">
+                    <Label htmlFor="date-picker">表示期間</Label>
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                        id="date-picker"
+                        variant={'outline'}
+                        className={cn(
+                            'w-full justify-start text-left font-normal bg-background',
+                            !dateRange && 'text-muted-foreground'
+                        )}
+                        >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                            dateRange.to ? (
+                            <>
+                                {format(dateRange.from, 'PPP', { locale: ja })} -{' '}
+                                {format(dateRange.to, 'PPP', { locale: ja })}
+                            </>
+                            ) : (
+                            format(dateRange.from, 'PPP', { locale: ja })
+                            )
+                        ) : (
+                            <span>日付を選択</span>
+                        )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                        mode="range"
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        initialFocus
+                        locale={ja}
+                        />
+                    </PopoverContent>
+                    </Popover>
                 </div>
-                <CalendarPreview title={title} content={content} icon={icon} date={new Date()} />
+            )}
+            <div className="space-y-2">
+                <Label htmlFor="content">内容</Label>
+                <RichTextEditor content={content} onChange={setContent} />
             </div>
         </div>
-        <DialogFooter className="p-6 pt-0 border-t">
+        <DialogFooter>
           <Button onClick={handleSave}>保存</Button>
         </DialogFooter>
       </DialogContent>
