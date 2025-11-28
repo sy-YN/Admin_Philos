@@ -13,6 +13,7 @@ import {
   Tooltip,
   Legend,
   ReferenceLine,
+  Pie,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Widget } from '@/app/dashboard/dashboard/page';
