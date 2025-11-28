@@ -32,6 +32,7 @@ type CalendarMessage = Message & {
 type FixedCalendarMessage = Message & {
   startDate: Timestamp;
   endDate: Timestamp;
+  order: number;
 };
 
 type Settings = {
@@ -153,11 +154,11 @@ export default function CalendarPage() {
       );
       
       const fixedSnapshot = await getDocs(fixedQuery);
-      let activeFixedMessages = [];
+      let activeFixedMessages: (FixedCalendarMessage)[] = [];
       
       if (!fixedSnapshot.empty) {
         for (const doc of fixedSnapshot.docs) {
-          const msg = { id: doc.id, ...doc.data() } as FixedCalendarMessage & {order: number};
+          const msg = { id: doc.id, ...doc.data() } as FixedCalendarMessage;
           if (msg.endDate.toDate() >= todayStart) {
             activeFixedMessages.push(msg);
           }
@@ -178,7 +179,7 @@ export default function CalendarPage() {
   }, [firestore, today, isPreviewing]);
 
   const handlePageFlip = () => {
-    if (isFlipping) return;
+    if (isFlipping || isPreviewing) return;
     setIsFlipping(true);
     setTimeout(() => {
       router.push('/dashboard'); // Go to a different page, maybe home or dashboard
@@ -254,7 +255,7 @@ export default function CalendarPage() {
         <div className="phone-screen">
           <div 
             className="relative h-full w-full flex flex-col items-center justify-center cursor-pointer bg-background"
-            onClick={!isPreviewing ? handlePageFlip : undefined}
+            onClick={handlePageFlip}
           >
             <div 
               className="relative w-full max-w-sm h-[600px]"
@@ -346,5 +347,3 @@ export default function CalendarPage() {
     </main>
   );
 }
-
-    
