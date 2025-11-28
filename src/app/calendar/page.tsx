@@ -77,7 +77,11 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
-    if (!firestore) return;
+    if (!firestore) {
+      setLoading(true);
+      return;
+    };
+    
     if (isPreviewing) {
         setLoading(false);
         return;
@@ -342,3 +346,5 @@ export default function CalendarPage() {
     </main>
   );
 }
+
+    
