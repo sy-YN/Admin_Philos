@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LucideIcon, Heart, Type, Text, Eye, X } from 'lucide-react';
+import { LucideIcon, Heart, Eye, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { collection, query, Timestamp, doc, getDoc, getDocs, writeBatch, orderBy, where, limit } from 'firebase/firestore';
 import * as LucideIcons from 'lucide-react';
@@ -78,6 +78,10 @@ export default function CalendarPage() {
 
   useEffect(() => {
     if (!firestore) return;
+    if (isPreviewing) {
+        setLoading(false);
+        return;
+    };
 
     const fetchDailyContent = async () => {
       const settingsRef = doc(firestore, 'settings', 'calendarDisplay');
@@ -167,7 +171,7 @@ export default function CalendarPage() {
     };
 
     fetchContent();
-  }, [firestore, today]);
+  }, [firestore, today, isPreviewing]);
 
   const handlePageFlip = () => {
     if (isFlipping) return;
@@ -186,7 +190,7 @@ export default function CalendarPage() {
   const formattedDate = format(today, 'yyyy年M月d日 (E)', { locale: ja });
   
   const RenderContent = () => {
-    if (loading && !isPreviewing) {
+    if (loading) {
       return (
         <div className="space-y-4 text-center">
             <Skeleton className="h-8 w-48 mx-auto" />
@@ -338,5 +342,3 @@ export default function CalendarPage() {
     </main>
   );
 }
-
-    
