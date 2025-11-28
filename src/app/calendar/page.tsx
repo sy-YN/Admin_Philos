@@ -66,12 +66,11 @@ export default function CalendarPage() {
 
 
   useEffect(() => {
-    // This effect can be simplified as dark mode seems to be handled globally
     const handleDarkMode = () => {
       const isDark = document.documentElement.classList.contains('dark');
       setIsDarkMode(isDark);
     };
-    handleDarkMode();
+    handleDarkMode(); // Initial check
     const observer = new MutationObserver(handleDarkMode);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
@@ -182,7 +181,7 @@ export default function CalendarPage() {
     if (isFlipping || isPreviewing) return;
     setIsFlipping(true);
     setTimeout(() => {
-      router.push('/dashboard'); // Go to a different page, maybe home or dashboard
+      router.push('/dashboard');
     }, 700);
   };
 
