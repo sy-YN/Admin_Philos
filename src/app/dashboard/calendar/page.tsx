@@ -37,7 +37,7 @@ function LivePreview({ title, content, icon }: { title: string; content: string;
 
   return (
     <div className="relative w-full h-[600px] scale-90 -mr-4 -my-4 bg-background p-2 rounded-lg border">
-      <div className="w-full h-full bg-card rounded-md shadow-lg flex flex-col p-6 font-serif border">
+      <div className="w-full h-full bg-card rounded-md shadow-lg flex flex-col p-6 border">
         <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-4">
           <div className="w-2.5 h-2.5 rounded-full bg-muted ring-1 ring-gray-400"></div>
           <div className="w-2.5 h-2.5 rounded-full bg-muted ring-1 ring-gray-400"></div>
@@ -542,5 +542,3 @@ export default function CalendarSettingsPage() {
     </div>
   );
 }
-
-    
