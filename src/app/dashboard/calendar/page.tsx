@@ -27,7 +27,6 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import { Separator } from '@/components/ui/separator';
 
 // --- Shared Components ---
 
@@ -36,7 +35,7 @@ function LivePreview({ title, content, icon }: { title: string; content: string;
   const formattedDate = format(new Date(), 'yyyy年M月d日 (E)', { locale: ja });
 
   return (
-    <div className="relative w-full h-[600px] scale-90 -mr-4 -my-4 bg-background p-2 rounded-lg border">
+    <div className="relative w-[430px] h-[600px] scale-90 -mr-4 -my-4 bg-background p-2 rounded-lg border mx-auto">
       <div className="w-full h-full bg-card rounded-md shadow-lg flex flex-col p-6 border">
         <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-4">
           <div className="w-2.5 h-2.5 rounded-full bg-muted ring-1 ring-gray-400"></div>
@@ -55,11 +54,13 @@ function LivePreview({ title, content, icon }: { title: string; content: string;
             <p className="text-sm font-medium text-muted-foreground mb-4 text-center">
               今日の行動指針
             </p>
-            <div className="flex items-center justify-center gap-2 mb-3 text-center">
-              <IconComponent name={icon} className="w-6 h-6 text-primary shrink-0" />
-              <h1 className="text-2xl font-bold text-foreground leading-snug break-words">
-                {title || 'タイトル'}
-              </h1>
+            <div className="text-center mb-3">
+                 <div className="flex items-center justify-center gap-2">
+                    <IconComponent name={icon} className="w-6 h-6 text-primary shrink-0" />
+                    <h1 className="text-2xl font-bold text-foreground leading-snug break-words">
+                        {title || 'タイトル'}
+                    </h1>
+                 </div>
             </div>
             <div
               className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground break-words"
@@ -136,7 +137,7 @@ function BaseMessageDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-6xl">
         <DialogHeader>
           <DialogTitle>{item ? 'メッセージを編集' : '新規メッセージを追加'}</DialogTitle>
         </DialogHeader>
