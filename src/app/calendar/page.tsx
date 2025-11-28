@@ -244,7 +244,7 @@ export default function CalendarPage() {
               <div className="absolute inset-0 bg-card rounded-lg shadow-lg rotate-[-2deg] opacity-70"></div>
               <div
                 className={cn(
-                  "absolute inset-0 w-full h-full bg-card rounded-lg shadow-2xl flex flex-col p-8 font-serif",
+                  "absolute inset-0 w-full h-full bg-card rounded-lg shadow-2xl flex flex-col p-8",
                   isFlipping && 'page-flip-right',
                 )}
               >
