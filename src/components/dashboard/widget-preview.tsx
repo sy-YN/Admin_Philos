@@ -79,23 +79,42 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                 <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="M" />
                 <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="%" />
-                <Tooltip 
-                  content={<ChartTooltipContent 
-                    formatter={(value, name, props) => {
-                      if (name === 'achievementRate') return `${value}%`;
-
-                      const { payload } = props;
-                      if (!payload) return null;
-
-                      if (payload.salesActual > 0) {
-                         return `${payload.salesActual}M / ${payload.salesTarget}M`;
+                <Tooltip
+                  cursor={false}
+                  content={<ChartTooltipContent
+                    hideIndicator
+                    labelFormatter={(label) => `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`}
+                    formatter={(value, name, item) => {
+                      if (name === 'achievementRate') {
+                        return (
+                          <div className="flex min-w-40 items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                               <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-achievementRate)'}} />
+                               <p className="text-muted-foreground">達成率</p>
+                            </div>
+                            <p className="font-mono font-medium tabular-nums text-foreground">{`${value}%`}</p>
+                          </div>
+                        )
                       }
-                      return `${payload.salesTarget}M (目標)`;
+                       if (name === 'base') {
+                        return (
+                          <div className="flex min-w-40 items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                               <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-salesActual)'}} />
+                               <p className="text-muted-foreground">実績 / 目標</p>
+                            </div>
+                            <p className="font-mono font-medium tabular-nums text-foreground">{`${item.payload.salesActual}M / ${item.payload.salesTarget}M`}</p>
+                          </div>
+                        )
+                      }
+                      return null;
                     }}
-                    labelFormatter={(label) => {
-                       return `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`;
+                     itemSorter={(item) => {
+                      if (item.dataKey === 'base') return -1;
+                      if (item.dataKey === 'achievementRate') return 1;
+                      return 0;
                     }}
-                  />} 
+                  />}
                 />
                 <ChartLegend 
                   content={
