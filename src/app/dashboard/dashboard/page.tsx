@@ -618,7 +618,7 @@ export default function DashboardSettingsPage() {
       <div>
          <div className="flex items-center justify-between mb-6">
             <div className='flex flex-col'>
-              <h1 className="text-lg font-semibold md:text-2xl">ダッシュボード設定</h1>
+              <h1 className="text-lg font-semibold md:text-2xl">目標設定</h1>
               <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
             </div>
 

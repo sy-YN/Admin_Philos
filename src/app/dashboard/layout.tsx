@@ -20,7 +20,7 @@ const navItems = [
   { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film },
   { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen },
   { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays },
-  { href: '/dashboard/dashboard', label: 'ダッシュボード設定', icon: BarChart3 },
+  { href: '/dashboard/dashboard', label: '目標設定', icon: BarChart3 },
   { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy },
 ];
 
