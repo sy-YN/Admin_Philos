@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -79,38 +80,44 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                 <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="M" />
                 <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="%" />
                 <Tooltip
-                  cursor={false}
+                  cursor={true}
                   content={<ChartTooltipContent
-                    hideIndicator
                     labelFormatter={(label) => `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`}
                     formatter={(value, name, item) => {
-                      const payload = item.payload as any;
-                      if (name === 'base' || name === 'over' || name === 'shortfall') {
-                        return (
-                          <div className="flex min-w-40 items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                               <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-salesActual)'}} />
-                               <p className="text-muted-foreground">実績 / 目標</p>
-                            </div>
-                            <p className="font-mono font-medium tabular-nums text-foreground">{`${payload.salesActual}M / ${payload.salesTarget}M`}</p>
-                          </div>
-                        )
-                      }
-                      if (name === 'achievementRate') {
+                      const { salesActual, salesTarget, achievementRate } = item.payload as any;
+                      const dataKey = item.dataKey;
+
+                      if (dataKey === 'achievementRate') {
                         return (
                           <div className="flex min-w-40 items-center justify-between gap-4">
                             <div className="flex items-center gap-2">
                                <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-achievementRate)'}} />
                                <p className="text-muted-foreground">達成率</p>
                             </div>
-                            <p className="font-mono font-medium tabular-nums text-foreground">{`${value}%`}</p>
+                            <p className="font-mono font-medium tabular-nums text-foreground">{`${achievementRate}%`}</p>
                           </div>
                         )
                       }
+                      
+                      // 棒グラフ関連のdataKeyは実績/目標を一つだけ表示
+                      if (dataKey === 'base' || dataKey === 'over' || dataKey === 'shortfall') {
+                         return (
+                            <div className="flex min-w-40 items-center justify-between gap-4">
+                               <div className="flex items-center gap-2">
+                                  <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-salesActual)'}} />
+                                  <p className="text-muted-foreground">実績 / 目標</p>
+                               </div>
+                               <p className="font-mono font-medium tabular-nums text-foreground">{`${salesActual}M / ${salesTarget}M`}</p>
+                            </div>
+                         )
+                      }
+                      
                       return null;
                     }}
                     itemSorter={(item) => {
                       if (item.dataKey === 'base') return -1;
+                      if (item.dataKey === 'over') return 10; // Hide
+                      if (item.dataKey === 'shortfall') return 10; // Hide
                       if (item.dataKey === 'achievementRate') return 1;
                       return 0;
                     }}
