@@ -81,47 +81,43 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                 <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="%" />
                 <Tooltip
                   cursor={true}
-                  content={<ChartTooltipContent
-                    labelFormatter={(label) => `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`}
-                    formatter={(value, name, item) => {
-                      const { salesActual, salesTarget, achievementRate } = item.payload as any;
-                      const dataKey = item.dataKey;
+                  content={
+                    <ChartTooltipContent 
+                        labelFormatter={(label) => `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`}
+                        formatter={(value, name, item) => {
+                            const { salesActual, salesTarget, achievementRate } = item.payload as any;
 
-                      if (dataKey === 'achievementRate') {
-                        return (
-                          <div className="flex min-w-40 items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                               <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-achievementRate)'}} />
-                               <p className="text-muted-foreground">達成率</p>
-                            </div>
-                            <p className="font-mono font-medium tabular-nums text-foreground">{`${achievementRate}%`}</p>
-                          </div>
-                        )
-                      }
-                      
-                      // 棒グラフ関連のdataKeyは実績/目標を一つだけ表示
-                      if (dataKey === 'base' || dataKey === 'over' || dataKey === 'shortfall') {
-                         return (
-                            <div className="flex min-w-40 items-center justify-between gap-4">
-                               <div className="flex items-center gap-2">
-                                  <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-salesActual)'}} />
-                                  <p className="text-muted-foreground">実績 / 目標</p>
-                               </div>
-                               <p className="font-mono font-medium tabular-nums text-foreground">{`${salesActual}M / ${salesTarget}M`}</p>
-                            </div>
-                         )
-                      }
-                      
-                      return null;
-                    }}
-                    itemSorter={(item) => {
-                      if (item.dataKey === 'base') return -1;
-                      if (item.dataKey === 'over') return 10; // Hide
-                      if (item.dataKey === 'shortfall') return 10; // Hide
-                      if (item.dataKey === 'achievementRate') return 1;
-                      return 0;
-                    }}
-                  />}
+                            if (item.dataKey === 'achievementRate') {
+                                return (
+                                    <div className="flex min-w-40 items-center justify-between gap-4">
+                                        <div className="flex items-center gap-2">
+                                           <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-achievementRate)'}} />
+                                           <p className="text-muted-foreground">達成率</p>
+                                        </div>
+                                        <p className="font-mono font-medium tabular-nums text-foreground">{`${achievementRate}%`}</p>
+                                    </div>
+                                )
+                            }
+                            
+                            // For bar chart items, show the combined "Actual / Target"
+                            return (
+                                <div className="flex min-w-40 items-center justify-between gap-4">
+                                   <div className="flex items-center gap-2">
+                                      <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-salesActual)'}} />
+                                      <p className="text-muted-foreground">実績 / 目標</p>
+                                   </div>
+                                   <p className="font-mono font-medium tabular-nums text-foreground">{`${salesActual}M / ${salesTarget}M`}</p>
+                                </div>
+                            );
+                        }}
+                        itemSorter={(item) => {
+                            // This ensures that only one bar item ('base') and the line item are processed for the tooltip.
+                            if (item.dataKey === 'base') return -1;
+                            if (item.dataKey === 'achievementRate') return 1;
+                            return 10; // Pushes 'over' and 'shortfall' to the end so they aren't rendered.
+                        }}
+                    />
+                  }
                 />
                 <ChartLegend 
                   content={
