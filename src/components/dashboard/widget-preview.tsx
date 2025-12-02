@@ -82,32 +82,42 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                 <Tooltip
                   cursor={true}
                   content={
-                    <ChartTooltipContent 
-                        labelFormatter={(label) => `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`}
-                        formatter={(value, name, item) => {
-                            const { salesActual, salesTarget, achievementRate } = item.payload as any;
+                    <ChartTooltipContent
+                      labelFormatter={(label) =>
+                        `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`
+                      }
+                      formatter={(value, name, item) => {
+                        const { salesActual, salesTarget, achievementRate, over, shortfall } = item.payload as any;
+                        const renderItem = (label: string, value: string | number) => (
+                           <div className="flex w-full items-center justify-between text-xs">
+                              <span>{label}</span>
+                              <span className="font-bold">{value}</span>
+                           </div>
+                        );
 
-                            if (item.dataKey === 'achievementRate') {
-                                return [
-                                    `${achievementRate}%`,
-                                    '達成率'
-                                ]
-                            }
-                           
-                            if (item.dataKey === 'base') {
-                                return [
-                                    `${salesActual}M / ${salesTarget}M`,
-                                    '実績 / 目標'
-                                ]
-                            }
-                            
-                            return [value, name];
-                        }}
-                        itemSorter={(item) => {
-                            if (item.dataKey === 'base') return -1;
-                            if (item.dataKey === 'achievementRate') return 1;
-                            return 10;
-                        }}
+                        switch (item.dataKey) {
+                            case 'base':
+                                return renderItem("実績 / 目標", `${salesActual}M / ${salesTarget}M`);
+                            case 'over':
+                                if (over > 0) return renderItem("超過達成", `${over}M`);
+                                return null;
+                            case 'shortfall':
+                                // Display '不足分' only when it's a real shortfall, not just an empty actual
+                                if (shortfall > 0 && salesActual > 0) return renderItem("不足分", `${shortfall}M`);
+                                return null;
+                            case 'achievementRate':
+                                return renderItem("達成率", `${achievementRate}%`);
+                            default:
+                                return null;
+                        }
+                      }}
+                       itemSorter={(item) => {
+                          if (item.dataKey === 'base') return 0;
+                          if (item.dataKey === 'over') return 1;
+                          if (item.dataKey === 'shortfall') return 2;
+                          if (item.dataKey === 'achievementRate') return 3;
+                          return 4;
+                       }}
                     />
                   }
                 />
