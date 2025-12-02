@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
@@ -12,7 +11,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ReferenceLine,
   Pie,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
@@ -28,9 +26,10 @@ export type ChartData = {
 export const salesChartConfig = {
   salesActual: { label: '実績(達成)', color: 'hsl(var(--primary))' },
   salesTarget: { label: '目標', color: 'hsl(var(--secondary))' },
-  achievementRate: { label: '達成率', color: 'hsl(38 92% 50%)' }, // 黄色に変更
-  overAchievement: { label: '超過分', color: 'hsl(var(--destructive))' },
-  shortfall: { label: '目標/不足分', color: 'hsl(var(--primary))' }, // 緑に変更
+  achievementRate: { label: '達成率', color: 'hsl(38 92% 50%)' },
+  overAchievement: { label: '実績(超過)', color: 'hsl(var(--destructive))' },
+  shortfall: { label: '目標(不足分)', color: 'hsl(var(--primary))',
+  },
 };
 
 
@@ -85,6 +84,18 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                     hideIndicator
                     labelFormatter={(label) => `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`}
                     formatter={(value, name, item) => {
+                      const payload = item.payload as any;
+                      if (name === 'base' || name === 'over' || name === 'shortfall') {
+                        return (
+                          <div className="flex min-w-40 items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                               <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-salesActual)'}} />
+                               <p className="text-muted-foreground">実績 / 目標</p>
+                            </div>
+                            <p className="font-mono font-medium tabular-nums text-foreground">{`${payload.salesActual}M / ${payload.salesTarget}M`}</p>
+                          </div>
+                        )
+                      }
                       if (name === 'achievementRate') {
                         return (
                           <div className="flex min-w-40 items-center justify-between gap-4">
@@ -96,20 +107,9 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                           </div>
                         )
                       }
-                       if (name === 'base') {
-                        return (
-                          <div className="flex min-w-40 items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                               <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-salesActual)'}} />
-                               <p className="text-muted-foreground">実績 / 目標</p>
-                            </div>
-                            <p className="font-mono font-medium tabular-nums text-foreground">{`${item.payload.salesActual}M / ${item.payload.salesTarget}M`}</p>
-                          </div>
-                        )
-                      }
                       return null;
                     }}
-                     itemSorter={(item) => {
+                    itemSorter={(item) => {
                       if (item.dataKey === 'base') return -1;
                       if (item.dataKey === 'achievementRate') return 1;
                       return 0;
@@ -120,9 +120,9 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                   content={
                     <ChartLegendContent 
                       payload={[
-                        { value: '実績(達成)', type: 'square', color: salesChartConfig.salesActual.color },
+                        { value: '実績(未達/達成)', type: 'square', color: salesChartConfig.salesActual.color },
                         { value: '実績(超過)', type: 'square', color: salesChartConfig.overAchievement.color },
-                        { value: '目標/不足分', type: 'square', color: salesChartConfig.shortfall.color },
+                        { value: '目標(不足分)', type: 'square', color: salesChartConfig.shortfall.color },
                         { value: '達成率', type: 'line', color: salesChartConfig.achievementRate.color },
                       ]} 
                     />
