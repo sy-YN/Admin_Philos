@@ -88,33 +88,25 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                             const { salesActual, salesTarget, achievementRate } = item.payload as any;
 
                             if (item.dataKey === 'achievementRate') {
-                                return (
-                                    <div className="flex min-w-40 items-center justify-between gap-4">
-                                        <div className="flex items-center gap-2">
-                                           <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-achievementRate)'}} />
-                                           <p className="text-muted-foreground">達成率</p>
-                                        </div>
-                                        <p className="font-mono font-medium tabular-nums text-foreground">{`${achievementRate}%`}</p>
-                                    </div>
-                                )
+                                return [
+                                    `${achievementRate}%`,
+                                    '達成率'
+                                ]
+                            }
+                           
+                            if (item.dataKey === 'base') {
+                                return [
+                                    `${salesActual}M / ${salesTarget}M`,
+                                    '実績 / 目標'
+                                ]
                             }
                             
-                            // For bar chart items, show the combined "Actual / Target"
-                            return (
-                                <div className="flex min-w-40 items-center justify-between gap-4">
-                                   <div className="flex items-center gap-2">
-                                      <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: 'var(--color-salesActual)'}} />
-                                      <p className="text-muted-foreground">実績 / 目標</p>
-                                   </div>
-                                   <p className="font-mono font-medium tabular-nums text-foreground">{`${salesActual}M / ${salesTarget}M`}</p>
-                                </div>
-                            );
+                            return [value, name];
                         }}
                         itemSorter={(item) => {
-                            // This ensures that only one bar item ('base') and the line item are processed for the tooltip.
                             if (item.dataKey === 'base') return -1;
                             if (item.dataKey === 'achievementRate') return 1;
-                            return 10; // Pushes 'over' and 'shortfall' to the end so they aren't rendered.
+                            return 10;
                         }}
                     />
                   }
