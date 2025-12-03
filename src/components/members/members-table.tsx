@@ -53,7 +53,7 @@ const getBadgeVariantForRole = (role: Member['role']): 'default' | 'secondary' |
     case 'executive':
       return 'destructive';
     case 'manager':
-      return 'outline';
+      return 'default'; // Changed from 'outline' to 'default' for better visibility
     case 'employee':
       return 'secondary';
     default:
