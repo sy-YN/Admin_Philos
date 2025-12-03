@@ -41,11 +41,75 @@ Philosは、組織内コミュニケーションとエンゲージメントを�
 
 ## セットアップと実行方法
 
-### 前提条件
+### 1. 前提条件
 
 *   Node.js (v20以降)
 *   npm
 *   Firebaseプロジェクト
+
+### 2. Firebaseプロジェクトの準備
+
+1.  [Firebaseコンソール](https://console.firebase.google.com/) で新しいプロジェクトを作成するか、既存のプロジェクトを使用します。
+2.  **Authentication**:
+    *   左側のメニューから「Authentication」を選択し、「Sign-in method」タブに移動します。
+    *   プロバイダの一覧から「メール/パスワード」を有効にします。
+3.  **Firestore Database**:
+    *   左側のメニューから「Firestore Database」を選択し、データベースを作成します。
+    *   テスト目的であれば「テストモードで開始」を選択してセキュリティルールを緩く設定できます。（本番環境では必ずルールを修正してください）
+
+### 3. サービスアカウントキーの取得
+
+管理者向け機能（メンバーの一括登録など）をローカルで実行するために、サービスアカウントキーが必要です。
+
+1.  Firebaseコンソールの左上にある歯車アイコンをクリックし、「プロジェクトの設定」を選択します。
+2.  「サービスアカウント」タブに移動します。
+3.  「新しい秘密鍵の生成」ボタンをクリックし、表示されたダイアログで「キーを生成」をクリックします。
+4.  キーがJSONファイルとしてダウンロードされます。このファイルは安全な場所に保管してください。
+
+### 4. 環境変数の設定
+
+1.  プロジェクトのルートディレクトリに `.env.local` という名前のファイルを作成します。
+2.  以下の内容をファイルに記述し、ダウンロードしたサービスアカウントキーの **絶対パス** を設定します。
+
+    ```bash
+    # 例: /Users/your-name/documents/keys/my-project-firebase-adminsdk.json
+    GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/serviceAccountKey.json"
+    ```
+
+### 5. Firebaseウェブ設定の構成
+
+1.  Firebaseコンソールの「プロジェクトの設定」→「全般」タブに移動します。
+2.  ページ下部の「マイアプリ」セクションで、ウェブアプリ（</>アイコン）を選択します。まだアプリがない場合は、「アプリを追加」から新しいウェブアプリを登録します。
+3.  アプリの設定画面で `firebaseConfig` オブジェクトが表示されます。このオブジェクトの内容をコピーします。
+4.  プロジェクトの `src/firebase/config.ts` ファイルを開き、コピーした内容を貼り付けて既存の `firebaseConfig` を置き換えます。
+
+    ```typescript
+    // src/firebase/config.ts
+    export const firebaseConfig = {
+      apiKey: "AIza...",
+      authDomain: "your-project-id.firebaseapp.com",
+      projectId: "your-project-id",
+      // ...その他の設定
+    };
+    ```
+
+### 6. アプリケーションの実行
+
+1.  ターミナルで以下のコマンドを実行し、プロジェクトの依存関係をインストールします。
+
+    ```bash
+    npm install
+    ```
+
+2.  以下のコマンドで開発サーバーを起動します。
+
+    ```bash
+    npm run dev
+    ```
+
+3.  ブラウザで `http://localhost:3000` を開き、アプリケーションにアクセスします。
+
+---
 
 ## ディレクトリ構成
 
