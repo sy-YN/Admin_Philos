@@ -46,6 +46,22 @@ interface MembersTableProps {
   departmentOptions: { value: string; label: string }[];
 }
 
+const getBadgeVariantForRole = (role: Member['role']): 'default' | 'secondary' | 'destructive' | 'outline' => {
+  switch (role) {
+    case 'admin':
+      return 'default';
+    case 'executive':
+      return 'destructive';
+    case 'manager':
+      return 'outline';
+    case 'employee':
+      return 'secondary';
+    default:
+      return 'secondary';
+  }
+};
+
+
 // Separate component for the row to manage its own state
 function MemberTableRow({ member, companyOptions, departmentOptions }: { member: Member, companyOptions: {value: string, label: string}[], departmentOptions: {value: string, label: string}[] }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -113,7 +129,7 @@ function MemberTableRow({ member, companyOptions, departmentOptions }: { member:
         {member.department || 'N/A'}
       </TableCell>
       <TableCell>
-        <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>{member.role}</Badge>
+        <Badge variant={getBadgeVariantForRole(member.role)}>{member.role}</Badge>
       </TableCell>
       <TableCell className="hidden md:table-cell">
         {formatDate(member.createdAt)}
