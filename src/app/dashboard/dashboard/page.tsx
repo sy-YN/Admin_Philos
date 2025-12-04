@@ -143,11 +143,11 @@ const initialSalesRecords: SalesRecord[] = [
     { id: '2025-07', year: 2025, month: 7, salesTarget: 125, salesActual: 128, achievementRate: calculateAchievementRate(128, 125) },
 
     // --- FY2026 Data (Aug 2025 - Jul 2026) ---
-    { id: '2025-08', year: 2025, month: 8, salesTarget: 120, salesActual: 122, achievementRate: calculateAchievementRate(122, 120) },
-    { id: '2025-09', year: 2025, month: 9, salesTarget: 122, salesActual: 125, achievementRate: calculateAchievementRate(125, 122) },
-    { id: '2025-10', year: 2025, month: 10, salesTarget: 125, salesActual: 123, achievementRate: calculateAchievementRate(123, 125) },
-    { id: '2025-11', year: 2025, month: 11, salesTarget: 128, salesActual: 130, achievementRate: calculateAchievementRate(130, 128) },
-    { id: '2025-12', year: 2025, month: 12, salesTarget: 130, salesActual: 135, achievementRate: calculateAchievementRate(135, 130) },
+    { id: '2025-08', year: 2025, month: 8, salesTarget: 120, salesActual: 0, achievementRate: 0 },
+    { id: '2025-09', year: 2025, month: 9, salesTarget: 122, salesActual: 0, achievementRate: 0 },
+    { id: '2025-10', year: 2025, month: 10, salesTarget: 125, salesActual: 0, achievementRate: 0 },
+    { id: '2025-11', year: 2025, month: 11, salesTarget: 128, salesActual: 0, achievementRate: 0 },
+    { id: '2025-12', year: 2025, month: 12, salesTarget: 130, salesActual: 0, achievementRate: 0 },
     { id: '2026-01', year: 2026, month: 1, salesTarget: 132, salesActual: 0, achievementRate: 0 },
     { id: '2026-02', year: 2026, month: 2, salesTarget: 135, salesActual: 0, achievementRate: 0 },
     { id: '2026-03', year: 2026, month: 3, salesTarget: 138, salesActual: 0, achievementRate: 0 },
@@ -697,3 +697,5 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
+    
