@@ -474,7 +474,7 @@ export default function CalendarSettingsPage() {
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
       <div className="flex items-center">
-        <h1 className="text-lg font-semibold md:text-2xl">行動指針カレンダー設定</h1>
+        <h1 className="text-lg font-semibold md:text-2xl">カレンダー設定</h1>
       </div>
       <Tabs defaultValue="daily">
         <TabsList className="grid w-full grid-cols-2">
