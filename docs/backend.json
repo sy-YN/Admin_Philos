@@ -354,14 +354,13 @@
       "description": "Stores monthly sales target and actual data for a specific goal.",
       "type": "object",
       "properties": {
-        "goalId": { "type": "string", "description": "The ID of the parent Goal document." },
         "year": { "type": "number" },
         "month": { "type": "number" },
         "salesTarget": { "type": "number" },
         "salesActual": { "type": "number" },
         "achievementRate": { "type": "number" }
       },
-      "required": ["goalId", "year", "month", "salesTarget", "salesActual", "achievementRate"]
+      "required": ["year", "month", "salesTarget", "salesActual", "achievementRate"]
     }
   },
   "auth": {
@@ -440,9 +439,9 @@
       "schema": { "$ref": "#/entities/Goal" },
       "description": "Stores all goals (company, team, personal)."
     },
-    "/salesRecords/{recordId}": {
+    "/goals/{goalId}/salesRecords/{recordId}": {
       "schema": { "$ref": "#/entities/SalesRecord" },
-      "description": "Stores monthly sales records for sales-related goals."
+      "description": "Subcollection storing monthly sales records for a specific goal."
     }
   }
 }

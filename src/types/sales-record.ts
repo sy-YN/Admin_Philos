@@ -1,7 +1,6 @@
 
 export type SalesRecord = {
-  id: string; // Composite ID, e.g., `${goalId}_${year}-${month}`
-  goalId: string;
+  id: string; // Composite ID, e.g., `${year}-${month}`
   year: number;
   month: number;
   salesTarget: number;

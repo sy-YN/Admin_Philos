@@ -24,10 +24,11 @@ import {
 } from '@/lib/fiscal-year';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs, Query } from 'firebase/firestore';
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs, Query, collectionGroup } from 'firebase/firestore';
 import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
 import type { Member } from '@/types/member';
+import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -246,17 +247,16 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
 
 function SalesDataManagementDialog({
   widget,
-  salesRecords,
   onSave,
   children
 }: {
   widget: Goal;
-  salesRecords: SalesRecord[];
-  onSave: (records: SalesRecord[]) => void;
+  onSave: (records: Omit<SalesRecord, 'id'>[]) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const { data: salesRecords } = useSubCollection<SalesRecord>('goals', widget.id, 'salesRecords');
   const [monthlyData, setMonthlyData] = useState<Map<string, { target: string; actual: string }>>(new Map());
 
   const fiscalYearMonths = useMemo(() => {
@@ -265,7 +265,7 @@ function SalesDataManagementDialog({
   }, [widget.fiscalYear, widget.fiscalYearStartMonth]);
   
   useEffect(() => {
-    if (open) {
+    if (open && salesRecords) {
       const initialData = new Map();
       fiscalYearMonths.forEach(({ year, month }) => {
         const record = salesRecords.find(r => r.year === year && r.month === month);
@@ -289,7 +289,7 @@ function SalesDataManagementDialog({
   };
 
   const handleSave = () => {
-    const newRecords: SalesRecord[] = [];
+    const newRecords: Omit<SalesRecord, 'id'>[] = [];
     let hasError = false;
 
     monthlyData.forEach((values, id) => {
@@ -302,8 +302,6 @@ function SalesDataManagementDialog({
         }
 
         newRecords.push({
-            id: `${widget.id}_${id}`, // Composite ID
-            goalId: widget.id,
             year,
             month,
             salesTarget,
@@ -381,40 +379,39 @@ function SalesDataManagementDialog({
 }
 
 
-function WidgetList({
-  widgets,
-  salesData,
+function WidgetCard({
+  widget,
   onSave,
   onDelete,
   onSetActive,
   onSaveRecords,
   currentUser
 }: {
-  widgets: Goal[];
-  salesData: SalesRecord[];
+  widget: Goal;
   onSave: (data: Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>, id?: string) => void;
   onDelete: (id: string) => void;
   onSetActive: (id: string) => void;
-  onSaveRecords: (records: SalesRecord[]) => void;
+  onSaveRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
   currentUser: Member | null;
 }) {
+  const { data: salesData } = useSubCollection<SalesRecord>(
+    'goals',
+    widget.id,
+    'salesRecords'
+  );
 
-  const getChartDataForWidget = useCallback((widget: Goal): ChartData[] => {
+  const getChartDataForWidget = useCallback((): ChartData[] => {
     let dataForChart: SalesRecord[] = [];
-
-    if (widget.kpi === 'sales_revenue' && widget.fiscalYear) {
+    if (widget.kpi === 'sales_revenue' && widget.fiscalYear && salesData) {
       const startMonth = widget.fiscalYearStartMonth || 8;
       const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
       
-      const relevantSalesData = salesData.filter(record => record.goalId === widget.id);
-
       dataForChart = fiscalYearMonths.map(({ year, month }) => {
-        const found = relevantSalesData.find(record => record.year === year && record.month === month);
+        const found = salesData.find(record => record.year === year && record.month === month);
         if (found) return found;
 
         return {
-          id: `${widget.id}_${year}-${String(month).padStart(2, '0')}`,
-          goalId: widget.id,
+          id: `${year}-${String(month).padStart(2, '0')}`,
           year,
           month,
           salesTarget: 0,
@@ -429,9 +426,102 @@ function WidgetList({
     return dataForChart
       .map(d => ({ month: `${d.year}-${String(d.month).padStart(2, '0')}`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
       .sort((a, b) => a.month.localeCompare(b.month));
-  }, [salesData]);
+  }, [salesData, widget]);
 
+  const canEdit = currentUser?.role === 'executive';
 
+  return (
+    <Card key={widget.id} className={cn(
+      "flex flex-col",
+      widget.status === 'active' && "ring-2 ring-primary"
+    )}>
+      <CardHeader className='flex-row items-center justify-between pb-2'>
+        <CardTitle className="text-base flex items-center gap-2">
+          {widget.status === 'active' && <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />}
+          {widget.title}
+        </CardTitle>
+        {canEdit && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {widget.status !== 'active' && (
+                <DropdownMenuItem onClick={() => onSetActive(widget.id)}>
+                  <Star className="mr-2 h-4 w-4"/>アプリで表示
+                </DropdownMenuItem>
+              )}
+              <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope} currentUser={currentUser}>
+                <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                    <Edit className="mr-2 h-4 w-4"/>編集
+                </DropdownMenuItem>
+              </WidgetDialog>
+               {widget.kpi === 'sales_revenue' && (
+                  <SalesDataManagementDialog widget={widget} onSave={(records) => onSaveRecords(widget.id, records)}>
+                      <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                          <Database className="mr-2 h-4 w-4"/>データ編集
+                      </DropdownMenuItem>
+                  </SalesDataManagementDialog>
+              )}
+               <DropdownMenuSeparator />
+               <AlertDialog>
+                <AlertDialogTrigger asChild>
+                   <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4"/>削除
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>ウィジェットを削除しますか？</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      ウィジェット「{widget.title}」を削除します。この操作は元に戻せません。
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(widget.id)}>削除</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </CardHeader>
+      <CardContent className="h-60 w-full flex-grow">
+         <WidgetPreview 
+           widget={widget as any}
+           chartData={getChartDataForWidget()}
+         />
+      </CardContent>
+      <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
+         <span>
+           {kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A'}
+         </span>
+         <span>
+           {chartOptions.find(c => c.value === widget.chartType)?.label || 'N/A'}
+         </span>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function WidgetList({
+  widgets,
+  onSave,
+  onDelete,
+  onSetActive,
+  onSaveRecords,
+  currentUser
+}: {
+  widgets: Goal[];
+  onSave: (data: Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>, id?: string) => void;
+  onDelete: (id: string) => void;
+  onSetActive: (id: string) => void;
+  onSaveRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
+  currentUser: Member | null;
+}) {
   if (widgets.length === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground">
@@ -443,107 +533,41 @@ function WidgetList({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {widgets.map(widget => (
-        <Card key={widget.id} className={cn(
-          "flex flex-col",
-          widget.status === 'active' && "ring-2 ring-primary"
-        )}>
-          <CardHeader className='flex-row items-center justify-between pb-2'>
-            <CardTitle className="text-base flex items-center gap-2">
-              {widget.status === 'active' && <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />}
-              {widget.title}
-            </CardTitle>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {widget.status !== 'active' && (
-                  <DropdownMenuItem onClick={() => onSetActive(widget.id)}>
-                    <Star className="mr-2 h-4 w-4"/>アプリで表示
-                  </DropdownMenuItem>
-                )}
-                <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope} currentUser={currentUser}>
-                  <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                      <Edit className="mr-2 h-4 w-4"/>編集
-                  </DropdownMenuItem>
-                </WidgetDialog>
-                 {widget.kpi === 'sales_revenue' && (
-                    <SalesDataManagementDialog widget={widget} salesRecords={salesData} onSave={onSaveRecords}>
-                        <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                            <Database className="mr-2 h-4 w-4"/>データ編集
-                        </DropdownMenuItem>
-                    </SalesDataManagementDialog>
-                )}
-                 <DropdownMenuSeparator />
-                 <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                     <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
-                      <Trash2 className="mr-2 h-4 w-4"/>削除
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>ウィジェットを削除しますか？</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        ウィジェット「{widget.title}」を削除します。この操作は元に戻せません。
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => onDelete(widget.id)}>削除</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </CardHeader>
-          <CardContent className="h-60 w-full flex-grow">
-             <WidgetPreview 
-               widget={widget as any} // Temporary cast for compatibility
-               chartData={getChartDataForWidget(widget)}
-             />
-          </CardContent>
-          <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
-             <span>
-               {kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A'}
-             </span>
-             <span>
-               {chartOptions.find(c => c.value === widget.chartType)?.label || 'N/A'}
-             </span>
-          </CardFooter>
-        </Card>
+        <WidgetCard
+          key={widget.id}
+          widget={widget}
+          onSave={onSave}
+          onDelete={onDelete}
+          onSetActive={onSetActive}
+          onSaveRecords={onSaveRecords}
+          currentUser={currentUser}
+        />
       ))}
     </div>
   );
 }
 
-
 export default function DashboardSettingsPage() {
     const { toast } = useToast();
     const firestore = useFirestore();
-    const { user, isUserLoading } = useUser();
+    const { user: authUser, isUserLoading } = useUser();
     
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
     const [activeTab, setActiveTab] = useState<WidgetScope>('company');
     const [isMounted, setIsMounted] = useState(false);
     
-    // Fetch current user's full data (including company)
     useEffect(() => {
         setIsMounted(true);
-        if (user && firestore) {
-            const userDocRef = doc(firestore, 'users', user.uid);
-            getDocs(query(collection(firestore, 'users'), where('uid', '==', user.uid))).then(snapshot => {
+        if (authUser && firestore && !currentUserData) {
+            getDocs(query(collection(firestore, 'users'), where('uid', '==', authUser.uid), limit(1))).then(snapshot => {
                 if (!snapshot.empty) {
                     const userData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Member;
                     setCurrentUserData(userData);
                 }
             });
         }
-    }, [user, firestore]);
+    }, [authUser, firestore, currentUserData]);
     
-    // Firestore query for goals based on user's role and company
     const goalsQuery = useMemoFirebase(() => {
         if (!firestore || !currentUserData || activeTab !== 'company') return null;
         if (currentUserData.role !== 'admin' && currentUserData.role !== 'executive') return null;
@@ -558,31 +582,19 @@ export default function DashboardSettingsPage() {
 
     const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
 
-    // Fetch sales records associated with the fetched widgets
-    const salesRecordsQuery = useMemoFirebase(() => {
-        if (!firestore || !widgets || widgets.length === 0) return null;
-        const goalIds = widgets.map(w => w.id);
-        return query(collection(firestore, 'salesRecords'), where('goalId', 'in', goalIds));
-    }, [firestore, widgets]);
-    
-    const { data: salesRecords, isLoading: isLoadingSalesRecords } = useCollection<SalesRecord>(salesRecordsQuery as Query<SalesRecord> | null);
-
-
     const handleSaveWidget = async (data: Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>, id?: string) => {
-        if (!firestore || !user) return;
+        if (!firestore || !authUser) return;
         
         try {
             if (id) {
-                // Update existing widget
                 const widgetRef = doc(firestore, 'goals', id);
                 await updateDoc(widgetRef, { ...data, updatedAt: serverTimestamp() });
                 toast({ title: "成功", description: "ウィジェットを更新しました。" });
             } else {
-                // Add new widget, check if it should be active
                 const currentActive = widgets?.find(w => w.scope === data.scope && w.status === 'active');
                 await addDoc(collection(firestore, 'goals'), {
                     ...data,
-                    authorId: user.uid,
+                    authorId: authUser.uid,
                     status: currentActive ? 'inactive' : 'active',
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
@@ -599,7 +611,7 @@ export default function DashboardSettingsPage() {
       if (!firestore) return;
       try {
         await deleteDoc(doc(firestore, 'goals', id));
-        // TODO: Also delete associated sales records
+        // TODO: Also delete associated sales records in subcollection
         toast({ title: "成功", description: "ウィジェットを削除しました。" });
       } catch (error) {
         console.error("Error deleting widget:", error);
@@ -630,13 +642,14 @@ export default function DashboardSettingsPage() {
       }
     };
 
-    const handleSaveRecords = async (newRecords: SalesRecord[]) => {
+    const handleSaveRecords = async (goalId: string, newRecords: Omit<SalesRecord, 'id'>[]) => {
       if (!firestore || newRecords.length === 0) return;
       
       const batch = writeBatch(firestore);
       newRecords.forEach(record => {
-          const recordRef = doc(firestore, 'salesRecords', record.id);
-          batch.set(recordRef, record, { merge: true }); // Use set with merge to create or update
+          const recordId = `${record.year}-${String(record.month).padStart(2, '0')}`;
+          const recordRef = doc(firestore, 'goals', goalId, 'salesRecords', recordId);
+          batch.set(recordRef, record, { merge: true });
       });
       
       try {
@@ -677,7 +690,7 @@ export default function DashboardSettingsPage() {
               <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
             </div>
 
-            {canManageCompanyGoals && (
+            {currentUserData?.role === 'executive' && (
               <div className='flex items-center gap-4'>
                   <div className='flex items-center gap-2'>
                     <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab} currentUser={currentUserData}>
@@ -701,7 +714,6 @@ export default function DashboardSettingsPage() {
                 {canManageCompanyGoals ? (
                   <WidgetList 
                       widgets={widgetsForTab} 
-                      salesData={salesRecords || []} 
                       onSave={handleSaveWidget} 
                       onDelete={handleDeleteWidget}
                       onSetActive={handleSetActiveWidget}
