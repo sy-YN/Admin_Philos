@@ -5,7 +5,7 @@
 
 ```mermaid
 graph TD
-    subgraph Firestore Database
+    subgraph "Firestore Database"
         direction LR
 
         %% Collections %%
@@ -42,17 +42,16 @@ graph TD
     style KpiDoc fill:#E8EAF6,stroke:#333
     
     %% Explicit Links to explain relationships %%
-    UserDoc -- "<b>scopeId</b>で参照" --> PersonalGoalDoc
-    UserDoc -- "<b>department</b>が一致" --> DeptGoalDoc
-    UserDoc -- "<b>companyId</b>で参照" --x KpiDoc
-    UserDoc -- "<b>company</b>が一致" --x CompanyGoalDoc
-
+    UserDoc -->|<b>scopeId</b>で参照| PersonalGoalDoc
+    UserDoc -->|<b>department</b>が一致| DeptGoalDoc
+    UserDoc --x|<b>companyId</b>で参照| KpiDoc
+    UserDoc --x|<b>company</b>が一致| CompanyGoalDoc
 
     subgraph "凡例"
         direction LR
-        box1[fa:fa-folder コレクション]
-        box2[fa:fa-file-alt ドキュメント]
-        box3(--- 参照/関連)
+        box1["fa:fa-folder コレクション"]
+        box2["fa:fa-file-alt ドキュメント"]
+        box3["--- 参照/関連"]
     end
 ```
 
