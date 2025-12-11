@@ -329,6 +329,39 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "content", "icon", "startDate", "endDate", "order", "authorId", "authorName", "createdAt", "updatedAt"]
+    },
+    "Goal": {
+        "title": "Goal",
+        "description": "Represents a goal for a company, team, or individual.",
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "scope": { "type": "string", "enum": ["company", "team", "personal"] },
+          "scopeId": { "type": "string", "description": "ID of the company, team, or user." },
+          "kpi": { "type": "string", "description": "Key Performance Indicator identifier." },
+          "chartType": { "type": "string", "enum": ["composed", "bar", "pie", "donut", "line"] },
+          "status": { "type": "string", "enum": ["active", "inactive"] },
+          "fiscalYear": { "type": "number", "description": "The fiscal year this goal applies to." },
+          "fiscalYearStartMonth": { "type": "number", "description": "The starting month of the fiscal year." },
+          "authorId": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["title", "scope", "scopeId", "kpi", "chartType", "status", "authorId", "createdAt", "updatedAt"]
+    },
+    "SalesRecord": {
+      "title": "Sales Record",
+      "description": "Stores monthly sales target and actual data for a specific goal.",
+      "type": "object",
+      "properties": {
+        "goalId": { "type": "string", "description": "The ID of the parent Goal document." },
+        "year": { "type": "number" },
+        "month": { "type": "number" },
+        "salesTarget": { "type": "number" },
+        "salesActual": { "type": "number" },
+        "achievementRate": { "type": "number" }
+      },
+      "required": ["goalId", "year", "month", "salesTarget", "salesActual", "achievementRate"]
     }
   },
   "auth": {
@@ -402,8 +435,14 @@
         "$ref": "#/entities/FixedCalendarMessage"
       },
       "description": "Stores scheduled messages for specific date ranges."
+    },
+    "/goals/{goalId}": {
+      "schema": { "$ref": "#/entities/Goal" },
+      "description": "Stores all goals (company, team, personal)."
+    },
+    "/salesRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/SalesRecord" },
+      "description": "Stores monthly sales records for sales-related goals."
     }
   }
 }
-
-    

@@ -23,24 +23,17 @@ import {
   getMonthsForFiscalYear,
 } from '@/lib/fiscal-year';
 import { useToast } from '@/hooks/use-toast';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs, Query } from 'firebase/firestore';
+import type { Goal } from '@/types/goal';
+import type { SalesRecord } from '@/types/sales-record';
+import type { Member } from '@/types/member';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
   ssr: false,
   loading: () => <div className="h-full w-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>,
 });
-
-
-export type Widget = {
-  id: string;
-  title: string;
-  scope: 'company' | 'team' | 'personal';
-  kpi: string;
-  chartType: string;
-  status: 'active' | 'inactive';
-  fiscalYear?: number;
-  fiscalYearStartMonth?: number;
-};
 
 
 const kpiOptions = {
@@ -89,76 +82,13 @@ export const kpiToChartMapping: Record<string, string[]> = {
 
 type WidgetScope = 'company' | 'team' | 'personal';
 
-
-export type SalesRecord = {
-    id: string; // YYYY-MM
-    year: number;
-    month: number;
-    salesTarget: number;
-    salesActual: number;
-    achievementRate: number;
-}
-
 const calculateAchievementRate = (actual: number, target: number) => {
   if (target === 0) return actual > 0 ? 100 : 0;
   return Math.round((actual / target) * 100);
 }
 
-const initialWidgets: Widget[] = [
-    { id: '1', title: '全社売上高の推移 (2024年度)', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'inactive', fiscalYear: 2024, fiscalYearStartMonth: 8 },
-    { id: '4', title: '新規顧客獲得数', kpi: 'new_customers', scope: 'company', chartType: 'bar', status: 'inactive' },
-    { id: '2', title: '営業チームのタスク完了率', kpi: 'task_completion_rate', scope: 'team', chartType: 'pie', status: 'active' },
-    { id: '3', title: '個人の学習時間の記録', kpi: 'self_learning_time', scope: 'personal', chartType: 'line', status: 'active' },
-    { id: '5', title: '全社売上高の推移 (2025年度)', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'inactive', fiscalYear: 2025, fiscalYearStartMonth: 8 },
-    { id: '6', title: '全社売上高の推移 (2026年度)', kpi: 'sales_revenue', scope: 'company', chartType: 'composed', status: 'active', fiscalYear: 2026, fiscalYearStartMonth: 8 },
-];
 
-const initialSalesRecords: SalesRecord[] = [
-    // --- FY2024 Data (Aug 2023 - Jul 2024) ---
-    { id: '2024-08', year: 2024, month: 8, salesTarget: 70, salesActual: 65, achievementRate: calculateAchievementRate(65, 70) },
-    { id: '2024-09', year: 2024, month: 9, salesTarget: 72, salesActual: 75, achievementRate: calculateAchievementRate(75, 72) },
-    { id: '2024-10', year: 2024, month: 10, salesTarget: 75, salesActual: 78, achievementRate: calculateAchievementRate(78, 75) },
-    { id: '2024-11', year: 2024, month: 11, salesTarget: 78, salesActual: 70, achievementRate: calculateAchievementRate(70, 78) },
-    { id: '2024-12', year: 2024, month: 12, salesTarget: 80, salesActual: 85, achievementRate: calculateAchievementRate(85, 80) },
-    { id: '2025-01', year: 2025, month: 1, salesTarget: 82, salesActual: 83, achievementRate: calculateAchievementRate(83, 82) },
-    { id: '2025-02', year: 2025, month: 2, salesTarget: 85, salesActual: 80, achievementRate: calculateAchievementRate(80, 85) },
-    { id: '2025-03', year: 2025, month: 3, salesTarget: 88, salesActual: 90, achievementRate: calculateAchievementRate(90, 88) },
-    { id: '2025-04', year: 2025, month: 4, salesTarget: 80, salesActual: 75, achievementRate: calculateAchievementRate(75, 80) },
-    { id: '2025-05', year: 2025, month: 5, salesTarget: 85, salesActual: 88, achievementRate: calculateAchievementRate(88, 85) },
-    { id: '2025-06', year: 2025, month: 6, salesTarget: 90, salesActual: 92, achievementRate: calculateAchievementRate(92, 90) },
-    { id: '2025-07', year: 2025, month: 7, salesTarget: 95, salesActual: 98, achievementRate: calculateAchievementRate(98, 95) },
-
-    // --- FY2025 Data (Aug 2024 - Jul 2025) ---
-    { id: '2025-08', year: 2025, month: 8, salesTarget: 98, salesActual: 100, achievementRate: calculateAchievementRate(100, 98) },
-    { id: '2025-09', year: 2025, month: 9, salesTarget: 100, salesActual: 98, achievementRate: calculateAchievementRate(98, 100) },
-    { id: '2025-10', year: 2025, month: 10, salesTarget: 102, salesActual: 105, achievementRate: calculateAchievementRate(105, 102) },
-    { id: '2025-11', year: 2025, month: 11, salesTarget: 105, salesActual: 103, achievementRate: calculateAchievementRate(103, 105) },
-    { id: '2025-12', year: 2025, month: 12, salesTarget: 110, salesActual: 112, achievementRate: calculateAchievementRate(112, 110) },
-    { id: '2026-01', year: 2026, month: 1, salesTarget: 108, salesActual: 110, achievementRate: calculateAchievementRate(110, 108) },
-    { id: '2026-02', year: 2026, month: 2, salesTarget: 105, salesActual: 108, achievementRate: calculateAchievementRate(108, 105) },
-    { id: '2026-03', year: 2026, month: 3, salesTarget: 112, salesActual: 115, achievementRate: calculateAchievementRate(115, 112) },
-    { id: '2026-04', year: 2026, month: 4, salesTarget: 115, salesActual: 110, achievementRate: calculateAchievementRate(110, 115) },
-    { id: '2026-05', year: 2026, month: 5, salesTarget: 118, salesActual: 120, achievementRate: calculateAchievementRate(120, 118) },
-    { id: '2026-06', year: 2026, month: 6, salesTarget: 120, salesActual: 125, achievementRate: calculateAchievementRate(125, 120) },
-    { id: '2026-07', year: 2026, month: 7, salesTarget: 125, salesActual: 128, achievementRate: calculateAchievementRate(128, 125) },
-
-    // --- FY2026 Data (Aug 2025 - Jul 2026) ---
-    { id: '2026-08', year: 2026, month: 8, salesTarget: 120, salesActual: 122, achievementRate: calculateAchievementRate(120, 122) },
-    { id: '2026-09', year: 2026, month: 9, salesTarget: 122, salesActual: 125, achievementRate: calculateAchievementRate(122, 125) },
-    { id: '2026-10', year: 2026, month: 10, salesTarget: 125, salesActual: 127, achievementRate: calculateAchievementRate(125, 127) },
-    { id: '2026-11', year: 2026, month: 11, salesTarget: 128, salesActual: 123, achievementRate: calculateAchievementRate(128, 123) },
-    { id: '2026-12', year: 2026, month: 12, salesTarget: 130, salesActual: 0, achievementRate: 0 },
-    { id: '2027-01', year: 2027, month: 1, salesTarget: 132, salesActual: 0, achievementRate: 0 },
-    { id: '2027-02', year: 2027, month: 2, salesTarget: 135, salesActual: 0, achievementRate: 0 },
-    { id: '2027-03', year: 2027, month: 3, salesTarget: 138, salesActual: 0, achievementRate: 0 },
-    { id: '2027-04', year: 2027, month: 4, salesTarget: 140, salesActual: 0, achievementRate: 0 },
-    { id: '2027-05', year: 2027, month: 5, salesTarget: 142, salesActual: 0, achievementRate: 0 },
-    { id: '2027-06', year: 2027, month: 6, salesTarget: 145, salesActual: 0, achievementRate: 0 },
-    { id: '2027-07', year: 2027, month: 7, salesTarget: 150, salesActual: 0, achievementRate: 0 },
-];
-
-
-function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Widget | null, onSave: (data: Omit<Widget, 'id' | 'status'>) => void, children: React.ReactNode, defaultScope: WidgetScope }) {
+function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: { widget?: Goal | null, onSave: (data: Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>) => void, children: React.ReactNode, defaultScope: WidgetScope, currentUser: Member | null }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [scope, setScope] = useState<WidgetScope>(defaultScope);
@@ -183,9 +113,22 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) return;
+    
+    let scopeId = '';
+    if (scope === 'company') scopeId = currentUser.company || '';
+    if (scope === 'team') scopeId = currentUser.department || '';
+    if (scope === 'personal') scopeId = currentUser.uid;
+
+    if (!scopeId) {
+        alert("ユーザー情報から対象を特定できませんでした。");
+        return;
+    }
+
     onSave({ 
       title, 
       scope, 
+      scopeId,
       kpi, 
       chartType, 
       fiscalYear: needsFiscalYear ? fiscalYear : undefined,
@@ -216,6 +159,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
   }, [widget, open, defaultScope]);
 
   const needsFiscalYear = kpi === 'sales_revenue';
+  const isCompanyScopeOnly = scope === 'company' && (currentUser?.role !== 'admin' && currentUser?.role !== 'executive');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -259,12 +203,12 @@ function WidgetDialog({ widget, onSave, children, defaultScope }: { widget?: Wid
             )}
             <div className="grid gap-2">
               <Label htmlFor="widget-scope">対象単位</Label>
-              <Select value={scope} onValueChange={(v: any) => { setScope(v); setKpi(''); setChartType(''); }}>
+              <Select value={scope} onValueChange={(v: any) => { setScope(v); setKpi(''); setChartType(''); }} disabled={isCompanyScopeOnly}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="company">会社単位</SelectItem>
-                  <SelectItem value="team">チーム単位</SelectItem>
-                  <SelectItem value="personal">個人単位</SelectItem>
+                  <SelectItem value="team" disabled>組織単位 (未実装)</SelectItem>
+                  <SelectItem value="personal" disabled>個人単位 (未実装)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -306,14 +250,13 @@ function SalesDataManagementDialog({
   onSave,
   children
 }: {
-  widget: Widget;
+  widget: Goal;
   salesRecords: SalesRecord[];
   onSave: (records: SalesRecord[]) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-
   const [monthlyData, setMonthlyData] = useState<Map<string, { target: string; actual: string }>>(new Map());
 
   const fiscalYearMonths = useMemo(() => {
@@ -325,9 +268,8 @@ function SalesDataManagementDialog({
     if (open) {
       const initialData = new Map();
       fiscalYearMonths.forEach(({ year, month }) => {
-        const id = `${year}-${String(month).padStart(2, '0')}`;
-        const record = salesRecords.find(r => r.id === id);
-        initialData.set(id, {
+        const record = salesRecords.find(r => r.year === year && r.month === month);
+        initialData.set(`${year}-${String(month).padStart(2, '0')}`, {
           target: record?.salesTarget.toString() || '0',
           actual: record?.salesActual.toString() || '0',
         });
@@ -360,7 +302,8 @@ function SalesDataManagementDialog({
         }
 
         newRecords.push({
-            id,
+            id: `${widget.id}_${id}`, // Composite ID
+            goalId: widget.id,
             year,
             month,
             salesTarget,
@@ -444,31 +387,34 @@ function WidgetList({
   onSave,
   onDelete,
   onSetActive,
-  onSaveRecords
+  onSaveRecords,
+  currentUser
 }: {
-  widgets: Widget[];
+  widgets: Goal[];
   salesData: SalesRecord[];
-  onSave: (data: Omit<Widget, 'id' | 'status'>, id?: string) => void;
+  onSave: (data: Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>, id?: string) => void;
   onDelete: (id: string) => void;
   onSetActive: (id: string) => void;
   onSaveRecords: (records: SalesRecord[]) => void;
+  currentUser: Member | null;
 }) {
 
-  const getChartDataForWidget = useCallback((widget: Widget): ChartData[] => {
+  const getChartDataForWidget = useCallback((widget: Goal): ChartData[] => {
     let dataForChart: SalesRecord[] = [];
 
     if (widget.kpi === 'sales_revenue' && widget.fiscalYear) {
       const startMonth = widget.fiscalYearStartMonth || 8;
       const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
       
+      const relevantSalesData = salesData.filter(record => record.goalId === widget.id);
+
       dataForChart = fiscalYearMonths.map(({ year, month }) => {
-        const id = `${year}-${String(month).padStart(2, '0')}`;
-        const found = salesData.find(record => record.id === id);
+        const found = relevantSalesData.find(record => record.year === year && record.month === month);
         if (found) return found;
 
-        // If no record, return a default object
         return {
-          id,
+          id: `${widget.id}_${year}-${String(month).padStart(2, '0')}`,
+          goalId: widget.id,
           year,
           month,
           salesTarget: 0,
@@ -518,7 +464,7 @@ function WidgetList({
                     <Star className="mr-2 h-4 w-4"/>アプリで表示
                   </DropdownMenuItem>
                 )}
-                <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope}>
+                <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope} currentUser={currentUser}>
                   <DropdownMenuItem onSelect={e => e.preventDefault()}>
                       <Edit className="mr-2 h-4 w-4"/>編集
                   </DropdownMenuItem>
@@ -555,7 +501,7 @@ function WidgetList({
           </CardHeader>
           <CardContent className="h-60 w-full flex-grow">
              <WidgetPreview 
-               widget={widget} 
+               widget={widget as any} // Temporary cast for compatibility
                chartData={getChartDataForWidget(widget)}
              />
           </CardContent>
@@ -575,65 +521,152 @@ function WidgetList({
 
 
 export default function DashboardSettingsPage() {
-    const [widgets, setWidgets] = useState<Widget[]>(initialWidgets);
+    const { toast } = useToast();
+    const firestore = useFirestore();
+    const { user, isUserLoading } = useUser();
+    
+    const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
     const [activeTab, setActiveTab] = useState<WidgetScope>('company');
-    const [salesRecords, setSalesRecords] = useState<SalesRecord[]>(initialSalesRecords);
     const [isMounted, setIsMounted] = useState(false);
-
+    
+    // Fetch current user's full data (including company)
     useEffect(() => {
         setIsMounted(true);
-    }, []);
+        if (user && firestore) {
+            const userDocRef = doc(firestore, 'users', user.uid);
+            getDocs(query(collection(firestore, 'users'), where('uid', '==', user.uid))).then(snapshot => {
+                if (!snapshot.empty) {
+                    const userData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Member;
+                    setCurrentUserData(userData);
+                }
+            });
+        }
+    }, [user, firestore]);
+    
+    // Firestore query for goals based on user's role and company
+    const goalsQuery = useMemoFirebase(() => {
+        if (!firestore || !currentUserData || activeTab !== 'company') return null;
+        if (currentUserData.role !== 'admin' && currentUserData.role !== 'executive') return null;
+        if (!currentUserData.company) return null;
+        
+        return query(
+            collection(firestore, 'goals'), 
+            where('scope', '==', 'company'),
+            where('scopeId', '==', currentUserData.company)
+        );
+    }, [firestore, currentUserData, activeTab]);
 
-    const handleSaveWidget = (data: Omit<Widget, 'id' | 'status'>, id?: string) => {
-        if (id) {
-            setWidgets(widgets.map(w => w.id === id ? { ...w, ...data, id } : w));
-        } else {
-            const currentActive = widgets.find(w => w.scope === data.scope && w.status === 'active');
-            const newWidget: Widget = { ...data, id: new Date().toISOString(), status: currentActive ? 'inactive' : 'active' };
-            setWidgets([...widgets, newWidget]);
+    const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
+
+    // Fetch sales records associated with the fetched widgets
+    const salesRecordsQuery = useMemoFirebase(() => {
+        if (!firestore || !widgets || widgets.length === 0) return null;
+        const goalIds = widgets.map(w => w.id);
+        return query(collection(firestore, 'salesRecords'), where('goalId', 'in', goalIds));
+    }, [firestore, widgets]);
+    
+    const { data: salesRecords, isLoading: isLoadingSalesRecords } = useCollection<SalesRecord>(salesRecordsQuery as Query<SalesRecord> | null);
+
+
+    const handleSaveWidget = async (data: Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>, id?: string) => {
+        if (!firestore || !user) return;
+        
+        try {
+            if (id) {
+                // Update existing widget
+                const widgetRef = doc(firestore, 'goals', id);
+                await updateDoc(widgetRef, { ...data, updatedAt: serverTimestamp() });
+                toast({ title: "成功", description: "ウィジェットを更新しました。" });
+            } else {
+                // Add new widget, check if it should be active
+                const currentActive = widgets?.find(w => w.scope === data.scope && w.status === 'active');
+                await addDoc(collection(firestore, 'goals'), {
+                    ...data,
+                    authorId: user.uid,
+                    status: currentActive ? 'inactive' : 'active',
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                });
+                toast({ title: "成功", description: "新規ウィジェットを追加しました。" });
+            }
+        } catch (error) {
+            console.error("Error saving widget:", error);
+            toast({ title: "エラー", description: "ウィジェットの保存に失敗しました。", variant: 'destructive' });
         }
     };
 
-    const handleDeleteWidget = (id: string) => {
-      setWidgets(widgets.filter(w => w.id !== id));
+    const handleDeleteWidget = async (id: string) => {
+      if (!firestore) return;
+      try {
+        await deleteDoc(doc(firestore, 'goals', id));
+        // TODO: Also delete associated sales records
+        toast({ title: "成功", description: "ウィジェットを削除しました。" });
+      } catch (error) {
+        console.error("Error deleting widget:", error);
+        toast({ title: "エラー", description: "ウィジェットの削除に失敗しました。", variant: 'destructive' });
+      }
     };
 
-    const handleSetActiveWidget = (id: string) => {
+    const handleSetActiveWidget = async (id: string) => {
+      if (!firestore || !widgets) return;
+      
       const widgetToActivate = widgets.find(w => w.id === id);
       if (!widgetToActivate) return;
-    
-      setWidgets(widgets.map(w => {
-        if (w.scope === widgetToActivate.scope) {
-          return { ...w, status: w.id === id ? 'active' : 'inactive' };
-        }
-        return w;
-      }));
-    };
-
-    const handleSaveRecords = (newRecords: SalesRecord[]) => {
-      setSalesRecords(prevRecords => {
-        const newRecordIds = new Set(newRecords.map(r => r.id));
-        // Keep old records that are not in the new batch
-        const oldRecordsToKeep = prevRecords.filter(r => !newRecordIds.has(r.id));
-        return [...oldRecordsToKeep, ...newRecords].sort((a,b) => a.id.localeCompare(b.id));
+      
+      const batch = writeBatch(firestore);
+      widgets.forEach(w => {
+          if (w.scope === widgetToActivate.scope) {
+              const widgetRef = doc(firestore, 'goals', w.id);
+              batch.update(widgetRef, { status: w.id === id ? 'active' : 'inactive' });
+          }
       });
+      
+      try {
+        await batch.commit();
+        toast({ title: "成功", description: "表示ウィジェットを更新しました。" });
+      } catch (error) {
+        console.error("Error setting active widget:", error);
+        toast({ title: "エラー", description: "表示ウィジェットの更新に失敗しました。", variant: 'destructive' });
+      }
     };
 
+    const handleSaveRecords = async (newRecords: SalesRecord[]) => {
+      if (!firestore || newRecords.length === 0) return;
+      
+      const batch = writeBatch(firestore);
+      newRecords.forEach(record => {
+          const recordRef = doc(firestore, 'salesRecords', record.id);
+          batch.set(recordRef, record, { merge: true }); // Use set with merge to create or update
+      });
+      
+      try {
+        await batch.commit();
+      } catch (error) {
+        console.error("Error saving sales records:", error);
+        toast({ title: "エラー", description: "売上データの保存に失敗しました。", variant: 'destructive' });
+      }
+    };
+    
     const widgetsForTab = useMemo(() => {
-      return widgets.filter(w => w.scope === activeTab).sort((a, b) => {
+      if (!widgets) return [];
+      return [...widgets].sort((a, b) => {
         if (a.status === 'active' && b.status !== 'active') return -1;
         if (b.status === 'active' && a.status !== 'active') return 1;
         return (b.fiscalYear ?? 0) - (a.fiscalYear ?? 0) || a.title.localeCompare(b.title);
       });
-    }, [widgets, activeTab]);
+    }, [widgets]);
 
-  if (!isMounted) {
+  const isLoading = isUserLoading || isLoadingWidgets || !isMounted || !currentUserData;
+
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
+  
+  const canManageCompanyGoals = currentUserData?.role === 'admin' || currentUserData?.role === 'executive';
 
   return (
     <div className="w-full space-y-8">
@@ -644,53 +677,52 @@ export default function DashboardSettingsPage() {
               <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
             </div>
 
-            <div className='flex items-center gap-4'>
-                <div className='flex items-center gap-2'>
-                  <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab}>
-                      <Button>
-                          <PlusCircle className="mr-2 h-4 w-4" />
-                          新規ウィジェット追加
-                      </Button>
-                  </WidgetDialog>
-                </div>
-            </div>
+            {canManageCompanyGoals && (
+              <div className='flex items-center gap-4'>
+                  <div className='flex items-center gap-2'>
+                    <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab} currentUser={currentUserData}>
+                        <Button>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            新規ウィジェット追加
+                        </Button>
+                    </WidgetDialog>
+                  </div>
+              </div>
+            )}
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
             <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="company">会社単位</TabsTrigger>
-            <TabsTrigger value="team">組織単位</TabsTrigger>
-            <TabsTrigger value="personal">個人単位</TabsTrigger>
+              <TabsTrigger value="company">会社単位</TabsTrigger>
+              <TabsTrigger value="team" disabled>組織単位</TabsTrigger>
+              <TabsTrigger value="personal" disabled>個人単位</TabsTrigger>
             </TabsList>
             <TabsContent value="company">
-                <WidgetList 
-                    widgets={widgetsForTab} 
-                    salesData={salesRecords} 
-                    onSave={handleSaveWidget} 
-                    onDelete={handleDeleteWidget}
-                    onSetActive={handleSetActiveWidget}
-                    onSaveRecords={handleSaveRecords}
-                />
+                {canManageCompanyGoals ? (
+                  <WidgetList 
+                      widgets={widgetsForTab} 
+                      salesData={salesRecords || []} 
+                      onSave={handleSaveWidget} 
+                      onDelete={handleDeleteWidget}
+                      onSetActive={handleSetActiveWidget}
+                      onSaveRecords={handleSaveRecords}
+                      currentUser={currentUserData}
+                  />
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <p>会社単位の目標を管理する権限がありません。</p>
+                  </div>
+                )}
             </TabsContent>
             <TabsContent value="team">
-                <WidgetList 
-                    widgets={widgetsForTab} 
-                    salesData={salesRecords} 
-                    onSave={handleSaveWidget} 
-                    onDelete={handleDeleteWidget}
-                    onSetActive={handleSetActiveWidget}
-                    onSaveRecords={handleSaveRecords}
-                />
+                <div className="text-center py-10 text-muted-foreground">
+                    <p>この機能は現在準備中です。</p>
+                </div>
             </TabsContent>
             <TabsContent value="personal">
-                 <WidgetList 
-                    widgets={widgetsForTab} 
-                    salesData={salesRecords} 
-                    onSave={handleSaveWidget} 
-                    onDelete={handleDeleteWidget}
-                    onSetActive={handleSetActiveWidget}
-                    onSaveRecords={handleSaveRecords}
-                />
+                 <div className="text-center py-10 text-muted-foreground">
+                    <p>この機能は現在準備中です。</p>
+                </div>
             </TabsContent>
         </Tabs>
       </div>
