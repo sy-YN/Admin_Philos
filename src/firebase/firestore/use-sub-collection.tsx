@@ -63,6 +63,13 @@ export function useSubCollection<T = any>(
       throw new Error('subCollectionQuery must be memoized with useMemoFirebase');
     }
 
+    if (!parentDocId) {
+      setData(null);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
     if (!subCollectionQuery) {
       setData(null);
       setIsLoading(false);
@@ -99,7 +106,7 @@ export function useSubCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [subCollectionQuery]);
+  }, [subCollectionQuery, parentDocId]);
 
   return { data, isLoading, error };
 }
