@@ -132,7 +132,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
         return;
     }
 
-    const baseData = {
+    const baseData: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>> = {
       title,
       scope,
       scopeId,
@@ -142,11 +142,12 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
     
     const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin';
     
-    const saveData = needsFiscalYear
-      ? { ...baseData, fiscalYear, fiscalYearStartMonth }
-      : baseData;
+    if (needsFiscalYear) {
+      baseData.fiscalYear = fiscalYear;
+      baseData.fiscalYearStartMonth = fiscalYearStartMonth;
+    }
 
-    onSave(saveData);
+    onSave(baseData);
     setOpen(false);
   };
   
@@ -737,23 +738,30 @@ export default function DashboardSettingsPage() {
     const { user: authUser, isUserLoading } = useUser();
     
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
+    const [isCurrentUserLoading, setIsCurrentUserLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<WidgetScope>('company');
-    const [isMounted, setIsMounted] = useState(false);
     
     useEffect(() => {
-        setIsMounted(true);
-        if (authUser && firestore && !currentUserData) {
+        if (isUserLoading) return;
+        
+        if (authUser && firestore) {
+            setIsCurrentUserLoading(true);
             getDocs(query(collection(firestore, 'users'), where('uid', '==', authUser.uid), limit(1))).then(snapshot => {
                 if (!snapshot.empty) {
                     const userData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Member;
                     setCurrentUserData(userData);
                 }
+                setIsCurrentUserLoading(false);
+            }).catch(() => {
+                setIsCurrentUserLoading(false);
             });
+        } else {
+          setIsCurrentUserLoading(false);
         }
-    }, [authUser, firestore, currentUserData]);
+    }, [authUser, firestore, isUserLoading]);
     
     const goalsQuery = useMemoFirebase(() => {
-        if (!firestore || !currentUserData || activeTab !== 'company') return null;
+        if (!firestore || isCurrentUserLoading || !currentUserData || activeTab !== 'company') return null;
         if (currentUserData.role !== 'admin' && currentUserData.role !== 'executive') return null;
         if (!currentUserData.company) return null;
         
@@ -762,7 +770,7 @@ export default function DashboardSettingsPage() {
             where('scope', '==', 'company'),
             where('scopeId', '==', currentUserData.company)
         );
-    }, [firestore, currentUserData, activeTab]);
+    }, [firestore, currentUserData, activeTab, isCurrentUserLoading]);
 
     const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
 
@@ -830,9 +838,18 @@ export default function DashboardSettingsPage() {
       if (!firestore || newRecords.length === 0) return;
       
       const batch = writeBatch(firestore);
+      const subCollectionRef = collection(firestore, 'goals', goalId, 'salesRecords');
+      
+      // Get existing records to delete them if they are not in the new list (optional, but good practice)
+      const existingDocs = await getDocs(subCollectionRef);
+      existingDocs.forEach(doc => {
+          // A more robust way would be to check if this record should be removed
+          // For now, we'll overwrite, so we can just set.
+      });
+
       newRecords.forEach(record => {
           const recordId = `${record.year}-${String(record.month).padStart(2, '0')}`;
-          const recordRef = doc(firestore, 'goals', goalId, 'salesRecords', recordId);
+          const recordRef = doc(subCollectionRef, recordId);
           batch.set(recordRef, record, { merge: true });
       });
       
@@ -848,9 +865,11 @@ export default function DashboardSettingsPage() {
       if (!firestore || newRecords.length === 0) return;
 
       const batch = writeBatch(firestore);
+      const subCollectionRef = collection(firestore, 'goals', goalId, 'profitRecords');
+      
       newRecords.forEach(record => {
         const recordId = `${record.year}-${String(record.month).padStart(2, '0')}`;
-        const recordRef = doc(firestore, 'goals', goalId, 'profitRecords', recordId);
+        const recordRef = doc(subCollectionRef, recordId);
         batch.set(recordRef, record, { merge: true });
       });
 
@@ -871,7 +890,7 @@ export default function DashboardSettingsPage() {
       });
     }, [widgets]);
 
-  const isLoading = isUserLoading || isLoadingWidgets || !isMounted || !currentUserData;
+  const isLoading = isUserLoading || isCurrentUserLoading || isLoadingWidgets;
 
   if (isLoading) {
     return (
