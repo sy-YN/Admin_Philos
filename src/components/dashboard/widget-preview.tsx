@@ -120,7 +120,7 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
 
                         switch (item.dataKey) {
                             case 'base':
-                                return renderItem("実績 / 目標", `${salesActual}M / ${salesTarget}M`);
+                              return renderItem("目標 / 実績", `${salesTarget}M / ${salesActual}M`);
                             case 'over':
                                 if (over > 0) return renderItem("超過達成", `${over}M`);
                                 return null;
@@ -148,11 +148,12 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                   content={
                     <ChartLegendContent 
                       payload={[
-                        { value: '実績(未達/達成)', type: 'square', color: salesChartConfig.salesActual.color },
-                        { value: '実績(超過)', type: 'square', color: salesChartConfig.overAchievement.color },
-                        { value: '目標(不足分)', type: 'square', color: 'hsl(var(--primary))', inactive: true },
-                        { value: '達成率', type: 'line', color: salesChartConfig.achievementRate.color },
-                      ]} 
+                        { value: '実績(未達/達成)', type: 'square', id: 'base', color: salesChartConfig.salesActual.color },
+                        { value: '実績(超過)', type: 'square', id: 'over', color: salesChartConfig.overAchievement.color },
+                        { value: '目標(不足分)', type: 'square', id: 'shortfall', color: 'hsl(var(--primary))', inactive: true },
+                        { value: '達成率', type: 'line', id: 'achievementRate', color: salesChartConfig.achievementRate.color },
+                      ]}
+                      nameKey="value"
                     />
                   } 
                   wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
@@ -219,10 +220,11 @@ function ActualSalesBarChart({ chartData }: { chartData: ChartData[] }) {
                   content={
                     <ChartLegendContent 
                       payload={[
-                        { value: '実績(未達/達成)', type: 'square', color: salesChartConfig.salesActual.color },
-                        { value: '実績(超過)', type: 'square', color: salesChartConfig.overAchievement.color },
-                        { value: '目標(不足分)', type: 'square', color: 'hsl(var(--primary))', inactive: true },
-                      ]} 
+                        { value: '実績(未達/達成)', type: 'square', id: 'base', color: salesChartConfig.salesActual.color },
+                        { value: '実績(超過)', type: 'square', id: 'over', color: salesChartConfig.overAchievement.color },
+                        { value: '目標(不足分)', type: 'square', id: 'shortfall', color: 'hsl(var(--primary))', inactive: true },
+                      ]}
+                      nameKey="value"
                     />
                   } 
                   wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
@@ -385,7 +387,7 @@ function ProjectComplianceBarChart({ chartData }: { chartData: ChartData[] }) {
     }
     return (
         <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
-        <ComposedChart layout="horizontal" data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid vertical={false} />
             <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} type="category" tick={{ fontSize: 10 }} />
             <YAxis type="number" tick={{ fontSize: 10 }} unit="件" />
@@ -434,7 +436,7 @@ function ProjectCompliancePieChart({ chartData }: { chartData: ChartData[] }) {
             <Cell key={`cell-${index}`} fill={entry.fill} />
           ))}
         </Pie>
-        <ChartLegend content={<ChartLegendContent nameKey="name" />} wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+        <ChartLegend content={<ChartLegendContent />} nameKey="name" />
       </RechartsPrimitive.PieChart>
     </ChartContainer>
   );
