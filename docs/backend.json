@@ -361,6 +361,19 @@
         "achievementRate": { "type": "number" }
       },
       "required": ["year", "month", "salesTarget", "salesActual", "achievementRate"]
+    },
+    "ProfitRecord": {
+      "title": "Profit Record",
+      "description": "Stores monthly operating profit and sales revenue for a specific goal.",
+      "type": "object",
+      "properties": {
+        "year": { "type": "number" },
+        "month": { "type": "number" },
+        "operatingProfit": { "type": "number" },
+        "salesRevenue": { "type": "number" },
+        "profitMargin": { "type": "number", "description": "Calculated as (operatingProfit / salesRevenue) * 100" }
+      },
+      "required": ["year", "month", "operatingProfit", "salesRevenue", "profitMargin"]
     }
   },
   "auth": {
@@ -442,6 +455,10 @@
     "/goals/{goalId}/salesRecords/{recordId}": {
       "schema": { "$ref": "#/entities/SalesRecord" },
       "description": "Subcollection storing monthly sales records for a specific goal."
+    },
+    "/goals/{goalId}/profitRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/ProfitRecord" },
+      "description": "Subcollection storing monthly profit records for a specific goal."
     }
   }
 }

@@ -17,12 +17,14 @@ import {
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
+import type { ProfitRecord } from '@/types/profit-record';
 
 export type ChartData = {
     month: string;
     salesActual: number;
     salesTarget: number;
     achievementRate: number;
+    profitMargin: number;
 }
 
 export const salesChartConfig = {
@@ -32,6 +34,10 @@ export const salesChartConfig = {
   overAchievement: { label: '実績(超過)', color: 'hsl(var(--destructive))' },
   shortfall: { label: '目標(不足分)', color: 'hsl(var(--primary))',
   },
+};
+
+const profitChartConfig = {
+  profitMargin: { label: "営業利益率", color: "hsl(var(--primary))" },
 };
 
 
@@ -226,9 +232,6 @@ function TargetAndActualLineChart({ chartData }: { chartData: ChartData[] }) {
         }));
     }, [chartData]);
     
-    // Find the index where actual data ends and target data begins
-    const splitIndex = processedData.findIndex(d => d.projected === null);
-
     const lineChartConfig = {
         projected: { label: "実績", color: "hsl(var(--primary))" },
         target: { label: "目標", color: "hsl(var(--muted-foreground))" },
@@ -266,6 +269,48 @@ function TargetAndActualLineChart({ chartData }: { chartData: ChartData[] }) {
             </ComposedChart>
         </ChartContainer>
     );
+}
+
+function ProfitMarginLineChart({ chartData }: { chartData: ChartData[] }) {
+  if (!chartData || chartData.length === 0) {
+    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
+  }
+
+  return (
+    <ChartContainer config={profitChartConfig} className="h-full w-full">
+      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis
+          dataKey="month"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`}
+          tick={{ fontSize: 10 }}
+        />
+        <YAxis
+          tick={{ fontSize: 10 }}
+          unit="%"
+        />
+        <Tooltip
+          content={
+            <ChartTooltipContent
+              labelFormatter={(label) => `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`}
+              formatter={(value) => [`${value}%`, "営業利益率"]}
+            />
+          }
+        />
+        <Line
+          type="monotone"
+          dataKey="profitMargin"
+          stroke="var(--color-profitMargin)"
+          strokeWidth={2}
+          dot={false}
+          name="営業利益率"
+        />
+      </ComposedChart>
+    </ChartContainer>
+  );
 }
 
 const previewData = [
@@ -333,33 +378,29 @@ function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
 
 interface WidgetPreviewProps {
     widget: Goal;
-    chartData: SalesRecord[];
+    chartData: ChartData[];
 }
 
 export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps) {
-    
-    const formattedChartData = useMemo(() => {
-        if (!widget.fiscalYear || !chartData) return [];
-        return chartData
-            .map(d => ({
-                month: `${d.year}-${String(d.month).padStart(2, '0')}`,
-                salesActual: d.salesActual,
-                salesTarget: d.salesTarget,
-                achievementRate: d.achievementRate,
-            }))
-            .sort((a, b) => a.month.localeCompare(b.month));
-    }, [chartData, widget.fiscalYear]);
 
     if (widget.kpi === 'sales_revenue') {
         switch (widget.chartType) {
             case 'composed':
-                return <ActualSalesComposedChart chartData={formattedChartData} />;
+                return <ActualSalesComposedChart chartData={chartData} />;
             case 'bar':
-                return <ActualSalesBarChart chartData={formattedChartData} />;
+                return <ActualSalesBarChart chartData={chartData} />;
             case 'line':
-                return <TargetAndActualLineChart chartData={formattedChartData} />;
+                return <TargetAndActualLineChart chartData={chartData} />;
         }
     }
+    
+    if (widget.kpi === 'profit_margin') {
+        switch (widget.chartType) {
+            case 'line':
+                return <ProfitMarginLineChart chartData={chartData} />;
+        }
+    }
+
 
     // Fallback for other KPIs or chart types
     switch (widget.chartType) {
@@ -372,7 +413,7 @@ export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps)
         case 'donut':
           return <PieChartPreview isDonut />;
         case 'composed':
-           return <ActualSalesComposedChart chartData={formattedChartData} />;
+           return <ActualSalesComposedChart chartData={chartData} />;
         default:
           return <BarChartPreview />;
       }

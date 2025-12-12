@@ -27,6 +27,7 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs, Query, limit } from 'firebase/firestore';
 import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
+import type { ProfitRecord } from '@/types/profit-record';
 import type { Member } from '@/types/member';
 import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
 
@@ -66,7 +67,7 @@ const chartOptions = [
 
 export const kpiToChartMapping: Record<string, string[]> = {
   // Company
-  sales_revenue: ['line', 'bar', 'composed'],
+  sales_revenue: ['composed', 'bar', 'line'],
   profit_margin: ['line'],
   new_customers: ['bar'],
   project_delivery_compliance: ['pie', 'bar'],
@@ -87,6 +88,11 @@ const calculateAchievementRate = (actual: number, target: number) => {
   if (target === 0) return actual > 0 ? 100 : 0;
   return Math.round((actual / target) * 100);
 }
+
+const calculateProfitMargin = (profit: number, revenue: number) => {
+  if (revenue === 0) return 0;
+  return Math.round((profit / revenue) * 100);
+};
 
 
 function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: { widget?: Goal | null, onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>) => void, children: React.ReactNode, defaultScope: WidgetScope, currentUser: Member | null }) {
@@ -126,18 +132,19 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
         return;
     }
 
-    const saveData: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>> = {
+    const baseData = {
       title,
       scope,
       scopeId,
       kpi,
       chartType,
     };
-
-    if (needsFiscalYear) {
-      saveData.fiscalYear = fiscalYear;
-      saveData.fiscalYearStartMonth = fiscalYearStartMonth;
-    }
+    
+    const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin';
+    
+    const saveData = needsFiscalYear
+      ? { ...baseData, fiscalYear, fiscalYearStartMonth }
+      : baseData;
 
     onSave(saveData);
     setOpen(false);
@@ -164,7 +171,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
     }
   }, [widget, open, defaultScope]);
 
-  const needsFiscalYear = kpi === 'sales_revenue';
+  const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin';
   const isCompanyScopeOnly = scope === 'company' && (currentUser?.role !== 'admin' && currentUser?.role !== 'executive');
 
   return (
@@ -383,20 +390,154 @@ function SalesDataManagementDialog({
   );
 }
 
+function ProfitDataManagementDialog({
+  widget,
+  onSave,
+  children
+}: {
+  widget: Goal;
+  onSave: (records: Omit<ProfitRecord, 'id'>[]) => void;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const { data: profitRecords } = useSubCollection<ProfitRecord>('goals', widget.id, 'profitRecords');
+  const [monthlyData, setMonthlyData] = useState<Map<string, { operatingProfit: string; salesRevenue: string }>>(new Map());
+
+  const fiscalYearMonths = useMemo(() => {
+    if (!widget.fiscalYear) return [];
+    return getMonthsForFiscalYear(widget.fiscalYear, widget.fiscalYearStartMonth);
+  }, [widget.fiscalYear, widget.fiscalYearStartMonth]);
+
+  useEffect(() => {
+    if (open && profitRecords) {
+      const initialData = new Map();
+      fiscalYearMonths.forEach(({ year, month }) => {
+        const record = profitRecords.find(r => r.year === year && r.month === month);
+        initialData.set(`${year}-${String(month).padStart(2, '0')}`, {
+          operatingProfit: record?.operatingProfit.toString() || '0',
+          salesRevenue: record?.salesRevenue.toString() || '0',
+        });
+      });
+      setMonthlyData(initialData);
+    }
+  }, [open, profitRecords, fiscalYearMonths]);
+
+  const handleInputChange = (id: string, field: 'operatingProfit' | 'salesRevenue', value: string) => {
+    setMonthlyData(prev => {
+      const newData = new Map(prev);
+      const current = newData.get(id) || { operatingProfit: '0', salesRevenue: '0' };
+      current[field] = value;
+      newData.set(id, current);
+      return newData;
+    });
+  };
+
+  const handleSave = () => {
+    const newRecords: Omit<ProfitRecord, 'id'>[] = [];
+    let hasError = false;
+
+    monthlyData.forEach((values, id) => {
+        const [year, month] = id.split('-').map(Number);
+        const operatingProfit = parseFloat(values.operatingProfit) || 0;
+        const salesRevenue = parseFloat(values.salesRevenue) || 0;
+        
+        if (isNaN(operatingProfit) || isNaN(salesRevenue)) {
+            hasError = true;
+        }
+
+        newRecords.push({
+            year,
+            month,
+            operatingProfit,
+            salesRevenue,
+            profitMargin: calculateProfitMargin(operatingProfit, salesRevenue),
+        });
+    });
+    
+    if (hasError) {
+        toast({ title: "入力エラー", description: "有効な数値を入力してください。", variant: "destructive" });
+        return;
+    }
+
+    onSave(newRecords);
+    toast({ title: "成功", description: "営業利益データを保存しました。" });
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>営業利益データ編集 ({widget.fiscalYear}年度)</DialogTitle>
+          <DialogDescription>
+            {widget.fiscalYear}年度（{widget.fiscalYearStartMonth}月始まり）の月次営業利益と売上高を入力します。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[60vh] overflow-y-auto pr-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">年月</TableHead>
+                <TableHead>営業利益 (百万円)</TableHead>
+                <TableHead>売上高 (百万円)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {fiscalYearMonths.map(({ year, month }) => {
+                 const id = `${year}-${String(month).padStart(2, '0')}`;
+                 const values = monthlyData.get(id) || { operatingProfit: '0', salesRevenue: '0' };
+                 return (
+                  <TableRow key={id}>
+                    <TableCell className="font-medium">{year}年 {month}月</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        value={values.operatingProfit}
+                        onChange={(e) => handleInputChange(id, 'operatingProfit', e.target.value)}
+                        placeholder="0"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        value={values.salesRevenue}
+                        onChange={(e) => handleInputChange(id, 'salesRevenue', e.target.value)}
+                        placeholder="0"
+                      />
+                    </TableCell>
+                  </TableRow>
+                 )
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
+          <Button onClick={handleSave}>一括保存</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function WidgetCard({
   widget,
   onSave,
   onDelete,
   onSetActive,
-  onSaveRecords,
+  onSaveSalesRecords,
+  onSaveProfitRecords,
   currentUser
 }: {
   widget: Goal;
   onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
   onDelete: (id: string) => void;
   onSetActive: (id: string) => void;
-  onSaveRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
+  onSaveSalesRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
+  onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
   currentUser: Member | null;
 }) {
   const { data: salesData } = useSubCollection<SalesRecord>(
@@ -404,34 +545,61 @@ function WidgetCard({
     widget.id,
     'salesRecords'
   );
+  
+  const { data: profitData } = useSubCollection<ProfitRecord>(
+    'goals',
+    widget.id,
+    'profitRecords'
+  );
 
   const getChartDataForWidget = useCallback((): ChartData[] => {
-    let dataForChart: SalesRecord[] = [];
+    let dataForChart: (SalesRecord[] | ProfitRecord[]) = [];
     if (widget.kpi === 'sales_revenue' && widget.fiscalYear && salesData) {
-      const startMonth = widget.fiscalYearStartMonth || 8;
-      const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
-      
-      dataForChart = fiscalYearMonths.map(({ year, month }) => {
-        const found = salesData.find(record => record.year === year && record.month === month);
-        if (found) return found;
-
-        return {
-          id: `${year}-${String(month).padStart(2, '0')}`,
-          year,
-          month,
-          salesTarget: 0,
-          salesActual: 0,
-          achievementRate: 0,
-        };
-      });
+        dataForChart = salesData;
+    } else if (widget.kpi === 'profit_margin' && widget.fiscalYear && profitData) {
+        dataForChart = profitData;
     } else {
-        // Handle non-sales kpi data generation if needed
+        // Handle other kpis if needed
+        return [];
     }
     
-    return dataForChart
-      .map(d => ({ month: `${d.year}-${String(d.month).padStart(2, '0')}`, salesActual: d.salesActual, salesTarget: d.salesTarget, achievementRate: d.achievementRate }))
-      .sort((a, b) => a.month.localeCompare(b.month));
-  }, [salesData, widget]);
+    if (!widget.fiscalYear) return [];
+
+    const startMonth = widget.fiscalYearStartMonth || 8;
+    const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
+    
+    return fiscalYearMonths.map(({ year, month }) => {
+        const found = dataForChart.find(record => record.year === year && record.month === month);
+        
+        if (widget.kpi === 'sales_revenue' && found) {
+            const saleRecord = found as SalesRecord;
+            return {
+                month: `${year}-${String(month).padStart(2, '0')}`,
+                salesActual: saleRecord.salesActual,
+                salesTarget: saleRecord.salesTarget,
+                achievementRate: saleRecord.achievementRate,
+                profitMargin: 0,
+            };
+        }
+        if (widget.kpi === 'profit_margin' && found) {
+            const profitRecord = found as ProfitRecord;
+            return {
+                month: `${year}-${String(month).padStart(2, '0')}`,
+                salesActual: 0, salesTarget: 0, achievementRate: 0,
+                profitMargin: profitRecord.profitMargin,
+            };
+        }
+
+        return {
+            month: `${year}-${String(month).padStart(2, '0')}`,
+            salesActual: 0,
+            salesTarget: 0,
+            achievementRate: 0,
+            profitMargin: 0,
+        };
+    }).sort((a, b) => a.month.localeCompare(b.month));
+
+  }, [salesData, profitData, widget]);
 
   const canEdit = currentUser?.role === 'executive';
 
@@ -464,11 +632,19 @@ function WidgetCard({
                 </DropdownMenuItem>
               </WidgetDialog>
                {widget.kpi === 'sales_revenue' && (
-                  <SalesDataManagementDialog widget={widget} onSave={(records) => onSaveRecords(widget.id, records)}>
+                  <SalesDataManagementDialog widget={widget} onSave={(records) => onSaveSalesRecords(widget.id, records)}>
                       <DropdownMenuItem onSelect={e => e.preventDefault()}>
                           <Database className="mr-2 h-4 w-4"/>データ編集
                       </DropdownMenuItem>
                   </SalesDataManagementDialog>
+              )}
+              {widget.kpi === 'profit_margin' && (
+                <ProfitDataManagementDialog widget={widget} onSave={(records) => onSaveProfitRecords(widget.id, records)}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Database className="mr-2 h-4 w-4" />
+                    データ編集
+                  </DropdownMenuItem>
+                </ProfitDataManagementDialog>
               )}
                <DropdownMenuSeparator />
                <AlertDialog>
@@ -517,14 +693,16 @@ function WidgetList({
   onSave,
   onDelete,
   onSetActive,
-  onSaveRecords,
+  onSaveSalesRecords,
+  onSaveProfitRecords,
   currentUser
 }: {
   widgets: Goal[];
   onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
   onDelete: (id: string) => void;
   onSetActive: (id: string) => void;
-  onSaveRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
+  onSaveSalesRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
+  onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
   currentUser: Member | null;
 }) {
   if (widgets.length === 0) {
@@ -544,7 +722,8 @@ function WidgetList({
           onSave={onSave}
           onDelete={onDelete}
           onSetActive={onSetActive}
-          onSaveRecords={onSaveRecords}
+          onSaveSalesRecords={onSaveSalesRecords}
+          onSaveProfitRecords={onSaveProfitRecords}
           currentUser={currentUser}
         />
       ))}
@@ -616,7 +795,7 @@ export default function DashboardSettingsPage() {
       if (!firestore) return;
       try {
         await deleteDoc(doc(firestore, 'goals', id));
-        // TODO: Also delete associated sales records in subcollection
+        // TODO: Also delete associated sales/profit records in subcollection
         toast({ title: "成功", description: "ウィジェットを削除しました。" });
       } catch (error) {
         console.error("Error deleting widget:", error);
@@ -647,7 +826,7 @@ export default function DashboardSettingsPage() {
       }
     };
 
-    const handleSaveRecords = async (goalId: string, newRecords: Omit<SalesRecord, 'id'>[]) => {
+    const handleSaveSalesRecords = async (goalId: string, newRecords: Omit<SalesRecord, 'id'>[]) => {
       if (!firestore || newRecords.length === 0) return;
       
       const batch = writeBatch(firestore);
@@ -662,6 +841,24 @@ export default function DashboardSettingsPage() {
       } catch (error) {
         console.error("Error saving sales records:", error);
         toast({ title: "エラー", description: "売上データの保存に失敗しました。", variant: 'destructive' });
+      }
+    };
+    
+    const handleSaveProfitRecords = async (goalId: string, newRecords: Omit<ProfitRecord, 'id'>[]) => {
+      if (!firestore || newRecords.length === 0) return;
+
+      const batch = writeBatch(firestore);
+      newRecords.forEach(record => {
+        const recordId = `${record.year}-${String(record.month).padStart(2, '0')}`;
+        const recordRef = doc(firestore, 'goals', goalId, 'profitRecords', recordId);
+        batch.set(recordRef, record, { merge: true });
+      });
+
+      try {
+        await batch.commit();
+      } catch (error) {
+        console.error("Error saving profit records:", error);
+        toast({ title: "エラー", description: "営業利益データの保存に失敗しました。", variant: "destructive" });
       }
     };
     
@@ -722,7 +919,8 @@ export default function DashboardSettingsPage() {
                       onSave={handleSaveWidget} 
                       onDelete={handleDeleteWidget}
                       onSetActive={handleSetActiveWidget}
-                      onSaveRecords={handleSaveRecords}
+                      onSaveSalesRecords={handleSaveSalesRecords}
+                      onSaveProfitRecords={handleSaveProfitRecords}
                       currentUser={currentUserData}
                   />
                 ) : (
