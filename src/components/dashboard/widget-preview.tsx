@@ -150,7 +150,7 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                       payload={[
                         { value: '実績(未達/達成)', type: 'square', color: salesChartConfig.salesActual.color },
                         { value: '実績(超過)', type: 'square', color: salesChartConfig.overAchievement.color },
-                        { value: '目標(不足分)', type: 'square', color: salesChartConfig.shortfall.color },
+                        { value: '目標(不足分)', type: 'square', color: 'hsl(var(--primary))', inactive: true },
                         { value: '達成率', type: 'line', color: salesChartConfig.achievementRate.color },
                       ]} 
                     />
@@ -221,7 +221,7 @@ function ActualSalesBarChart({ chartData }: { chartData: ChartData[] }) {
                       payload={[
                         { value: '実績(未達/達成)', type: 'square', color: salesChartConfig.salesActual.color },
                         { value: '実績(超過)', type: 'square', color: salesChartConfig.overAchievement.color },
-                        { value: '目標(不足分)', type: 'square', color: salesChartConfig.shortfall.color },
+                        { value: '目標(不足分)', type: 'square', color: 'hsl(var(--primary))', inactive: true },
                       ]} 
                     />
                   } 
@@ -380,23 +380,23 @@ function CustomerBarChart({ chartData }: { chartData: ChartData[] }) {
 }
 
 function ProjectComplianceBarChart({ chartData }: { chartData: ChartData[] }) {
-  if (!chartData || chartData.length === 0) {
-    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
-  }
-  return (
-    <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
-      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
-        <YAxis type="number" tick={{ fontSize: 10 }} unit="件" />
-        <Tooltip content={<ChartTooltipContent />} />
-        <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-        <Bar dataKey="projectCompliant" name="遵守" fill="var(--color-compliant)" stackId="a" />
-        <Bar dataKey="projectMinorDelay" name="軽微な遅延" fill="var(--color-minor_delay)" stackId="a" />
-        <Bar dataKey="projectDelayed" name="遅延" fill="var(--color-delayed)" stackId="a" />
-      </ComposedChart>
-    </ChartContainer>
-  );
+    if (!chartData || chartData.length === 0) {
+        return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
+    }
+    return (
+        <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
+        <ComposedChart layout="horizontal" data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} type="category" tick={{ fontSize: 10 }} />
+            <YAxis type="number" tick={{ fontSize: 10 }} unit="件" />
+            <Tooltip content={<ChartTooltipContent />} />
+            <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+            <Bar dataKey="projectCompliant" name="遵守" fill="var(--color-compliant)" stackId="a" />
+            <Bar dataKey="projectMinorDelay" name="軽微な遅延" fill="var(--color-minor_delay)" stackId="a" />
+            <Bar dataKey="projectDelayed" name="遅延" fill="var(--color-delayed)" stackId="a" />
+        </ComposedChart>
+        </ChartContainer>
+    );
 }
 
 function ProjectCompliancePieChart({ chartData }: { chartData: ChartData[] }) {
@@ -434,7 +434,7 @@ function ProjectCompliancePieChart({ chartData }: { chartData: ChartData[] }) {
             <Cell key={`cell-${index}`} fill={entry.fill} />
           ))}
         </Pie>
-        <ChartLegend content={<ChartLegendContent />} wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+        <ChartLegend content={<ChartLegendContent nameKey="name" />} wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
       </RechartsPrimitive.PieChart>
     </ChartContainer>
   );
