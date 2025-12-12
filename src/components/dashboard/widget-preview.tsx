@@ -378,12 +378,12 @@ function ProjectComplianceBarChart({ chartData }: { chartData: ChartData[] }) {
   }
   return (
     <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
-      <ComposedChart data={chartData} layout="vertical" margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-        <CartesianGrid horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 10 }} unit="件" />
-        <YAxis dataKey="month" type="category" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <YAxis tick={{ fontSize: 10 }} unit="件" />
         <Tooltip content={<ChartTooltipContent />} />
-        <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+        <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
         <Bar dataKey="projectCompliant" name="遵守" fill="var(--color-compliant)" stackId="a" />
         <Bar dataKey="projectMinorDelay" name="軽微な遅延" fill="var(--color-minor_delay)" stackId="a" />
         <Bar dataKey="projectDelayed" name="遅延" fill="var(--color-delayed)" stackId="a" />
