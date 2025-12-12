@@ -266,16 +266,22 @@ function TargetAndActualLineChart({ chartData }: { chartData: ChartData[] }) {
                             formatter={(value, name, item) => {
                                 const { salesActual, salesTarget } = item.payload as any;
                                 const hasActual = salesActual > 0;
-                                if (name === 'projected') {
+                                if (name === 'projected' && hasActual) {
                                     return (
                                         <div className="flex flex-col gap-1">
-                                            {hasActual && <div className="flex justify-between"><span>実績:</span><span className="font-bold ml-2">{salesActual}M</span></div>}
-                                            <div className="flex justify-between"><span>目標:</span><span className="font-bold ml-2">{salesTarget}M</span></div>
+                                           <div className="flex justify-between"><span>実績:</span><span className="font-bold ml-2">{salesActual}M</span></div>
+                                           <div className="flex justify-between"><span>目標:</span><span className="font-bold ml-2">{salesTarget}M</span></div>
                                         </div>
                                     );
                                 }
+                                 if (name === 'target' && !hasActual) {
+                                     return (
+                                       <div className="flex justify-between"><span>目標:</span><span className="font-bold ml-2">{salesTarget}M</span></div>
+                                     )
+                                 }
                                 return null;
                             }}
+                             itemSorter={(item) => item.dataKey === 'projected' ? 0 : 1}
                         />
                     }
                 />
@@ -379,10 +385,10 @@ function ProjectComplianceBarChart({ chartData }: { chartData: ChartData[] }) {
   }
   return (
     <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
-      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }} layout="vertical">
-        <CartesianGrid horizontal={false} />
-        <YAxis dataKey="month" type="category" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
-        <XAxis type="number" tick={{ fontSize: 10 }} unit="件" />
+      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <YAxis type="number" tick={{ fontSize: 10 }} unit="件" />
         <Tooltip content={<ChartTooltipContent />} />
         <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
         <Bar dataKey="projectCompliant" name="遵守" fill="var(--color-compliant)" stackId="a" />
@@ -422,7 +428,7 @@ function ProjectCompliancePieChart({ chartData }: { chartData: ChartData[] }) {
   return (
     <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
       <RechartsPrimitive.PieChart>
-        <Tooltip content={<ChartTooltipContent hideLabel formatter={(value, name) => [`${value}件`, name]} />} />
+        <Tooltip content={<ChartTooltipContent hideLabel formatter={(value, name) => [`${value}件`, name as string]} />} />
         <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60}>
           {pieData.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={entry.fill} />
