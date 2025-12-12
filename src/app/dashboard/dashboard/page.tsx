@@ -89,7 +89,7 @@ const calculateAchievementRate = (actual: number, target: number) => {
 }
 
 
-function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: { widget?: Goal | null, onSave: (data: Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>) => void, children: React.ReactNode, defaultScope: WidgetScope, currentUser: Member | null }) {
+function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: { widget?: Goal | null, onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>) => void, children: React.ReactNode, defaultScope: WidgetScope, currentUser: Member | null }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [scope, setScope] = useState<WidgetScope>(defaultScope);
@@ -126,15 +126,20 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
         return;
     }
 
-    onSave({ 
-      title, 
-      scope, 
+    const saveData: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>> = {
+      title,
+      scope,
       scopeId,
-      kpi, 
-      chartType, 
-      fiscalYear: needsFiscalYear ? fiscalYear : undefined,
-      fiscalYearStartMonth: needsFiscalYear ? fiscalYearStartMonth : undefined,
-    });
+      kpi,
+      chartType,
+    };
+
+    if (needsFiscalYear) {
+      saveData.fiscalYear = fiscalYear;
+      saveData.fiscalYearStartMonth = fiscalYearStartMonth;
+    }
+
+    onSave(saveData);
     setOpen(false);
   };
   
@@ -388,7 +393,7 @@ function WidgetCard({
   currentUser
 }: {
   widget: Goal;
-  onSave: (data: Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>, id?: string) => void;
+  onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
   onDelete: (id: string) => void;
   onSetActive: (id: string) => void;
   onSaveRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
@@ -516,7 +521,7 @@ function WidgetList({
   currentUser
 }: {
   widgets: Goal[];
-  onSave: (data: Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>, id?: string) => void;
+  onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
   onDelete: (id: string) => void;
   onSetActive: (id: string) => void;
   onSaveRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
@@ -582,7 +587,7 @@ export default function DashboardSettingsPage() {
 
     const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
 
-    const handleSaveWidget = async (data: Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>, id?: string) => {
+    const handleSaveWidget = async (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => {
         if (!firestore || !authUser) return;
         
         try {
