@@ -860,6 +860,8 @@ function WidgetCard({
 
   const canEdit = currentUser?.role === 'executive';
 
+  const kpiLabel = kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A';
+
   return (
     <Card key={widget.id} className={cn(
       "flex flex-col",
@@ -951,10 +953,15 @@ function WidgetCard({
            chartData={getChartDataForWidget()}
          />
       </CardContent>
-      <CardFooter className='flex justify-between text-xs text-muted-foreground pt-2'>
-         <span>
-           {kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A'}
-         </span>
+      <CardFooter className='flex justify-between items-end text-xs text-muted-foreground pt-2'>
+        <div>
+          {widget.fiscalYear && (
+            <div className="text-xs">
+              {widget.fiscalYear}年度 ({widget.fiscalYearStartMonth || 'N/A'}月始まり)
+            </div>
+          )}
+          <div className="font-semibold text-foreground">{kpiLabel}</div>
+        </div>
          <span>
            {chartOptions.find(c => c.value === widget.chartType)?.label || 'N/A'}
          </span>
@@ -1290,3 +1297,5 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
+    
