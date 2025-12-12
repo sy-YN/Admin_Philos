@@ -14,6 +14,7 @@ import {
   Legend,
   Pie,
 } from 'recharts';
+import * as RechartsPrimitive from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
@@ -378,10 +379,10 @@ function ProjectComplianceBarChart({ chartData }: { chartData: ChartData[] }) {
   }
   return (
     <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
-      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }} layout="horizontal">
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="month" type="category" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
-        <YAxis type="number" tick={{ fontSize: 10 }} unit="件" />
+      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }} layout="vertical">
+        <CartesianGrid horizontal={false} />
+        <YAxis dataKey="month" type="category" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <XAxis type="number" tick={{ fontSize: 10 }} unit="件" />
         <Tooltip content={<ChartTooltipContent />} />
         <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
         <Bar dataKey="projectCompliant" name="遵守" fill="var(--color-compliant)" stackId="a" />
@@ -420,7 +421,7 @@ function ProjectCompliancePieChart({ chartData }: { chartData: ChartData[] }) {
 
   return (
     <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
-      <ComposedChart>
+      <RechartsPrimitive.PieChart>
         <Tooltip content={<ChartTooltipContent hideLabel formatter={(value, name) => [`${value}件`, name]} />} />
         <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60}>
           {pieData.map((entry, index) => (
@@ -428,7 +429,7 @@ function ProjectCompliancePieChart({ chartData }: { chartData: ChartData[] }) {
           ))}
         </Pie>
         <ChartLegend content={<ChartLegendContent />} wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-      </ComposedChart>
+      </RechartsPrimitive.PieChart>
     </ChartContainer>
   );
 }
@@ -482,7 +483,7 @@ function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
   };
   return (
     <ChartContainer config={chartConfig} className="h-full w-full">
-        <ComposedChart>
+        <RechartsPrimitive.PieChart>
           <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} innerRadius={isDonut ? 40 : 0}>
               {pieData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
@@ -490,7 +491,7 @@ function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
           </Pie>
           <ChartTooltip content={<ChartTooltipContent hideLabel />} />
           <Legend wrapperStyle={{ fontSize: '10px' }}/>
-        </ComposedChart>
+        </RechartsPrimitive.PieChart>
     </ChartContainer>
   );
 }
