@@ -15,7 +15,8 @@ import {
   Pie,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
-import type { Widget } from '@/app/dashboard/dashboard/page';
+import type { Goal } from '@/types/goal';
+import type { SalesRecord } from '@/types/sales-record';
 
 export type ChartData = {
     month: string;
@@ -145,6 +146,128 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
     );
 }
 
+function ActualSalesBarChart({ chartData }: { chartData: ChartData[] }) {
+    if (!chartData || chartData.length === 0) {
+        return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
+    }
+    const processedData = useMemo(() => {
+        return chartData.map(d => {
+            const hasActual = d.salesActual > 0;
+            if (hasActual) {
+                return d.salesActual >= d.salesTarget
+                    ? { ...d, base: d.salesTarget, over: d.salesActual - d.salesTarget, shortfall: 0 }
+                    : { ...d, base: d.salesActual, over: 0, shortfall: d.salesTarget - d.salesActual };
+            }
+            return { ...d, base: 0, over: 0, shortfall: d.salesTarget };
+        });
+    }, [chartData]);
+    return (
+        <ChartContainer config={salesChartConfig} className="h-full w-full">
+            <ComposedChart data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+                <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="M" />
+                <Tooltip
+                  cursor={true}
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(label) => `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`}
+                      formatter={(value, name, item) => {
+                          const { salesActual, salesTarget, over, shortfall } = item.payload as any;
+                          const renderItem = (label: string, value: string | number) => (
+                             <div className="flex w-full items-center justify-between text-xs"><span>{label}</span><span className="font-bold">{value}</span></div>
+                          );
+                          switch (item.dataKey) {
+                              case 'base': return renderItem("実績 / 目標", `${salesActual}M / ${salesTarget}M`);
+                              case 'over': if (over > 0) return renderItem("超過達成", `${over}M`); return null;
+                              case 'shortfall': if (shortfall > 0 && salesActual > 0) return renderItem("不足分", `${shortfall}M`); return null;
+                              default: return null;
+                          }
+                      }}
+                       itemSorter={(item) => {
+                          if (item.dataKey === 'base') return 0;
+                          if (item.dataKey === 'over') return 1;
+                          if (item.dataKey === 'shortfall') return 2;
+                          return 3;
+                       }}
+                    />
+                  }
+                />
+                <ChartLegend 
+                  content={
+                    <ChartLegendContent 
+                      payload={[
+                        { value: '実績(未達/達成)', type: 'square', color: salesChartConfig.salesActual.color },
+                        { value: '実績(超過)', type: 'square', color: salesChartConfig.overAchievement.color },
+                        { value: '目標(不足分)', type: 'square', color: salesChartConfig.shortfall.color },
+                      ]} 
+                    />
+                  } 
+                  wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                />
+                <Bar dataKey="base" name="実績" fill="var(--color-salesActual)" stackId="a" yAxisId="left" />
+                <Bar dataKey="shortfall" name="不足分" fill="var(--color-shortfall)" stackId="a" yAxisId="left" fillOpacity={0.4} />
+                <Bar dataKey="over" name="超過達成" fill="var(--color-overAchievement)" stackId="a" yAxisId="left" />
+            </ComposedChart>
+        </ChartContainer>
+    );
+}
+
+function TargetAndActualLineChart({ chartData }: { chartData: ChartData[] }) {
+    if (!chartData || chartData.length === 0) {
+        return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
+    }
+
+    const processedData = useMemo(() => {
+        return chartData.map(d => ({
+            ...d,
+            projected: d.salesActual > 0 ? d.salesActual : null,
+            target: d.salesTarget,
+        }));
+    }, [chartData]);
+    
+    // Find the index where actual data ends and target data begins
+    const splitIndex = processedData.findIndex(d => d.projected === null);
+
+    const lineChartConfig = {
+        projected: { label: "実績", color: "hsl(var(--primary))" },
+        target: { label: "目標", color: "hsl(var(--muted-foreground))" },
+    };
+
+    return (
+        <ChartContainer config={lineChartConfig} className="h-full w-full">
+            <ComposedChart data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+                <YAxis unit="M" tick={{ fontSize: 10 }} />
+                <Tooltip
+                    content={
+                        <ChartTooltipContent
+                            labelFormatter={(label) => `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`}
+                            formatter={(value, name, item) => {
+                                const { salesActual, salesTarget } = item.payload as any;
+                                const hasActual = salesActual > 0;
+                                if (name === 'projected') {
+                                    return (
+                                        <div className="flex flex-col gap-1">
+                                            {hasActual && <div className="flex justify-between"><span>実績:</span><span className="font-bold ml-2">{salesActual}M</span></div>}
+                                            <div className="flex justify-between"><span>目標:</span><span className="font-bold ml-2">{salesTarget}M</span></div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            }}
+                        />
+                    }
+                />
+                <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                <Line dataKey="projected" name="実績" stroke="var(--color-projected)" strokeWidth={2} dot={false} connectNulls={false} />
+                <Line dataKey="target" name="目標" stroke="var(--color-target)" strokeWidth={2} dot={false} connectNulls={false} strokeDasharray="3 3" />
+            </ComposedChart>
+        </ChartContainer>
+    );
+}
+
 const previewData = [
   { name: '1月', value: 400 },
   { name: '2月', value: 300 },
@@ -209,16 +332,36 @@ function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
 
 
 interface WidgetPreviewProps {
-    widget: Widget;
-    chartData: ChartData[];
+    widget: Goal;
+    chartData: SalesRecord[];
 }
 
 export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps) {
     
-    if (widget.kpi === 'sales_revenue' && widget.chartType === 'composed') {
-      return <ActualSalesComposedChart chartData={chartData} />;
+    const formattedChartData = useMemo(() => {
+        if (!widget.fiscalYear || !chartData) return [];
+        return chartData
+            .map(d => ({
+                month: `${d.year}-${String(d.month).padStart(2, '0')}`,
+                salesActual: d.salesActual,
+                salesTarget: d.salesTarget,
+                achievementRate: d.achievementRate,
+            }))
+            .sort((a, b) => a.month.localeCompare(b.month));
+    }, [chartData, widget.fiscalYear]);
+
+    if (widget.kpi === 'sales_revenue') {
+        switch (widget.chartType) {
+            case 'composed':
+                return <ActualSalesComposedChart chartData={formattedChartData} />;
+            case 'bar':
+                return <ActualSalesBarChart chartData={formattedChartData} />;
+            case 'line':
+                return <TargetAndActualLineChart chartData={formattedChartData} />;
+        }
     }
 
+    // Fallback for other KPIs or chart types
     switch (widget.chartType) {
         case 'bar':
           return <BarChartPreview />;
@@ -229,7 +372,7 @@ export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps)
         case 'donut':
           return <PieChartPreview isDonut />;
         case 'composed':
-           return <ActualSalesComposedChart chartData={chartData} />;
+           return <ActualSalesComposedChart chartData={formattedChartData} />;
         default:
           return <BarChartPreview />;
       }
