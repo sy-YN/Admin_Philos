@@ -7,3 +7,5 @@ export type ProfitRecord = {
   salesRevenue: number;
   profitMargin: number;
 };
+
+    

@@ -28,6 +28,7 @@ import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTime
 import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
 import type { ProfitRecord } from '@/types/profit-record';
+import type { CustomerRecord } from '@/types/customer-record';
 import type { Member } from '@/types/member';
 import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
 
@@ -42,7 +43,7 @@ const kpiOptions = {
   company: [
     { value: 'sales_revenue', label: '売上高' },
     { value: 'profit_margin', label: '営業利益率' },
-    { value: 'new_customers', label: '新規顧客獲得数' },
+    { value: 'new_customers', label: '総顧客数' },
     { value: 'project_delivery_compliance', label: 'プロジェクトの納期遵守率' },
   ],
   team: [
@@ -140,7 +141,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
       chartType,
     };
     
-    const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin';
+    const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers';
     
     if (needsFiscalYear) {
       baseData.fiscalYear = fiscalYear;
@@ -172,7 +173,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
     }
   }, [widget, open, defaultScope]);
 
-  const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin';
+  const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers';
   const isCompanyScopeOnly = scope === 'company' && (currentUser?.role !== 'admin' && currentUser?.role !== 'executive');
 
   return (
@@ -523,6 +524,137 @@ function ProfitDataManagementDialog({
   );
 }
 
+function CustomerDataManagementDialog({
+  widget,
+  onSave,
+  children,
+}: {
+  widget: Goal;
+  onSave: (records: Omit<CustomerRecord, 'id'>[]) => void;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const { data: customerRecords } = useSubCollection<CustomerRecord>(
+    'goals',
+    widget.id,
+    'customerRecords'
+  );
+  const [monthlyData, setMonthlyData] = useState<Map<string, string>>(new Map());
+
+  const fiscalYearMonths = useMemo(() => {
+    if (!widget.fiscalYear) return [];
+    return getMonthsForFiscalYear(
+      widget.fiscalYear,
+      widget.fiscalYearStartMonth
+    );
+  }, [widget.fiscalYear, widget.fiscalYearStartMonth]);
+
+  useEffect(() => {
+    if (open && customerRecords) {
+      const initialData = new Map();
+      fiscalYearMonths.forEach(({ year, month }) => {
+        const record = customerRecords.find(
+          (r) => r.year === year && r.month === month
+        );
+        initialData.set(
+          `${year}-${String(month).padStart(2, '0')}`,
+          record?.totalCustomers.toString() || '0'
+        );
+      });
+      setMonthlyData(initialData);
+    }
+  }, [open, customerRecords, fiscalYearMonths]);
+
+  const handleInputChange = (id: string, value: string) => {
+    setMonthlyData((prev) => new Map(prev).set(id, value));
+  };
+
+  const handleSave = () => {
+    const newRecords: Omit<CustomerRecord, 'id'>[] = [];
+    let hasError = false;
+
+    monthlyData.forEach((value, id) => {
+      const [year, month] = id.split('-').map(Number);
+      const totalCustomers = parseInt(value, 10) || 0;
+
+      if (isNaN(totalCustomers)) {
+        hasError = true;
+      }
+
+      newRecords.push({
+        year,
+        month,
+        totalCustomers,
+      });
+    });
+
+    if (hasError) {
+      toast({
+        title: '入力エラー',
+        description: '有効な数値を入力してください。',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    onSave(newRecords);
+    toast({ title: '成功', description: '顧客数データを保存しました。' });
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>総顧客数データ編集 ({widget.fiscalYear}年度)</DialogTitle>
+          <DialogDescription>
+            {widget.fiscalYear}年度（{widget.fiscalYearStartMonth}月始まり）の月次総顧客数を入力します。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[60vh] overflow-y-auto pr-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">年月</TableHead>
+                <TableHead>総顧客数</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {fiscalYearMonths.map(({ year, month }) => {
+                const id = `${year}-${String(month).padStart(2, '0')}`;
+                const value = monthlyData.get(id) || '0';
+                return (
+                  <TableRow key={id}>
+                    <TableCell className="font-medium">
+                      {year}年 {month}月
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        value={value}
+                        onChange={(e) => handleInputChange(id, e.target.value)}
+                        placeholder="0"
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            キャンセル
+          </Button>
+          <Button onClick={handleSave}>一括保存</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function WidgetCard({
   widget,
@@ -531,6 +663,7 @@ function WidgetCard({
   onSetActive,
   onSaveSalesRecords,
   onSaveProfitRecords,
+  onSaveCustomerRecords,
   currentUser
 }: {
   widget: Goal;
@@ -539,6 +672,7 @@ function WidgetCard({
   onSetActive: (id: string) => void;
   onSaveSalesRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
   onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
+  onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   currentUser: Member | null;
 }) {
   const { data: salesData } = useSubCollection<SalesRecord>(
@@ -552,55 +686,54 @@ function WidgetCard({
     widget.id,
     'profitRecords'
   );
+  
+  const { data: customerData } = useSubCollection<CustomerRecord>(
+    'goals',
+    widget.id,
+    'customerRecords'
+  );
 
   const getChartDataForWidget = useCallback((): ChartData[] => {
-    let dataForChart: (SalesRecord[] | ProfitRecord[]) = [];
-    if (widget.kpi === 'sales_revenue' && widget.fiscalYear && salesData) {
-        dataForChart = salesData;
-    } else if (widget.kpi === 'profit_margin' && widget.fiscalYear && profitData) {
-        dataForChart = profitData;
-    } else {
-        // Handle other kpis if needed
-        return [];
-    }
-    
     if (!widget.fiscalYear) return [];
 
     const startMonth = widget.fiscalYearStartMonth || 8;
     const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
     
     return fiscalYearMonths.map(({ year, month }) => {
-        const found = dataForChart.find(record => record.year === year && record.month === month);
-        
-        if (widget.kpi === 'sales_revenue' && found) {
-            const saleRecord = found as SalesRecord;
-            return {
-                month: `${year}-${String(month).padStart(2, '0')}`,
-                salesActual: saleRecord.salesActual,
-                salesTarget: saleRecord.salesTarget,
-                achievementRate: saleRecord.achievementRate,
-                profitMargin: 0,
-            };
+        let chartEntry: ChartData = {
+            month: `${year}-${String(month).padStart(2, '0')}`,
+            salesActual: 0, salesTarget: 0, achievementRate: 0,
+            profitMargin: 0,
+            totalCustomers: 0,
+        };
+
+        if (widget.kpi === 'sales_revenue' && salesData) {
+            const record = salesData.find(r => r.year === year && r.month === month);
+            if (record) {
+                chartEntry.salesActual = record.salesActual;
+                chartEntry.salesTarget = record.salesTarget;
+                chartEntry.achievementRate = record.achievementRate;
+            }
         }
-        if (widget.kpi === 'profit_margin' && found) {
-            const profitRecord = found as ProfitRecord;
-            return {
-                month: `${year}-${String(month).padStart(2, '0')}`,
-                salesActual: 0, salesTarget: 0, achievementRate: 0,
-                profitMargin: profitRecord.profitMargin,
-            };
+        if (widget.kpi === 'profit_margin' && profitData) {
+            const record = profitData.find(r => r.year === year && r.month === month);
+            if (record) {
+                chartEntry.profitMargin = record.profitMargin;
+            }
+        }
+        if (widget.kpi === 'new_customers' && customerData) {
+          const record = customerData.find(
+            (r) => r.year === year && r.month === month
+          );
+          if (record) {
+            chartEntry.totalCustomers = record.totalCustomers;
+          }
         }
 
-        return {
-            month: `${year}-${String(month).padStart(2, '0')}`,
-            salesActual: 0,
-            salesTarget: 0,
-            achievementRate: 0,
-            profitMargin: 0,
-        };
+        return chartEntry;
     }).sort((a, b) => a.month.localeCompare(b.month));
 
-  }, [salesData, profitData, widget]);
+  }, [salesData, profitData, customerData, widget]);
 
   const canEdit = currentUser?.role === 'executive';
 
@@ -646,6 +779,17 @@ function WidgetCard({
                     データ編集
                   </DropdownMenuItem>
                 </ProfitDataManagementDialog>
+              )}
+              {widget.kpi === 'new_customers' && (
+                <CustomerDataManagementDialog
+                  widget={widget}
+                  onSave={(records) => onSaveCustomerRecords(widget.id, records)}
+                >
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Database className="mr-2 h-4 w-4" />
+                    データ編集
+                  </DropdownMenuItem>
+                </CustomerDataManagementDialog>
               )}
                <DropdownMenuSeparator />
                <AlertDialog>
@@ -696,6 +840,7 @@ function WidgetList({
   onSetActive,
   onSaveSalesRecords,
   onSaveProfitRecords,
+  onSaveCustomerRecords,
   currentUser
 }: {
   widgets: Goal[];
@@ -704,6 +849,7 @@ function WidgetList({
   onSetActive: (id: string) => void;
   onSaveSalesRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
   onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
+  onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   currentUser: Member | null;
 }) {
   if (widgets.length === 0) {
@@ -725,6 +871,7 @@ function WidgetList({
           onSetActive={onSetActive}
           onSaveSalesRecords={onSaveSalesRecords}
           onSaveProfitRecords={onSaveProfitRecords}
+          onSaveCustomerRecords={onSaveCustomerRecords}
           currentUser={currentUser}
         />
       ))}
@@ -735,14 +882,14 @@ function WidgetList({
 export default function DashboardSettingsPage() {
     const { toast } = useToast();
     const firestore = useFirestore();
-    const { user: authUser, isUserLoading } = useUser();
+    const { user: authUser, isUserLoading: isAuthUserLoading } = useUser();
     
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
     const [isCurrentUserLoading, setIsCurrentUserLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<WidgetScope>('company');
     
     useEffect(() => {
-        if (isUserLoading) return;
+        if (isAuthUserLoading) return;
         
         if (authUser && firestore) {
             setIsCurrentUserLoading(true);
@@ -758,10 +905,11 @@ export default function DashboardSettingsPage() {
         } else {
           setIsCurrentUserLoading(false);
         }
-    }, [authUser, firestore, isUserLoading]);
+    }, [authUser, firestore, isAuthUserLoading]);
     
     const goalsQuery = useMemoFirebase(() => {
-        if (!firestore || isCurrentUserLoading || !currentUserData || activeTab !== 'company') return null;
+        if (!firestore || isCurrentUserLoading || !currentUserData) return null;
+        if (activeTab !== 'company') return null;
         if (currentUserData.role !== 'admin' && currentUserData.role !== 'executive') return null;
         if (!currentUserData.company) return null;
         
@@ -777,15 +925,23 @@ export default function DashboardSettingsPage() {
     const handleSaveWidget = async (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => {
         if (!firestore || !authUser) return;
         
+        const saveData: Partial<Goal> = { ...data };
+        if (!saveData.fiscalYear) {
+            delete saveData.fiscalYear;
+        }
+        if (!saveData.fiscalYearStartMonth) {
+            delete saveData.fiscalYearStartMonth;
+        }
+
         try {
             if (id) {
                 const widgetRef = doc(firestore, 'goals', id);
-                await updateDoc(widgetRef, { ...data, updatedAt: serverTimestamp() });
+                await updateDoc(widgetRef, { ...saveData, updatedAt: serverTimestamp() });
                 toast({ title: "成功", description: "ウィジェットを更新しました。" });
             } else {
-                const currentActive = widgets?.find(w => w.scope === data.scope && w.status === 'active');
+                const currentActive = widgets?.find(w => w.scope === saveData.scope && w.status === 'active');
                 await addDoc(collection(firestore, 'goals'), {
-                    ...data,
+                    ...saveData,
                     authorId: authUser.uid,
                     status: currentActive ? 'inactive' : 'active',
                     createdAt: serverTimestamp(),
@@ -840,13 +996,6 @@ export default function DashboardSettingsPage() {
       const batch = writeBatch(firestore);
       const subCollectionRef = collection(firestore, 'goals', goalId, 'salesRecords');
       
-      // Get existing records to delete them if they are not in the new list (optional, but good practice)
-      const existingDocs = await getDocs(subCollectionRef);
-      existingDocs.forEach(doc => {
-          // A more robust way would be to check if this record should be removed
-          // For now, we'll overwrite, so we can just set.
-      });
-
       newRecords.forEach(record => {
           const recordId = `${record.year}-${String(record.month).padStart(2, '0')}`;
           const recordRef = doc(subCollectionRef, recordId);
@@ -880,6 +1029,26 @@ export default function DashboardSettingsPage() {
         toast({ title: "エラー", description: "営業利益データの保存に失敗しました。", variant: "destructive" });
       }
     };
+
+    const handleSaveCustomerRecords = async (goalId: string, newRecords: Omit<CustomerRecord, 'id'>[]) => {
+        if (!firestore || newRecords.length === 0) return;
+
+        const batch = writeBatch(firestore);
+        const subCollectionRef = collection(firestore, 'goals', goalId, 'customerRecords');
+        
+        newRecords.forEach(record => {
+            const recordId = `${record.year}-${String(record.month).padStart(2, '0')}`;
+            const recordRef = doc(subCollectionRef, recordId);
+            batch.set(recordRef, record, { merge: true });
+        });
+
+        try {
+            await batch.commit();
+        } catch (error) {
+            console.error("Error saving customer records:", error);
+            toast({ title: "エラー", description: "顧客数データの保存に失敗しました。", variant: "destructive" });
+        }
+    };
     
     const widgetsForTab = useMemo(() => {
       if (!widgets) return [];
@@ -890,7 +1059,7 @@ export default function DashboardSettingsPage() {
       });
     }, [widgets]);
 
-  const isLoading = isUserLoading || isCurrentUserLoading || isLoadingWidgets;
+  const isLoading = isAuthUserLoading || isCurrentUserLoading || (!!currentUserData && isLoadingWidgets);
 
   if (isLoading) {
     return (
@@ -940,6 +1109,7 @@ export default function DashboardSettingsPage() {
                       onSetActive={handleSetActiveWidget}
                       onSaveSalesRecords={handleSaveSalesRecords}
                       onSaveProfitRecords={handleSaveProfitRecords}
+                      onSaveCustomerRecords={handleSaveCustomerRecords}
                       currentUser={currentUserData}
                   />
                 ) : (
@@ -963,3 +1133,5 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
+    

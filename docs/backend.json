@@ -374,6 +374,17 @@
         "profitMargin": { "type": "number", "description": "Calculated as (operatingProfit / salesRevenue) * 100" }
       },
       "required": ["year", "month", "operatingProfit", "salesRevenue", "profitMargin"]
+    },
+    "CustomerRecord": {
+      "title": "Customer Record",
+      "description": "Stores monthly total customer count for a specific goal.",
+      "type": "object",
+      "properties": {
+        "year": { "type": "number" },
+        "month": { "type": "number" },
+        "totalCustomers": { "type": "number" }
+      },
+      "required": ["year", "month", "totalCustomers"]
     }
   },
   "auth": {
@@ -459,6 +470,12 @@
     "/goals/{goalId}/profitRecords/{recordId}": {
       "schema": { "$ref": "#/entities/ProfitRecord" },
       "description": "Subcollection storing monthly profit records for a specific goal."
+    },
+    "/goals/{goalId}/customerRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/CustomerRecord" },
+      "description": "Subcollection storing monthly customer records for a specific goal."
     }
   }
 }
+
+    

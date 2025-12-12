@@ -18,6 +18,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLe
 import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
 import type { ProfitRecord } from '@/types/profit-record';
+import type { CustomerRecord } from '@/types/customer-record';
 
 export type ChartData = {
     month: string;
@@ -25,6 +26,7 @@ export type ChartData = {
     salesTarget: number;
     achievementRate: number;
     profitMargin: number;
+    totalCustomers: number;
 }
 
 export const salesChartConfig = {
@@ -38,6 +40,10 @@ export const salesChartConfig = {
 
 const profitChartConfig = {
   profitMargin: { label: "営業利益率", color: "hsl(var(--primary))" },
+};
+
+const customerChartConfig = {
+  totalCustomers: { label: "総顧客数", color: "hsl(var(--primary))" },
 };
 
 
@@ -313,6 +319,50 @@ function ProfitMarginLineChart({ chartData }: { chartData: ChartData[] }) {
   );
 }
 
+function CustomerBarChart({ chartData }: { chartData: ChartData[] }) {
+  if (!chartData || chartData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+        データがありません
+      </div>
+    );
+  }
+
+  return (
+    <ChartContainer config={customerChartConfig} className="h-full w-full">
+      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis
+          dataKey="month"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`}
+          tick={{ fontSize: 10 }}
+        />
+        <YAxis tick={{ fontSize: 10 }} />
+        <Tooltip
+          content={
+            <ChartTooltipContent
+              labelFormatter={(label) =>
+                `${new Date(label).getFullYear()}年 ${
+                  new Date(label).getMonth() + 1
+                }月`
+              }
+              formatter={(value, name) => [`${value}社`, '総顧客数']}
+            />
+          }
+        />
+        <Bar
+          dataKey="totalCustomers"
+          name="総顧客数"
+          fill="var(--color-totalCustomers)"
+        />
+      </ComposedChart>
+    </ChartContainer>
+  );
+}
+
 const previewData = [
   { name: '1月', value: 400 },
   { name: '2月', value: 300 },
@@ -401,6 +451,12 @@ export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps)
         }
     }
 
+    if (widget.kpi === 'new_customers') {
+        switch (widget.chartType) {
+            case 'bar':
+                return <CustomerBarChart chartData={chartData} />;
+        }
+    }
 
     // Fallback for other KPIs or chart types
     switch (widget.chartType) {
@@ -418,3 +474,5 @@ export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps)
           return <BarChartPreview />;
       }
 }
+
+    
