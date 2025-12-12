@@ -378,10 +378,10 @@ function ProjectComplianceBarChart({ chartData }: { chartData: ChartData[] }) {
   }
   return (
     <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
-      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }} layout="horizontal">
         <CartesianGrid vertical={false} />
-        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
-        <YAxis tick={{ fontSize: 10 }} unit="件" />
+        <XAxis dataKey="month" type="category" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <YAxis type="number" tick={{ fontSize: 10 }} unit="件" />
         <Tooltip content={<ChartTooltipContent />} />
         <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
         <Bar dataKey="projectCompliant" name="遵守" fill="var(--color-compliant)" stackId="a" />
@@ -406,15 +406,25 @@ function ProjectCompliancePieChart({ chartData }: { chartData: ChartData[] }) {
     }, { compliant: 0, minor_delay: 0, delayed: 0 });
   }, [chartData]);
 
-  const pieData = Object.entries(total).map(([key, value]) => ({ name: projectComplianceChartConfig[key as keyof typeof projectComplianceChartConfig].label, value }));
+  const pieData = Object.entries(total)
+    .map(([key, value]) => ({
+      name: projectComplianceChartConfig[key as keyof typeof projectComplianceChartConfig].label,
+      value,
+      fill: projectComplianceChartConfig[key as keyof typeof projectComplianceChartConfig].color,
+    }))
+    .filter(item => item.value > 0);
+  
+  if (pieData.length === 0) {
+    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">集計データがありません</div>;
+  }
 
   return (
     <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
       <ComposedChart>
-        <Tooltip content={<ChartTooltipContent hideLabel />} />
+        <Tooltip content={<ChartTooltipContent hideLabel formatter={(value, name) => [`${value}件`, name]} />} />
         <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60}>
           {pieData.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={projectComplianceChartConfig[Object.keys(total)[index] as keyof typeof projectComplianceChartConfig].color} />
+            <Cell key={`cell-${index}`} fill={entry.fill} />
           ))}
         </Pie>
         <ChartLegend content={<ChartLegendContent />} wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
