@@ -19,6 +19,7 @@ import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
 import type { ProfitRecord } from '@/types/profit-record';
 import type { CustomerRecord } from '@/types/customer-record';
+import type { ProjectComplianceRecord } from '@/types/project-compliance-record';
 
 export type ChartData = {
     month: string;
@@ -27,6 +28,9 @@ export type ChartData = {
     achievementRate: number;
     profitMargin: number;
     totalCustomers: number;
+    projectCompliant: number;
+    projectMinorDelay: number;
+    projectDelayed: number;
 }
 
 export const salesChartConfig = {
@@ -46,6 +50,11 @@ const customerChartConfig = {
   totalCustomers: { label: "総顧客数", color: "hsl(var(--primary))" },
 };
 
+const projectComplianceChartConfig = {
+  compliant: { label: "遵守", color: "hsl(var(--primary))" },
+  minor_delay: { label: "軽微な遅延", color: "hsl(180 80% 40%)" },
+  delayed: { label: "遅延", color: "hsl(var(--destructive))" },
+};
 
 function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
     if (!chartData || chartData.length === 0) {
@@ -363,6 +372,57 @@ function CustomerBarChart({ chartData }: { chartData: ChartData[] }) {
   );
 }
 
+function ProjectComplianceBarChart({ chartData }: { chartData: ChartData[] }) {
+  if (!chartData || chartData.length === 0) {
+    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
+  }
+  return (
+    <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
+      <ComposedChart data={chartData} layout="vertical" margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid horizontal={false} />
+        <XAxis type="number" tick={{ fontSize: 10 }} unit="件" />
+        <YAxis dataKey="month" type="category" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <Tooltip content={<ChartTooltipContent />} />
+        <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+        <Bar dataKey="projectCompliant" name="遵守" fill="var(--color-compliant)" stackId="a" />
+        <Bar dataKey="projectMinorDelay" name="軽微な遅延" fill="var(--color-minor_delay)" stackId="a" />
+        <Bar dataKey="projectDelayed" name="遅延" fill="var(--color-delayed)" stackId="a" />
+      </ComposedChart>
+    </ChartContainer>
+  );
+}
+
+function ProjectCompliancePieChart({ chartData }: { chartData: ChartData[] }) {
+  if (!chartData || chartData.length === 0) {
+    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
+  }
+
+  const total = useMemo(() => {
+    return chartData.reduce((acc, curr) => {
+      acc.compliant += curr.projectCompliant;
+      acc.minor_delay += curr.projectMinorDelay;
+      acc.delayed += curr.projectDelayed;
+      return acc;
+    }, { compliant: 0, minor_delay: 0, delayed: 0 });
+  }, [chartData]);
+
+  const pieData = Object.entries(total).map(([key, value]) => ({ name: projectComplianceChartConfig[key as keyof typeof projectComplianceChartConfig].label, value }));
+
+  return (
+    <ChartContainer config={projectComplianceChartConfig} className="h-full w-full">
+      <ComposedChart>
+        <Tooltip content={<ChartTooltipContent hideLabel />} />
+        <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60}>
+          {pieData.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={projectComplianceChartConfig[Object.keys(total)[index] as keyof typeof projectComplianceChartConfig].color} />
+          ))}
+        </Pie>
+        <ChartLegend content={<ChartLegendContent />} wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+      </ComposedChart>
+    </ChartContainer>
+  );
+}
+
 const previewData = [
   { name: '1月', value: 400 },
   { name: '2月', value: 300 },
@@ -458,6 +518,15 @@ export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps)
         }
     }
 
+    if (widget.kpi === 'project_delivery_compliance') {
+        switch (widget.chartType) {
+            case 'bar':
+                return <ProjectComplianceBarChart chartData={chartData} />;
+            case 'pie':
+                return <ProjectCompliancePieChart chartData={chartData} />;
+        }
+    }
+
     // Fallback for other KPIs or chart types
     switch (widget.chartType) {
         case 'bar':
@@ -474,5 +543,3 @@ export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps)
           return <BarChartPreview />;
       }
 }
-
-    

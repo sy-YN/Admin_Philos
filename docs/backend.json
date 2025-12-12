@@ -385,6 +385,26 @@
         "totalCustomers": { "type": "number" }
       },
       "required": ["year", "month", "totalCustomers"]
+    },
+    "ProjectComplianceRecord": {
+      "title": "Project Compliance Record",
+      "description": "Stores monthly project delivery compliance data.",
+      "type": "object",
+      "properties": {
+        "year": { "type": "number" },
+        "month": { "type": "number" },
+        "counts": {
+          "type": "object",
+          "description": "Stores the number of projects for each compliance category.",
+          "properties": {
+            "compliant": { "type": "number" },
+            "minor_delay": { "type": "number" },
+            "delayed": { "type": "number" }
+          },
+          "required": ["compliant", "minor_delay", "delayed"]
+        }
+      },
+      "required": ["year", "month", "counts"]
     }
   },
   "auth": {
@@ -474,8 +494,10 @@
     "/goals/{goalId}/customerRecords/{recordId}": {
       "schema": { "$ref": "#/entities/CustomerRecord" },
       "description": "Subcollection storing monthly customer records for a specific goal."
+    },
+    "/goals/{goalId}/projectComplianceRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/ProjectComplianceRecord" },
+      "description": "Subcollection storing monthly project compliance records for a specific goal."
     }
   }
 }
-
-    

@@ -29,6 +29,7 @@ import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
 import type { ProfitRecord } from '@/types/profit-record';
 import type { CustomerRecord } from '@/types/customer-record';
+import type { ProjectComplianceRecord } from '@/types/project-compliance-record';
 import type { Member } from '@/types/member';
 import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
 
@@ -141,7 +142,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
       chartType,
     };
     
-    const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers';
+    const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers' || kpi === 'project_delivery_compliance';
     
     if (needsFiscalYear) {
       baseData.fiscalYear = fiscalYear;
@@ -173,7 +174,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
     }
   }, [widget, open, defaultScope]);
 
-  const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers';
+  const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers' || kpi === 'project_delivery_compliance';
   const isCompanyScopeOnly = scope === 'company' && (currentUser?.role !== 'admin' && currentUser?.role !== 'executive');
 
   return (
@@ -655,6 +656,130 @@ function CustomerDataManagementDialog({
   );
 }
 
+function ProjectComplianceDataManagementDialog({
+  widget,
+  onSave,
+  children,
+}: {
+  widget: Goal;
+  onSave: (records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const { data: records } = useSubCollection<ProjectComplianceRecord>('goals', widget.id, 'projectComplianceRecords');
+  const [monthlyData, setMonthlyData] = useState<Map<string, { compliant: string; minor_delay: string; delayed: string }>>(new Map());
+
+  const fiscalYearMonths = useMemo(() => {
+    if (!widget.fiscalYear) return [];
+    return getMonthsForFiscalYear(widget.fiscalYear, widget.fiscalYearStartMonth);
+  }, [widget.fiscalYear, widget.fiscalYearStartMonth]);
+
+  useEffect(() => {
+    if (open && records) {
+      const initialData = new Map();
+      fiscalYearMonths.forEach(({ year, month }) => {
+        const record = records.find(r => r.year === year && r.month === month);
+        initialData.set(`${year}-${String(month).padStart(2, '0')}`, {
+          compliant: record?.counts?.compliant.toString() || '0',
+          minor_delay: record?.counts?.minor_delay.toString() || '0',
+          delayed: record?.counts?.delayed.toString() || '0',
+        });
+      });
+      setMonthlyData(initialData);
+    }
+  }, [open, records, fiscalYearMonths]);
+
+  const handleInputChange = (id: string, field: 'compliant' | 'minor_delay' | 'delayed', value: string) => {
+    setMonthlyData(prev => {
+      const newData = new Map(prev);
+      const current = newData.get(id) || { compliant: '0', minor_delay: '0', delayed: '0' };
+      current[field] = value;
+      newData.set(id, current);
+      return newData;
+    });
+  };
+
+  const handleSave = () => {
+    const newRecords: Omit<ProjectComplianceRecord, 'id'>[] = [];
+    let hasError = false;
+
+    monthlyData.forEach((values, id) => {
+      const [year, month] = id.split('-').map(Number);
+      const counts = {
+        compliant: parseInt(values.compliant, 10) || 0,
+        minor_delay: parseInt(values.minor_delay, 10) || 0,
+        delayed: parseInt(values.delayed, 10) || 0,
+      };
+      
+      if (isNaN(counts.compliant) || isNaN(counts.minor_delay) || isNaN(counts.delayed)) {
+        hasError = true;
+      }
+
+      newRecords.push({ year, month, counts });
+    });
+    
+    if (hasError) {
+      toast({ title: "入力エラー", description: "有効な数値を入力してください。", variant: "destructive" });
+      return;
+    }
+
+    onSave(newRecords);
+    toast({ title: "成功", description: "プロジェクト遵守率データを保存しました。" });
+    setOpen(false);
+  };
+  
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>プロジェクト遵守率データ編集 ({widget.fiscalYear}年度)</DialogTitle>
+          <DialogDescription>
+            {widget.fiscalYear}年度（{widget.fiscalYearStartMonth}月始まり）の月次プロジェクト件数を入力します。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[60vh] overflow-y-auto pr-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">年月</TableHead>
+                <TableHead>遵守</TableHead>
+                <TableHead>軽微な遅延</TableHead>
+                <TableHead>遅延</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {fiscalYearMonths.map(({ year, month }) => {
+                 const id = `${year}-${String(month).padStart(2, '0')}`;
+                 const values = monthlyData.get(id) || { compliant: '0', minor_delay: '0', delayed: '0' };
+                 return (
+                  <TableRow key={id}>
+                    <TableCell className="font-medium">{year}年 {month}月</TableCell>
+                    <TableCell>
+                      <Input type="number" value={values.compliant} onChange={(e) => handleInputChange(id, 'compliant', e.target.value)} placeholder="0" />
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" value={values.minor_delay} onChange={(e) => handleInputChange(id, 'minor_delay', e.target.value)} placeholder="0" />
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" value={values.delayed} onChange={(e) => handleInputChange(id, 'delayed', e.target.value)} placeholder="0" />
+                    </TableCell>
+                  </TableRow>
+                 )
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
+          <Button onClick={handleSave}>一括保存</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function WidgetCard({
   widget,
@@ -664,6 +789,7 @@ function WidgetCard({
   onSaveSalesRecords,
   onSaveProfitRecords,
   onSaveCustomerRecords,
+  onSaveProjectComplianceRecords,
   currentUser
 }: {
   widget: Goal;
@@ -673,25 +799,13 @@ function WidgetCard({
   onSaveSalesRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
   onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
+  onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   currentUser: Member | null;
 }) {
-  const { data: salesData } = useSubCollection<SalesRecord>(
-    'goals',
-    widget.id,
-    'salesRecords'
-  );
-  
-  const { data: profitData } = useSubCollection<ProfitRecord>(
-    'goals',
-    widget.id,
-    'profitRecords'
-  );
-  
-  const { data: customerData } = useSubCollection<CustomerRecord>(
-    'goals',
-    widget.id,
-    'customerRecords'
-  );
+  const { data: salesData } = useSubCollection<SalesRecord>('goals', widget.id, 'salesRecords');
+  const { data: profitData } = useSubCollection<ProfitRecord>('goals', widget.id, 'profitRecords');
+  const { data: customerData } = useSubCollection<CustomerRecord>('goals', widget.id, 'customerRecords');
+  const { data: projectComplianceData } = useSubCollection<ProjectComplianceRecord>('goals', widget.id, 'projectComplianceRecords');
 
   const getChartDataForWidget = useCallback((): ChartData[] => {
     if (!widget.fiscalYear) return [];
@@ -705,6 +819,9 @@ function WidgetCard({
             salesActual: 0, salesTarget: 0, achievementRate: 0,
             profitMargin: 0,
             totalCustomers: 0,
+            projectCompliant: 0,
+            projectMinorDelay: 0,
+            projectDelayed: 0,
         };
 
         if (widget.kpi === 'sales_revenue' && salesData) {
@@ -722,18 +839,24 @@ function WidgetCard({
             }
         }
         if (widget.kpi === 'new_customers' && customerData) {
-          const record = customerData.find(
-            (r) => r.year === year && r.month === month
-          );
+          const record = customerData.find(r => r.year === year && r.month === month);
           if (record) {
             chartEntry.totalCustomers = record.totalCustomers;
+          }
+        }
+        if (widget.kpi === 'project_delivery_compliance' && projectComplianceData) {
+          const record = projectComplianceData.find(r => r.year === year && r.month === month);
+          if (record) {
+              chartEntry.projectCompliant = record.counts.compliant;
+              chartEntry.projectMinorDelay = record.counts.minor_delay;
+              chartEntry.projectDelayed = record.counts.delayed;
           }
         }
 
         return chartEntry;
     }).sort((a, b) => a.month.localeCompare(b.month));
 
-  }, [salesData, profitData, customerData, widget]);
+  }, [salesData, profitData, customerData, projectComplianceData, widget]);
 
   const canEdit = currentUser?.role === 'executive';
 
@@ -791,6 +914,13 @@ function WidgetCard({
                   </DropdownMenuItem>
                 </CustomerDataManagementDialog>
               )}
+              {widget.kpi === 'project_delivery_compliance' && (
+                <ProjectComplianceDataManagementDialog widget={widget} onSave={(records) => onSaveProjectComplianceRecords(widget.id, records)}>
+                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                        <Database className="mr-2 h-4 w-4"/>データ編集
+                    </DropdownMenuItem>
+                </ProjectComplianceDataManagementDialog>
+              )}
                <DropdownMenuSeparator />
                <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -841,6 +971,7 @@ function WidgetList({
   onSaveSalesRecords,
   onSaveProfitRecords,
   onSaveCustomerRecords,
+  onSaveProjectComplianceRecords,
   currentUser
 }: {
   widgets: Goal[];
@@ -850,6 +981,7 @@ function WidgetList({
   onSaveSalesRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
   onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
+  onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   currentUser: Member | null;
 }) {
   if (widgets.length === 0) {
@@ -872,6 +1004,7 @@ function WidgetList({
           onSaveSalesRecords={onSaveSalesRecords}
           onSaveProfitRecords={onSaveProfitRecords}
           onSaveCustomerRecords={onSaveCustomerRecords}
+          onSaveProjectComplianceRecords={onSaveProjectComplianceRecords}
           currentUser={currentUser}
         />
       ))}
@@ -892,6 +1025,10 @@ export default function DashboardSettingsPage() {
         if (isAuthUserLoading) return;
         
         if (authUser && firestore) {
+            if (currentUserData) {
+                setIsCurrentUserLoading(false);
+                return;
+            }
             setIsCurrentUserLoading(true);
             getDocs(query(collection(firestore, 'users'), where('uid', '==', authUser.uid), limit(1))).then(snapshot => {
                 if (!snapshot.empty) {
@@ -905,7 +1042,7 @@ export default function DashboardSettingsPage() {
         } else {
           setIsCurrentUserLoading(false);
         }
-    }, [authUser, firestore, isAuthUserLoading]);
+    }, [authUser, firestore, isAuthUserLoading, currentUserData]);
     
     const goalsQuery = useMemoFirebase(() => {
         if (!firestore || isCurrentUserLoading || !currentUserData) return null;
@@ -926,10 +1063,10 @@ export default function DashboardSettingsPage() {
         if (!firestore || !authUser) return;
         
         const saveData: Partial<Goal> = { ...data };
-        if (!saveData.fiscalYear) {
+        if (saveData.fiscalYear === undefined) {
             delete saveData.fiscalYear;
         }
-        if (!saveData.fiscalYearStartMonth) {
+        if (saveData.fiscalYearStartMonth === undefined) {
             delete saveData.fiscalYearStartMonth;
         }
 
@@ -1050,6 +1187,25 @@ export default function DashboardSettingsPage() {
         }
     };
     
+    const handleSaveProjectComplianceRecords = async (goalId: string, newRecords: Omit<ProjectComplianceRecord, 'id'>[]) => {
+        if (!firestore) return;
+        const batch = writeBatch(firestore);
+        const subCollectionRef = collection(firestore, 'goals', goalId, 'projectComplianceRecords');
+        
+        newRecords.forEach(record => {
+            const recordId = `${record.year}-${String(record.month).padStart(2, '0')}`;
+            const recordRef = doc(subCollectionRef, recordId);
+            batch.set(recordRef, record, { merge: true });
+        });
+
+        try {
+            await batch.commit();
+        } catch (error) {
+            console.error("Error saving project compliance records:", error);
+            toast({ title: "エラー", description: "プロジェクト遵守率データの保存に失敗しました。", variant: "destructive" });
+        }
+    };
+    
     const widgetsForTab = useMemo(() => {
       if (!widgets) return [];
       return [...widgets].sort((a, b) => {
@@ -1110,6 +1266,7 @@ export default function DashboardSettingsPage() {
                       onSaveSalesRecords={handleSaveSalesRecords}
                       onSaveProfitRecords={handleSaveProfitRecords}
                       onSaveCustomerRecords={handleSaveCustomerRecords}
+                      onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
                       currentUser={currentUserData}
                   />
                 ) : (
@@ -1133,5 +1290,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-
-    
