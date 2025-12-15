@@ -54,33 +54,32 @@ const getBadgeVariantForRole = (role: Member['role']): 'default' | 'secondary' |
 // Separate component for the row to manage its own state
 function MemberTableRow({ member, companyOptions, departmentOptions }: { member: Member, companyOptions: {value: string, label: string}[], departmentOptions: {value: string, label: string}[] }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const firestore = useFirestore();
   const { toast } = useToast();
   const { user: currentUser } = useUser();
 
   const handleDeleteMember = async (uid: string) => {
-    if (!firestore) {
-       toast({
-        title: 'エラー',
-        description: 'データベースに接続できませんでした。',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    // This only deletes the database document.
-    // Full user deletion (including Firebase Auth) requires a server-side mechanism like Firebase Functions.
     try {
-      await deleteDoc(doc(firestore, "users", uid));
+      const response = await fetch('/api/deleteUser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || '不明なエラーが発生しました。');
+      }
+
       toast({
         title: '成功',
-        description: 'メンバーをデータベースから削除しました。',
+        description: `メンバー「${member.displayName}」を完全に削除しました。`,
       });
     } catch(error) {
        console.error("Error deleting member:", error);
        toast({
         title: 'エラー',
-        description: 'メンバーの削除中にエラーが発生しました。',
+        description: error instanceof Error ? error.message : 'メンバーの削除中にエラーが発生しました。',
         variant: 'destructive',
       });
     }
@@ -152,7 +151,7 @@ function MemberTableRow({ member, companyOptions, departmentOptions }: { member:
                 <AlertDialogHeader>
                   <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
                   <AlertDialogDescription>
-                    この操作は元に戻せません。メンバー「{member.displayName}」のデータがデータベースから完全に削除されます。
+                    この操作は元に戻せません。メンバー「{member.displayName}」のデータがデータベースと認証情報から完全に削除されます。
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
