@@ -934,7 +934,7 @@ function WidgetCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>ウィジェットを削除しますか？</AlertDialogTitle>
                     <AlertDialogDescription>
-                      ウィジェット「{widget.title}」を削除します。この操作は元に戻せません。
+                      ウィジェット「{widget.title}」を削除します。関連する月次データも全て削除され、この操作は元に戻せません。
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -1102,11 +1102,30 @@ export default function DashboardSettingsPage() {
     const handleDeleteWidget = async (id: string) => {
       if (!firestore) return;
       try {
-        await deleteDoc(doc(firestore, 'goals', id));
-        // TODO: Also delete associated sales/profit records in subcollection
-        toast({ title: "成功", description: "ウィジェットを削除しました。" });
+        const goalRef = doc(firestore, 'goals', id);
+        const subcollectionNames = ['salesRecords', 'profitRecords', 'customerRecords', 'projectComplianceRecords'];
+        
+        // Firestore doesn't support deleting subcollections directly from the client.
+        // We need to delete all documents within each subcollection first.
+        for (const subcollectionName of subcollectionNames) {
+            const subcollectionRef = collection(goalRef, subcollectionName);
+            const subcollectionSnapshot = await getDocs(subcollectionRef);
+            if (!subcollectionSnapshot.empty) {
+                const deleteBatch = writeBatch(firestore);
+                subcollectionSnapshot.docs.forEach(doc => {
+                    deleteBatch.delete(doc.ref);
+                });
+                await deleteBatch.commit();
+            }
+        }
+
+        // After all subcollections are cleared, delete the main goal document.
+        await deleteDoc(goalRef);
+        
+        toast({ title: "成功", description: "ウィジェットと関連データを削除しました。" });
+
       } catch (error) {
-        console.error("Error deleting widget:", error);
+        console.error("Error deleting widget and its subcollections:", error);
         toast({ title: "エラー", description: "ウィジェットの削除に失敗しました。", variant: 'destructive' });
       }
     };
@@ -1297,5 +1316,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-
-    
