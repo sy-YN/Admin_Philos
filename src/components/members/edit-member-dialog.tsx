@@ -137,7 +137,7 @@ export function EditMemberDialog({ member, organizations, onSuccess, children, o
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <form onSubmit={handleEditMember}>
           <DialogHeader>
             <DialogTitle>メンバー情報を編集</DialogTitle>

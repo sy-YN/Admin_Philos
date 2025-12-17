@@ -71,7 +71,7 @@ export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogPro
       return;
     }
     
-    const requiredFields = [displayName, email, password, employeeId, organizationId];
+    const requiredFields = [displayName, email, password];
     if (!isFirstAdmin) {
         requiredFields.push(role);
     }
@@ -163,7 +163,7 @@ export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogPro
       <DialogTrigger asChild>
         {triggerButton}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <form onSubmit={handleAddMember}>
           <DialogHeader>
             <DialogTitle>{isFirstAdmin ? '最初の管理者アカウントを作成' : '新しいメンバーを追加'}</DialogTitle>
@@ -265,7 +265,7 @@ export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogPro
                   id="isGoalManager"
                   checked={isGoalManager}
                   onCheckedChange={(checked) => setIsGoalManager(!!checked)}
-                  disabled={isLoading}
+                  disabled={isLoading || !organizationId}
                 />
                 <Label htmlFor="isGoalManager" className="text-sm font-normal">
                   所属組織の目標管理者に設定する
