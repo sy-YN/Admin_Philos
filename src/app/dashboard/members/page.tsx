@@ -1,7 +1,7 @@
 
 'use client';
-import { useMemo } from 'react';
-import { File, Search, Upload } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import { File, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,42 +10,66 @@ import { AddMemberDialog } from '@/components/members/add-member-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import type { Member } from '@/types/member';
+import type { Organization } from '@/types/organization';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns-tz';
 import { ImportMembersDialog } from '@/components/members/import-members-dialog';
-
-const PREDEFINED_DEPARTMENTS = [
-  '人材開発G',
-  '営業事務G',
-  '第1事業部3SEシステム部',
-  '第2事業部3SEシステム部',
-  '営業部',
-];
 
 export default function MembersPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+
+  const [searchTerm, setSearchTerm] = useState('');
   
   const membersQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
   }, [firestore, user]);
 
-  const { data: members, isLoading } = useCollection<Member>(membersQuery);
+  const organizationsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'organizations'));
+  }, [firestore]);
 
-  const { companyOptions, departmentOptions } = useMemo(() => {
-    if (!members) {
-      return { companyOptions: [], departmentOptions: [] };
+  const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(membersQuery);
+  const { data: organizations, isLoading: isLoadingOrgs } = useCollection<Organization>(organizationsQuery);
+
+  const filteredMembers = useMemo(() => {
+    if (!members) return [];
+    if (!searchTerm) return members;
+
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return members.filter(member => 
+      member.displayName.toLowerCase().includes(lowercasedTerm) ||
+      member.email.toLowerCase().includes(lowercasedTerm)
+    );
+  }, [members, searchTerm]);
+
+  const { organizationOptions, organizationsMap } = useMemo(() => {
+    if (!organizations) {
+      return { organizationOptions: [], organizationsMap: new Map() };
     }
-    const companies = new Set(members.map(m => m.company).filter(Boolean));
-    const departments = new Set([...PREDEFINED_DEPARTMENTS, ...members.map(m => m.department).filter(Boolean)]);
+    const orgMap = new Map(organizations.map(o => [o.id, o]));
+    
+    const getOrgPath = (orgId: string): string => {
+        let path = '';
+        let current = orgMap.get(orgId);
+        while(current) {
+            path = current.name + (path ? ` > ${path}` : '');
+            current = current.parentId ? orgMap.get(current.parentId) : undefined;
+        }
+        return path;
+    }
+    
+    const options = organizations.map(org => ({
+        value: org.id,
+        label: getOrgPath(org.id)
+    })).sort((a,b) => a.label.localeCompare(b.label));
 
-    return {
-      companyOptions: Array.from(companies).map(c => ({ value: c as string, label: c as string})),
-      departmentOptions: Array.from(departments).map(d => ({ value: d as string, label: d as string })),
-    };
-  }, [members]);
+    return { organizationOptions: options, organizationsMap: orgMap };
+  }, [organizations]);
+
 
   const handleExport = () => {
     if (!members || members.length === 0) {
@@ -57,7 +81,7 @@ export default function MembersPage() {
       return;
     }
 
-    const headers = ['uid', 'displayName', 'email', 'role', 'employeeId', 'company', 'department', 'createdAt', 'updatedAt'];
+    const headers = ['uid', 'displayName', 'email', 'role', 'employeeId', 'organizationId', 'createdAt', 'updatedAt'];
     const headerString = headers.join(',');
 
     const replacer = (key: string, value: any) => value === null || value === undefined ? '' : value;
@@ -75,8 +99,7 @@ export default function MembersPage() {
         email: row.email,
         role: row.role,
         employeeId: row.employeeId || '',
-        company: row.company || '',
-        department: row.department || '',
+        organizationId: row.organizationId || '',
         createdAt: formatTimestamp(row.createdAt),
         updatedAt: formatTimestamp(row.updatedAt)
       };
@@ -102,6 +125,7 @@ export default function MembersPage() {
       });
   };
 
+  const isLoading = isLoadingMembers || isLoadingOrgs;
 
   return (
     <>
@@ -115,7 +139,7 @@ export default function MembersPage() {
               エクスポート
             </span>
           </Button>
-          <AddMemberDialog companyOptions={companyOptions} departmentOptions={departmentOptions} />
+          <AddMemberDialog organizationOptions={organizationOptions} />
         </div>
       </div>
       
@@ -127,11 +151,21 @@ export default function MembersPage() {
           </CardDescription>
           <div className="relative mt-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="名前やメールアドレスで検索..." className="pl-10 max-w-sm" />
+              <Input 
+                placeholder="名前やメールアドレスで検索..." 
+                className="pl-10 max-w-sm" 
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
           </div>
         </CardHeader>
         <CardContent>
-          <MembersTable members={members || []} isLoading={isLoading} companyOptions={companyOptions} departmentOptions={departmentOptions}/>
+          <MembersTable 
+            members={filteredMembers} 
+            isLoading={isLoading} 
+            organizationOptions={organizationOptions}
+            organizationsMap={organizationsMap}
+          />
         </CardContent>
       </Card>
     </>

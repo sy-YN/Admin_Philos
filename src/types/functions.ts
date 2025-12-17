@@ -5,7 +5,7 @@ import type { Member } from './member';
  * The data required to create a new user, typically from a CSV row.
  * Includes the password which is only used for creation and not stored in Firestore.
  */
-export type NewUserPayload = Pick<Member, 'email' | 'displayName' | 'employeeId' | 'company' | 'department' | 'role'> & {
+export type NewUserPayload = Pick<Member, 'email' | 'displayName' | 'employeeId' | 'organizationId' | 'role'> & {
   password?: string;
 };
 
@@ -22,6 +22,7 @@ export interface BatchImportUsersRequest {
 export interface UserImportResult {
   email: string;
   success: boolean;
+  uid?: string;
   error?: string;
 }
 

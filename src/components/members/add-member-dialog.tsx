@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -15,20 +16,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, UserPlus } from 'lucide-react';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth, useFirestore } from '@/firebase';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Combobox } from '../ui/combobox';
 import type { NewUserPayload } from '@/types/functions';
+import { Checkbox } from '../ui/checkbox';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 interface AddMemberDialogProps {
-  companyOptions?: { value: string; label: string }[];
-  departmentOptions?: { value: string; label: string }[];
+  organizationOptions?: { value: string; label: string }[];
 }
 
-export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }: AddMemberDialogProps) {
+export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogProps) {
   const { user } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
   
   const [open, setOpen] = useState(false);
@@ -38,9 +41,9 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
-  const [company, setCompany] = useState('');
-  const [department, setDepartment] = useState('');
+  const [organizationId, setOrganizationId] = useState('');
   const [role, setRole] = useState<Member['role'] | ''>('');
+  const [isGoalManager, setIsGoalManager] = useState(false);
   
   const isFirstAdmin = !user;
   
@@ -49,16 +52,16 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
       setPassword('');
       setDisplayName('');
       setEmployeeId('');
-      setCompany('');
-      setDepartment('');
+      setOrganizationId('');
       setRole('');
+      setIsGoalManager(false);
   }
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    if (!auth) {
+    if (!auth || !firestore) {
       toast({
         title: 'エラー',
         description: 'システムが初期化されていません。',
@@ -68,7 +71,7 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
       return;
     }
     
-    const requiredFields = [displayName, email, password, employeeId, company, department];
+    const requiredFields = [displayName, email, password, employeeId, organizationId];
     if (!isFirstAdmin) {
         requiredFields.push(role);
     }
@@ -88,13 +91,10 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
       displayName,
       role: (isFirstAdmin ? 'admin' : role) as Member['role'],
       employeeId,
-      company,
-      department,
+      organizationId,
     };
 
     try {
-      // Use the existing batch import API route to create a single user.
-      // This is more secure and robust than creating the user on the client.
       const response = await fetch('/api/batchImportUsers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,6 +105,17 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
 
       if (!response.ok || result.errorCount > 0) {
         throw new Error(result.results[0]?.error || '不明なサーバーエラーが発生しました。');
+      }
+
+      // Check if the new user needs to be a goal manager
+      if (isGoalManager && organizationId) {
+        const createdUserUid = result.results[0]?.uid;
+        if (createdUserUid) {
+          const orgRef = doc(firestore, 'organizations', organizationId);
+          await updateDoc(orgRef, {
+            managerUids: arrayUnion(createdUserUid)
+          });
+        }
       }
 
       toast({
@@ -205,27 +216,14 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="company" className="text-right">所属会社</Label>
+              <Label htmlFor="organization" className="text-right">所属組織</Label>
               <Combobox
-                  options={companyOptions}
-                  value={company}
-                  onChange={setCompany}
-                  placeholder="会社を選択・入力..."
-                  searchPlaceholder="会社を検索..."
-                  emptyResultText="会社が見つかりません。"
-                  className="col-span-3"
-                  disabled={isLoading}
-                />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="department" className="text-right">所属部署</Label>
-              <Combobox
-                  options={departmentOptions}
-                  value={department}
-                  onChange={setDepartment}
-                  placeholder="部署を選択・入力..."
-                  searchPlaceholder="部署を検索..."
-                  emptyResultText="部署が見つかりません。"
+                  options={organizationOptions}
+                  value={organizationId}
+                  onChange={setOrganizationId}
+                  placeholder="組織を選択..."
+                  searchPlaceholder="組織を検索..."
+                  emptyResultText="組織が見つかりません。"
                   className="col-span-3"
                   disabled={isLoading}
                 />
@@ -261,6 +259,19 @@ export function AddMemberDialog({ companyOptions = [], departmentOptions = [] }:
                 </>
               )}
             </div>
+            {!isFirstAdmin && (
+              <div className="col-start-2 col-span-3 flex items-center space-x-2">
+                <Checkbox
+                  id="isGoalManager"
+                  checked={isGoalManager}
+                  onCheckedChange={(checked) => setIsGoalManager(!!checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="isGoalManager" className="text-sm font-normal">
+                  所属組織の目標管理者に設定する
+                </Label>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isLoading}>

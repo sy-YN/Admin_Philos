@@ -5,8 +5,11 @@ export type Member = {
   displayName: string;
   email: string;
   employeeId?: string;
+  /** @deprecated Use organizationId instead */
   company?: string;
+  /** @deprecated Use organizationId instead */
   department?: string;
+  organizationId?: string | null;
   avatarUrl?: string;
   role: 'admin' | 'executive' | 'manager' | 'employee';
   createdAt: Timestamp | Date;

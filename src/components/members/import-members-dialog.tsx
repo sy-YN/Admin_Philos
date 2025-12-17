@@ -25,7 +25,7 @@ import type { NewUserPayload, UserImportResult, BatchImportUsersResponse } from 
 // CSVで必須のヘッダーを定義
 const REQUIRED_HEADERS: (keyof NewUserPayload)[] = ['email', 'password', 'displayName', 'role'];
 // オプションのヘッダーを定義
-const OPTIONAL_HEADERS: (keyof NewUserPayload)[] = ['employeeId', 'company', 'department'];
+const OPTIONAL_HEADERS: (keyof NewUserPayload)[] = ['employeeId', 'organizationId'];
 const ALL_VALID_HEADERS = [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS];
 const VALID_ROLES = ['admin', 'executive', 'manager', 'employee'];
 
@@ -175,7 +175,7 @@ export function ImportMembersDialog() {
                 <span className="font-bold">任意:</span> {OPTIONAL_HEADERS.join(', ')}
               </p>
                <p className="mt-2">
-                `role`には `{VALID_ROLES.join(', ')}` のいずれかを指定してください。
+                `role`には `{VALID_ROLES.join(', ')}` のいずれかを指定してください。`organizationId` は組織管理ページからエクスポートしたIDを使用してください。
               </p>
             </AlertDescription>
           </Alert>
@@ -231,5 +231,3 @@ export function ImportMembersDialog() {
     </Dialog>
   );
 }
-
-    

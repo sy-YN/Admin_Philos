@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,21 +16,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Combobox } from '../ui/combobox';
+import { Checkbox } from '../ui/checkbox';
+import type { Organization } from '@/types/organization';
 
 interface EditMemberDialogProps {
   member: Member;
+  organizations: Organization[];
   onSuccess?: () => void;
   children: React.ReactNode;
-  companyOptions: { value: string; label: string }[];
-  departmentOptions: { value: string; label: string }[];
+  organizationOptions: { value: string; label: string }[];
 }
 
-export function EditMemberDialog({ member, onSuccess, children, companyOptions, departmentOptions }: EditMemberDialogProps) {
+export function EditMemberDialog({ member, organizations, onSuccess, children, organizationOptions }: EditMemberDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -37,10 +40,29 @@ export function EditMemberDialog({ member, onSuccess, children, companyOptions, 
 
   const [displayName, setDisplayName] = useState(member.displayName);
   const [employeeId, setEmployeeId] = useState(member.employeeId || '');
-  const [company, setCompany] = useState(member.company || '');
-  const [department, setDepartment] = useState(member.department || '');
+  const [organizationId, setOrganizationId] = useState(member.organizationId || '');
   const [role, setRole] = useState<Member['role']>(member.role);
+  const [isGoalManager, setIsGoalManager] = useState(false);
+  
+  const originalOrganizationId = member.organizationId;
 
+  useEffect(() => {
+    if (open) {
+      // Reset state when dialog opens
+      setDisplayName(member.displayName);
+      setEmployeeId(member.employeeId || '');
+      setOrganizationId(member.organizationId || '');
+      setRole(member.role);
+      
+      // Check if user is a manager of their current organization
+      if (member.organizationId) {
+        const org = organizations.find(o => o.id === member.organizationId);
+        setIsGoalManager(org?.managerUids.includes(member.uid) || false);
+      } else {
+        setIsGoalManager(false);
+      }
+    }
+  }, [open, member, organizations]);
 
   const handleEditMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,16 +81,36 @@ export function EditMemberDialog({ member, onSuccess, children, companyOptions, 
     const userDocRef = doc(firestore, 'users', member.uid);
 
     try {
-      const updatedData = {
+      const updatedData: Partial<Member> = {
         displayName,
         employeeId,
-        company,
-        department,
+        organizationId: organizationId || null,
         role,
         updatedAt: serverTimestamp(),
       };
       
       await updateDoc(userDocRef, updatedData);
+
+      // Handle goal manager status change
+      const currentOrg = organizations.find(o => o.id === organizationId);
+      const isCurrentlyManager = currentOrg?.managerUids.includes(member.uid) || false;
+
+      // Case 1: Was manager, now is not
+      if (isCurrentlyManager && !isGoalManager) {
+        await updateDoc(doc(firestore, 'organizations', organizationId), { managerUids: arrayRemove(member.uid) });
+      }
+      // Case 2: Was not manager, now is
+      else if (!isCurrentlyManager && isGoalManager && organizationId) {
+        await updateDoc(doc(firestore, 'organizations', organizationId), { managerUids: arrayUnion(member.uid) });
+      }
+
+      // Case 3: Organization changed, remove from old org's manager list
+      if (originalOrganizationId && originalOrganizationId !== organizationId) {
+        const oldOrg = organizations.find(o => o.id === originalOrganizationId);
+        if (oldOrg?.managerUids.includes(member.uid)) {
+            await updateDoc(doc(firestore, 'organizations', originalOrganizationId), { managerUids: arrayRemove(member.uid) });
+        }
+      }
 
       toast({
         title: '成功',
@@ -142,31 +184,16 @@ export function EditMemberDialog({ member, onSuccess, children, companyOptions, 
               />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="company" className="text-right">
-                所属会社
+              <Label htmlFor="organization" className="text-right">
+                所属組織
               </Label>
               <Combobox
-                  options={companyOptions}
-                  value={company}
-                  onChange={setCompany}
-                  placeholder="会社を選択・入力..."
-                  searchPlaceholder="会社を検索..."
-                  emptyResultText="会社が見つかりません。"
-                  className="col-span-3"
-                  disabled={isLoading}
-                />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="department" className="text-right">
-                所属部署
-              </Label>
-              <Combobox
-                  options={departmentOptions}
-                  value={department}
-                  onChange={setDepartment}
-                  placeholder="部署を選択・入力..."
-                  searchPlaceholder="部署を検索..."
-                  emptyResultText="部署が見つかりません。"
+                  options={organizationOptions}
+                  value={organizationId}
+                  onChange={setOrganizationId}
+                  placeholder="組織を選択..."
+                  searchPlaceholder="組織を検索..."
+                  emptyResultText="組織が見つかりません。"
                   className="col-span-3"
                   disabled={isLoading}
                 />
@@ -191,6 +218,17 @@ export function EditMemberDialog({ member, onSuccess, children, companyOptions, 
                   </SelectContent>
                 </Select>
             </div>
+            <div className="col-start-2 col-span-3 flex items-center space-x-2">
+                <Checkbox
+                    id="isGoalManager"
+                    checked={isGoalManager}
+                    onCheckedChange={(checked) => setIsGoalManager(!!checked)}
+                    disabled={isLoading || !organizationId}
+                />
+                <Label htmlFor="isGoalManager" className="text-sm font-normal">
+                    所属組織の目標管理者に設定する
+                </Label>
+              </div>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isLoading}>

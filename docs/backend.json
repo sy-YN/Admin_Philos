@@ -21,11 +21,15 @@
         },
         "company": {
           "type": "string",
-          "description": "The company the user belongs to."
+          "description": "The company the user belongs to. Deprecated in favor of organizationId."
         },
         "department": {
           "type": "string",
-          "description": "The department the user belongs to."
+          "description": "The department the user belongs to. Deprecated in favor of organizationId."
+        },
+        "organizationId": {
+          "type": ["string", "null"],
+          "description": "A reference to the ID of the organization (company, department, etc.) the user belongs to in the 'organizations' collection."
         },
         "email": {
           "type": "string",
@@ -65,6 +69,37 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "Organization": {
+      "title": "Organization",
+      "description": "Represents a hierarchical organizational unit like a company, division, or department.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the organizational unit."
+        },
+        "parentId": {
+          "type": ["string", "null"],
+          "description": "The ID of the parent unit. Null for top-level organizations (e.g., the holding company)."
+        },
+        "managerUids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "An array of user UIDs who are designated as managers for this organization's goals."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "parentId", "managerUids", "createdAt", "updatedAt"]
     },
     "ExecutiveMessage": {
       "title": "Executive Message",
@@ -418,6 +453,12 @@
         "$ref": "#/entities/User"
       },
       "description": "Stores profile information for each user, keyed by their Firebase Auth UID."
+    },
+    "/organizations/{organizationId}": {
+      "schema": {
+        "$ref": "#/entities/Organization"
+      },
+      "description": "Stores all organizational units in a flat structure, enabling hierarchical representation via parentId."
     },
     "/executiveMessages/{messageId}": {
       "schema": {

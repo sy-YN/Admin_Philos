@@ -32,27 +32,44 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { Member } from '@/types/member';
+import type { Organization } from '@/types/organization';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { useFirestore, useUser } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { EditMemberDialog } from './edit-member-dialog';
 
 interface MembersTableProps {
   members: Member[];
   isLoading: boolean;
-  companyOptions: { value: string; label: string }[];
-  departmentOptions: { value: string; label: string }[];
+  organizationOptions: { value: string; label: string }[];
+  organizationsMap: Map<string, Organization>;
 }
 
 const getBadgeVariantForRole = (role: Member['role']): 'default' | 'secondary' | 'destructive' | 'outline' => {
-  return 'secondary';
+  switch (role) {
+    case 'admin':
+      return 'destructive';
+    case 'executive':
+      return 'default';
+    case 'manager':
+      return 'secondary';
+    default:
+      return 'outline';
+  }
 };
 
 
 // Separate component for the row to manage its own state
-function MemberTableRow({ member, companyOptions, departmentOptions }: { member: Member, companyOptions: {value: string, label: string}[], departmentOptions: {value: string, label: string}[] }) {
+function MemberTableRow({ 
+    member, 
+    organizationOptions, 
+    organizationsMap
+}: { 
+    member: Member, 
+    organizationOptions: {value: string, label: string}[],
+    organizationsMap: Map<string, Organization> 
+}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { toast } = useToast();
   const { user: currentUser } = useUser();
@@ -100,6 +117,7 @@ function MemberTableRow({ member, companyOptions, departmentOptions }: { member:
   };
 
   const isCurrentUser = currentUser?.uid === member.uid;
+  const organizationName = member.organizationId ? organizationsMap.get(member.organizationId)?.name : '未所属';
 
   return (
     <TableRow>
@@ -111,10 +129,7 @@ function MemberTableRow({ member, companyOptions, departmentOptions }: { member:
         {member.employeeId || 'N/A'}
       </TableCell>
        <TableCell className="hidden md:table-cell">
-        {member.company || 'N/A'}
-      </TableCell>
-      <TableCell className="hidden lg:table-cell">
-        {member.department || 'N/A'}
+        {organizationName}
       </TableCell>
       <TableCell>
         <Badge variant={getBadgeVariantForRole(member.role)}>{member.role}</Badge>
@@ -132,7 +147,12 @@ function MemberTableRow({ member, companyOptions, departmentOptions }: { member:
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>操作</DropdownMenuLabel>
-            <EditMemberDialog member={member} onSuccess={() => setIsMenuOpen(false)} companyOptions={companyOptions} departmentOptions={departmentOptions}>
+            <EditMemberDialog 
+                member={member} 
+                onSuccess={() => setIsMenuOpen(false)} 
+                organizationOptions={organizationOptions}
+                organizations={Array.from(organizationsMap.values())}
+             >
               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                 編集
               </DropdownMenuItem>
@@ -173,7 +193,7 @@ function MemberTableRow({ member, companyOptions, departmentOptions }: { member:
 }
 
 
-export function MembersTable({ members, isLoading, companyOptions, departmentOptions }: MembersTableProps) {
+export function MembersTable({ members, isLoading, organizationOptions, organizationsMap }: MembersTableProps) {
   
   if (isLoading) {
     return (
@@ -197,8 +217,7 @@ export function MembersTable({ members, isLoading, companyOptions, departmentOpt
         <TableRow>
           <TableHead>氏名/メール</TableHead>
           <TableHead className="hidden sm:table-cell">社員番号</TableHead>
-          <TableHead className="hidden md:table-cell">所属会社</TableHead>
-          <TableHead className="hidden lg:table-cell">所属部署</TableHead>
+          <TableHead className="hidden md:table-cell">所属組織</TableHead>
           <TableHead>権限</TableHead>
           <TableHead className="hidden md:table-cell">登録日</TableHead>
           <TableHead>
@@ -211,8 +230,8 @@ export function MembersTable({ members, isLoading, companyOptions, departmentOpt
           <MemberTableRow 
             key={member.uid} 
             member={member} 
-            companyOptions={companyOptions}
-            departmentOptions={departmentOptions}
+            organizationOptions={organizationOptions}
+            organizationsMap={organizationsMap}
           />
         ))}
       </TableBody>
