@@ -45,11 +45,10 @@ export function Combobox({
 
   const selectedLabel = React.useMemo(() => {
     const fullLabel = options.find(option => option.value === value)?.label || "";
-    if (!fullLabel) return "";
-    // Display only the last part of the hierarchy after selection
+    if (!fullLabel) return placeholder;
     const parts = fullLabel.split(' > ');
     return parts[parts.length - 1];
-  }, [options, value]);
+  }, [options, value, placeholder]);
 
   const handleSelect = (currentValue: string) => {
     onChange(currentValue === value ? "" : currentValue)
@@ -72,7 +71,7 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[var(--radix-popover-content-available-height)] p-0">
         <Command>
           <CommandInput placeholder={searchPlaceholder || "検索..."} />
           <CommandList>
