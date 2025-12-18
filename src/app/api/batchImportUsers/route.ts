@@ -10,6 +10,7 @@ import type {
   BatchImportUsersResponse,
 } from '@/types/functions';
 import type { Member } from '@/types/member';
+import type { Organization } from '@/types/organization';
 
 // Helper function to initialize Firebase Admin SDK using the recommended method
 const initializeAdminApp = () => {
@@ -30,6 +31,22 @@ const initializeAdminApp = () => {
 
 const VALID_ROLES: Member['role'][] = ['admin', 'executive', 'manager', 'employee'];
 
+const findCompanyName = (orgId: string, orgsMap: Map<string, Organization>): string => {
+    let currentOrg = orgsMap.get(orgId);
+    while (currentOrg) {
+        if (currentOrg.type === 'company' || currentOrg.type === 'holding') {
+            return currentOrg.name;
+        }
+        if (!currentOrg.parentId) {
+            // Reached the top without finding a company/holding, return own name as fallback
+            return orgsMap.get(orgId)?.name || '';
+        }
+        currentOrg = orgsMap.get(currentOrg.parentId);
+    }
+    return ''; // Should not happen if data is consistent
+};
+
+
 export async function POST(req: Request) {
   try {
     // Initialize Firebase Admin on each request
@@ -43,6 +60,13 @@ export async function POST(req: Request) {
     if (!users || !Array.isArray(users)) {
       return NextResponse.json({ error: 'Invalid request body. "users" array is required.' }, { status: 400 });
     }
+
+    // Fetch all organizations to build the hierarchy map
+    const organizationsSnapshot = await db.collection('organizations').get();
+    const organizationsMap = new Map<string, Organization>();
+    organizationsSnapshot.forEach(doc => {
+      organizationsMap.set(doc.id, { id: doc.id, ...doc.data() } as Organization);
+    });
 
     const importPromises = users.map(async (user: NewUserPayload): Promise<UserImportResult> => {
       try {
@@ -62,27 +86,33 @@ export async function POST(req: Request) {
           emailVerified: true,
         });
 
-        // 3. Prepare user data for Firestore
+        // 3. Determine company name
+        const companyName = user.organizationId
+          ? findCompanyName(user.organizationId, organizationsMap)
+          : '';
+
+
+        // 4. Prepare user data for Firestore
         const userDocRef = db.collection('users').doc(userRecord.uid);
         const avatarUrl = `https://picsum.photos/seed/${userRecord.uid}/100/100`;
 
-        const firestoreData = {
+        const firestoreData: Omit<Member, 'createdAt' | 'updatedAt'> & { createdAt: any, updatedAt: any } = {
           uid: userRecord.uid,
           email: user.email,
           displayName: user.displayName,
           role: user.role,
           employeeId: user.employeeId || '',
-          company: user.company || '',
-          department: user.department || '',
+          organizationId: user.organizationId || null,
+          company: companyName, // Set the determined company name
           avatarUrl: avatarUrl,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
-        // 4. Save user data to Firestore
+        // 5. Save user data to Firestore
         await userDocRef.set(firestoreData);
         
-        return { email: user.email, success: true };
+        return { email: user.email, success: true, uid: userRecord.uid };
 
       } catch (error: any) {
         let errorMessage = error.message || '不明なエラーが発生しました。';

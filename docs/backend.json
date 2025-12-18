@@ -21,15 +21,15 @@
         },
         "company": {
           "type": "string",
-          "description": "The company the user belongs to. Deprecated in favor of organizationId."
+          "description": "The company the user belongs to. Auto-populated from the organization hierarchy."
         },
         "department": {
           "type": "string",
           "description": "The department the user belongs to. Deprecated in favor of organizationId."
         },
         "organizationId": {
-          "type": ["string", "null"],
-          "description": "A reference to the ID of the organization (company, department, etc.) the user belongs to in the 'organizations' collection."
+          "type": "string",
+          "description": "A reference to the ID of the organization (department, etc.) the user belongs to in the 'organizations' collection."
         },
         "email": {
           "type": "string",
@@ -66,6 +66,8 @@
         "email",
         "displayName",
         "role",
+        "organizationId",
+        "company",
         "createdAt",
         "updatedAt"
       ]

@@ -32,6 +32,21 @@ interface EditMemberDialogProps {
   organizationOptions: { value: string; label: string }[];
 }
 
+const findCompanyName = (orgId: string, orgs: Organization[]): string => {
+    const orgsMap = new Map(orgs.map(o => [o.id, o]));
+    let currentOrg = orgsMap.get(orgId);
+    while (currentOrg) {
+        if (currentOrg.type === 'company' || currentOrg.type === 'holding') {
+            return currentOrg.name;
+        }
+        if (!currentOrg.parentId) {
+            return orgsMap.get(orgId)?.name || '';
+        }
+        currentOrg = orgsMap.get(currentOrg.parentId);
+    }
+    return '';
+};
+
 export function EditMemberDialog({ member, organizations, onSuccess, children, organizationOptions }: EditMemberDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,10 +96,13 @@ export function EditMemberDialog({ member, organizations, onSuccess, children, o
     const userDocRef = doc(firestore, 'users', member.uid);
 
     try {
-      const updatedData: Partial<Member> = {
+      const companyName = organizationId ? findCompanyName(organizationId, organizations) : '';
+
+      const updatedData: Partial<Member> & { updatedAt: any } = {
         displayName,
         employeeId,
         organizationId: organizationId || null,
+        company: companyName, // Set company name based on new organization
         role,
         updatedAt: serverTimestamp(),
       };
