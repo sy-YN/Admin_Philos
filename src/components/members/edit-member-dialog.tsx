@@ -96,12 +96,15 @@ export function EditMemberDialog({ member, organizations, onSuccess, children }:
 
     try {
       const companyName = organizationId ? findCompanyName(organizationId, organizations) : '';
+      const departmentName = organizationId ? organizations.find(o => o.id === organizationId)?.name || '' : '';
+
 
       const updatedData: Partial<Omit<Member, 'createdAt' | 'updatedAt'>> & { updatedAt: any } = {
         displayName,
         employeeId,
         organizationId: organizationId || null,
         company: companyName, // Set company name based on new organization
+        department: departmentName, // Set department name based on new organization
         role,
         updatedAt: serverTimestamp(),
       };

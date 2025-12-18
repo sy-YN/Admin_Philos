@@ -86,9 +86,12 @@ export async function POST(req: Request) {
           emailVerified: true,
         });
 
-        // 3. Determine company name
+        // 3. Determine company and department names
         const companyName = user.organizationId
           ? findCompanyName(user.organizationId, organizationsMap)
+          : '';
+        const departmentName = user.organizationId
+          ? organizationsMap.get(user.organizationId)?.name || ''
           : '';
 
 
@@ -104,6 +107,7 @@ export async function POST(req: Request) {
           employeeId: user.employeeId || '',
           organizationId: user.organizationId || null,
           company: companyName, // Set the determined company name
+          department: departmentName, // Set the determined department name
           avatarUrl: avatarUrl,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
