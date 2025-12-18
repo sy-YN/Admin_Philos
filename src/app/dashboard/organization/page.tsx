@@ -55,7 +55,7 @@ function OrganizationDialog({
 }: {
   organization?: Organization;
   organizations: Organization[];
-  onSave: (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'managerUids'>>) => void;
+  onSave: (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'managerUids' | 'order'>>) => void;
   children: React.ReactNode;
   parentId?: string | null;
 }) {
@@ -156,10 +156,10 @@ function OrganizationNode({
   node: OrganizationWithChildren;
   allOrganizations: Organization[];
   level: number;
-  onEdit: (id: string, data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>>) => void;
+  onEdit: (id: string, data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'order'>>) => void;
   onDelete: (id: string) => void;
 }) {
-    const [isOpen, setIsOpen] = useState(level < 2); // Auto-expand first 2 levels
+    const [isOpen, setIsOpen] = useState(node.type === 'holding'); // Auto-expand only holding companies
     const hasChildren = node.children && node.children.length > 0;
     
     const {
@@ -370,7 +370,7 @@ export default function OrganizationPage() {
     setActiveId(null);
   }
   
-  const handleAddItem = async (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>>) => {
+  const handleAddItem = async (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'order'>>) => {
     if (!firestore || !organizations) return;
     
     const siblings = organizations.filter(o => o.parentId === data.parentId);
@@ -391,7 +391,7 @@ export default function OrganizationPage() {
     }
   };
 
-  const handleEditItem = async (id: string, data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>>) => {
+  const handleEditItem = async (id: string, data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'order'>>) => {
     if (!firestore) return;
     try {
       const itemRef = doc(firestore, 'organizations', id);
