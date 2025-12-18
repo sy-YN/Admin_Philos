@@ -44,7 +44,11 @@ export function Combobox({
   const [open, setOpen] = React.useState(false)
 
   const selectedLabel = React.useMemo(() => {
-    return options.find(option => option.value === value)?.label || "";
+    const fullLabel = options.find(option => option.value === value)?.label || "";
+    if (!fullLabel) return "";
+    // Display only the last part of the hierarchy after selection
+    const parts = fullLabel.split(' > ');
+    return parts[parts.length - 1];
   }, [options, value]);
 
   const handleSelect = (currentValue: string) => {
