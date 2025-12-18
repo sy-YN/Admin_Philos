@@ -51,22 +51,35 @@ export default function MembersPage() {
       return { organizationOptions: [], organizationsMap: new Map() };
     }
     const orgMap = new Map(organizations.map(o => [o.id, o]));
-    
-    const getOrgPath = (orgId: string): string => {
-        let path = '';
-        let current = orgMap.get(orgId);
-        while(current) {
-            path = current.name + (path ? ` > ${path}` : '');
-            current = current.parentId ? orgMap.get(current.parentId) : undefined;
-        }
-        return path;
-    }
-    
-    const options = organizations.map(org => ({
-        value: org.id,
-        label: getOrgPath(org.id)
-    })).sort((a,b) => a.label.localeCompare(b.label));
+    const orgChildrenMap = new Map<string | null, Organization[]>();
 
+    organizations.forEach(org => {
+      const parentId = org.parentId || null;
+      if (!orgChildrenMap.has(parentId)) {
+        orgChildrenMap.set(parentId, []);
+      }
+      orgChildrenMap.get(parentId)!.push(org);
+    });
+
+    // Sort children by name at each level
+    for (const children of orgChildrenMap.values()) {
+        children.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    const options: { value: string; label: string }[] = [];
+    const buildOptionsRecursive = (parentId: string | null, depth: number, path: string) => {
+      const children = orgChildrenMap.get(parentId);
+      if (!children) return;
+
+      children.forEach(org => {
+        const currentPath = path ? `${path} > ${org.name}` : org.name;
+        options.push({ value: org.id, label: currentPath });
+        buildOptionsRecursive(org.id, depth + 1, currentPath);
+      });
+    };
+
+    buildOptionsRecursive(null, 0, '');
+    
     return { organizationOptions: options, organizationsMap: orgMap };
   }, [organizations]);
 
