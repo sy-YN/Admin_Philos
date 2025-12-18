@@ -3,7 +3,7 @@ import type { Timestamp } from 'firebase/firestore';
 /**
  * Represents the type of the organizational unit.
  */
-export type OrganizationType = 'holding' | 'company' | 'division' | 'department';
+export type OrganizationType = 'holding' | 'company' | 'department';
 
 /**
  * Represents a single organizational unit, which could be a

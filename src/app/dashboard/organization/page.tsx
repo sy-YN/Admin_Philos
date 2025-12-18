@@ -41,7 +41,6 @@ type OrganizationWithChildren = Organization & { children: OrganizationWithChild
 const orgTypeOptions: { value: OrganizationType, label: string, icon: React.FC<any> }[] = [
     { value: 'holding', label: '持株会社', icon: Landmark },
     { value: 'company', label: '事業会社', icon: Building2 },
-    { value: 'division', label: '事業部', icon: Building },
     { value: 'department', label: '部署', icon: Users },
 ];
 
