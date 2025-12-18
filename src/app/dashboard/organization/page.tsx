@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, writeBatch, where } from 'firebase/firestore';
-import type { Organization } from '@/types/organization';
-import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import type { Organization, OrganizationType } from '@/types/organization';
+import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, Building, Building2, Landmark, Users } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,13 @@ import { restrictToVerticalAxis, restrictToWindowEdges } from '@dnd-kit/modifier
 
 type OrganizationWithChildren = Organization & { children: OrganizationWithChildren[] };
 
+const orgTypeOptions: { value: OrganizationType, label: string, icon: React.FC<any> }[] = [
+    { value: 'holding', label: '持株会社', icon: Landmark },
+    { value: 'company', label: '事業会社', icon: Building2 },
+    { value: 'division', label: '事業部', icon: Building },
+    { value: 'department', label: '部署', icon: Users },
+];
+
 function OrganizationDialog({
   organization,
   organizations,
@@ -51,6 +58,7 @@ function OrganizationDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [type, setType] = useState<OrganizationType>('department');
   const [parentId, setParentId] = useState<string | null>(null);
 
   const parentOptions = useMemo(() => {
@@ -72,6 +80,7 @@ function OrganizationDialog({
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen) {
       setName(organization?.name || '');
+      setType(organization?.type || 'department');
       setParentId(organization?.parentId || null);
     }
     setOpen(isOpen);
@@ -82,7 +91,7 @@ function OrganizationDialog({
       alert('組織名は必須です。');
       return;
     }
-    onSave({ name, parentId });
+    onSave({ name, type, parentId });
     setOpen(false);
   };
 
@@ -97,6 +106,19 @@ function OrganizationDialog({
           <div className="grid gap-2">
             <Label htmlFor="org-name">組織名</Label>
             <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+           <div className="grid gap-2">
+            <Label htmlFor="org-type">種別</Label>
+            <Select value={type} onValueChange={(value) => setType(value as OrganizationType)}>
+              <SelectTrigger>
+                <SelectValue placeholder="種別を選択..." />
+              </SelectTrigger>
+              <SelectContent>
+                {orgTypeOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="org-parent">親組織</Label>
@@ -160,6 +182,8 @@ function OrganizationNode({
       transition,
       opacity: isDragging ? 0.5 : 1,
     };
+    
+    const TypeIcon = orgTypeOptions.find(o => o.value === node.type)?.icon || Building;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full" ref={setDraggableNodeRef} style={style}>
@@ -177,7 +201,8 @@ function OrganizationNode({
                     </Button>
                 </CollapsibleTrigger>
             ) : <div className="w-6"/>}
-             <div {...listeners} {...attributes} className="flex-1 cursor-grab flex items-center">
+             <div {...listeners} {...attributes} className="flex-1 cursor-grab flex items-center gap-2">
+                 <TypeIcon className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">{node.name}</span>
             </div>
         </div>

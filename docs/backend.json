@@ -79,6 +79,11 @@
           "type": "string",
           "description": "The name of the organizational unit."
         },
+        "type": {
+          "type": "string",
+          "description": "The type of the organizational unit.",
+          "enum": ["holding", "company", "division", "department"]
+        },
         "parentId": {
           "type": ["string", "null"],
           "description": "The ID of the parent unit. Null for top-level organizations (e.g., the holding company)."
@@ -99,7 +104,7 @@
           "format": "date-time"
         }
       },
-      "required": ["name", "parentId", "managerUids", "createdAt", "updatedAt"]
+      "required": ["name", "type", "parentId", "managerUids", "createdAt", "updatedAt"]
     },
     "ExecutiveMessage": {
       "title": "Executive Message",
