@@ -35,6 +35,7 @@ import {
 import { createPortal } from 'react-dom';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToWindowEdges } from '@dnd-kit/modifiers';
+import { OrganizationPicker } from '@/components/organization/organization-picker';
 
 
 type OrganizationWithChildren = Organization & { children: OrganizationWithChildren[] };
@@ -129,17 +130,12 @@ function OrganizationDialog({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="org-parent">親組織</Label>
-            <Select value={parentId || 'null'} onValueChange={(value) => setParentId(value === 'null' ? null : value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="親組織を選択..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="null">なし (トップレベル組織)</SelectItem>
-                {parentOptions.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <OrganizationPicker
+              organizations={parentOptions}
+              value={parentId || ''}
+              onChange={(value) => setParentId(value || null)}
+              placeholder="なし (トップレベル組織)"
+            />
           </div>
         </div>
         <DialogFooter>
