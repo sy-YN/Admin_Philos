@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -42,7 +41,7 @@ import { EditMemberDialog } from './edit-member-dialog';
 interface MembersTableProps {
   members: Member[];
   isLoading: boolean;
-  organizationOptions: { value: string; label: string }[];
+  organizations: Organization[];
   organizationsMap: Map<string, Organization>;
 }
 
@@ -63,11 +62,11 @@ const getBadgeVariantForRole = (role: Member['role']): 'default' | 'secondary' |
 // Separate component for the row to manage its own state
 function MemberTableRow({ 
     member, 
-    organizationOptions, 
+    organizations,
     organizationsMap
 }: { 
     member: Member, 
-    organizationOptions: {value: string, label: string}[],
+    organizations: Organization[],
     organizationsMap: Map<string, Organization> 
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -150,8 +149,7 @@ function MemberTableRow({
             <EditMemberDialog 
                 member={member} 
                 onSuccess={() => setIsMenuOpen(false)} 
-                organizationOptions={organizationOptions}
-                organizations={Array.from(organizationsMap.values())}
+                organizations={organizations}
              >
               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                 編集
@@ -193,7 +191,7 @@ function MemberTableRow({
 }
 
 
-export function MembersTable({ members, isLoading, organizationOptions, organizationsMap }: MembersTableProps) {
+export function MembersTable({ members, isLoading, organizations, organizationsMap }: MembersTableProps) {
   
   if (isLoading) {
     return (
@@ -230,7 +228,7 @@ export function MembersTable({ members, isLoading, organizationOptions, organiza
           <MemberTableRow 
             key={member.uid} 
             member={member} 
-            organizationOptions={organizationOptions}
+            organizations={organizations}
             organizationsMap={organizationsMap}
           />
         ))}

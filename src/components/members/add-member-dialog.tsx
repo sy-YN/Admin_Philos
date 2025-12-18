@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -16,19 +15,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, UserPlus } from 'lucide-react';
-import { useUser, useAuth, useFirestore } from '@/firebase';
+import { useUser, useAuth, useFirestore, useCollection } from '@/firebase';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Combobox } from '../ui/combobox';
+import { OrganizationPicker } from '../organization/organization-picker';
 import type { NewUserPayload } from '@/types/functions';
 import { Checkbox } from '../ui/checkbox';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import type { Organization } from '@/types/organization';
 
 interface AddMemberDialogProps {
   organizationOptions?: { value: string; label: string }[];
+  organizations?: Organization[];
 }
 
-export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogProps) {
+export function AddMemberDialog({ organizationOptions = [], organizations = [] }: AddMemberDialogProps) {
   const { user } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
@@ -213,13 +214,10 @@ export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogPro
             </div>
             <div className="grid gap-2">
               <Label htmlFor="organization">所属組織</Label>
-              <Combobox
-                  options={organizationOptions}
+               <OrganizationPicker
+                  organizations={organizations}
                   value={organizationId}
                   onChange={setOrganizationId}
-                  placeholder="組織を選択..."
-                  searchPlaceholder="組織を検索..."
-                  emptyResultText="組織が見つかりません。"
                   disabled={isLoading}
                 />
             </div>

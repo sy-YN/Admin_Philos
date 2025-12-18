@@ -1,4 +1,3 @@
-
 'use client';
 import { useMemo, useState, useEffect } from 'react';
 import { File, Search } from 'lucide-react';
@@ -152,7 +151,7 @@ export default function MembersPage() {
               エクスポート
             </span>
           </Button>
-          <AddMemberDialog organizationOptions={organizationOptions} />
+          <AddMemberDialog organizationOptions={organizationOptions} organizations={organizations || []} />
         </div>
       </div>
       
@@ -176,7 +175,7 @@ export default function MembersPage() {
           <MembersTable 
             members={filteredMembers} 
             isLoading={isLoading} 
-            organizationOptions={organizationOptions}
+            organizations={organizations || []}
             organizationsMap={organizationsMap}
           />
         </CardContent>

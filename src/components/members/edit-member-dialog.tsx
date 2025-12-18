@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,7 +19,7 @@ import { doc, updateDoc, serverTimestamp, getDoc, arrayUnion, arrayRemove } from
 import { useFirestore } from '@/firebase/provider';
 import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Combobox } from '../ui/combobox';
+import { OrganizationPicker } from '../organization/organization-picker';
 import { Checkbox } from '../ui/checkbox';
 import type { Organization } from '@/types/organization';
 
@@ -29,7 +28,6 @@ interface EditMemberDialogProps {
   organizations: Organization[];
   onSuccess?: () => void;
   children: React.ReactNode;
-  organizationOptions: { value: string; label: string }[];
 }
 
 const findCompanyName = (orgId: string, orgs: Organization[]): string => {
@@ -47,7 +45,7 @@ const findCompanyName = (orgId: string, orgs: Organization[]): string => {
     return '';
 };
 
-export function EditMemberDialog({ member, organizations, onSuccess, children, organizationOptions }: EditMemberDialogProps) {
+export function EditMemberDialog({ member, organizations, onSuccess, children }: EditMemberDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -202,13 +200,10 @@ export function EditMemberDialog({ member, organizations, onSuccess, children, o
               <Label htmlFor="organization">
                 所属組織
               </Label>
-              <Combobox
-                  options={organizationOptions}
+              <OrganizationPicker
+                  organizations={organizations}
                   value={organizationId}
                   onChange={setOrganizationId}
-                  placeholder="組織を選択..."
-                  searchPlaceholder="組織を検索..."
-                  emptyResultText="組織が見つかりません。"
                   disabled={isLoading}
                 />
             </div>
