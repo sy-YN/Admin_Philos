@@ -45,41 +45,12 @@ export default function MembersPage() {
     );
   }, [members, searchTerm]);
 
-  const { organizationOptions, organizationsMap } = useMemo(() => {
+  const { organizationsMap } = useMemo(() => {
     if (!organizations) {
-      return { organizationOptions: [], organizationsMap: new Map() };
+      return { organizationsMap: new Map() };
     }
     const orgMap = new Map(organizations.map(o => [o.id, o]));
-    const orgChildrenMap = new Map<string | null, Organization[]>();
-
-    organizations.forEach(org => {
-      const parentId = org.parentId || null;
-      if (!orgChildrenMap.has(parentId)) {
-        orgChildrenMap.set(parentId, []);
-      }
-      orgChildrenMap.get(parentId)!.push(org);
-    });
-
-    // Sort children by name at each level
-    for (const children of orgChildrenMap.values()) {
-        children.sort((a, b) => a.name.localeCompare(b.name));
-    }
-
-    const options: { value: string; label: string }[] = [];
-    const buildOptionsRecursive = (parentId: string | null, depth: number, path: string) => {
-      const children = orgChildrenMap.get(parentId);
-      if (!children) return;
-
-      children.forEach(org => {
-        const currentPath = path ? `${path} > ${org.name}` : org.name;
-        options.push({ value: org.id, label: currentPath });
-        buildOptionsRecursive(org.id, depth + 1, currentPath);
-      });
-    };
-
-    buildOptionsRecursive(null, 0, '');
-    
-    return { organizationOptions: options, organizationsMap: orgMap };
+    return { organizationsMap: orgMap };
   }, [organizations]);
 
 
@@ -93,7 +64,7 @@ export default function MembersPage() {
       return;
     }
 
-    const headers = ['uid', 'displayName', 'email', 'role', 'employeeId', 'organizationId', 'createdAt', 'updatedAt'];
+    const headers = ['uid', 'displayName', 'email', 'role', 'employeeId', 'organizationId', 'company', 'createdAt', 'updatedAt'];
     const headerString = headers.join(',');
 
     const replacer = (key: string, value: any) => value === null || value === undefined ? '' : value;
@@ -112,6 +83,7 @@ export default function MembersPage() {
         role: row.role,
         employeeId: row.employeeId || '',
         organizationId: row.organizationId || '',
+        company: row.company || '',
         createdAt: formatTimestamp(row.createdAt),
         updatedAt: formatTimestamp(row.updatedAt)
       };
@@ -151,7 +123,7 @@ export default function MembersPage() {
               エクスポート
             </span>
           </Button>
-          <AddMemberDialog organizationOptions={organizationOptions} organizations={organizations || []} />
+          <AddMemberDialog organizations={organizations || []} />
         </div>
       </div>
       

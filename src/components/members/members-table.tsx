@@ -131,6 +131,9 @@ function MemberTableRow({
        <TableCell className="hidden md:table-cell">
         {organizationName}
       </TableCell>
+       <TableCell className="hidden md:table-cell">
+        {member.company || '未設定'}
+      </TableCell>
       <TableCell>
         <Badge variant={getBadgeVariantForRole(member.role)}>{member.role}</Badge>
       </TableCell>
@@ -216,7 +219,8 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
         <TableRow>
           <TableHead>氏名/メール</TableHead>
           <TableHead className="hidden sm:table-cell">社員番号</TableHead>
-          <TableHead className="hidden md:table-cell">所属組織</TableHead>
+          <TableHead className="hidden md:table-cell">所属部署</TableHead>
+          <TableHead className="hidden md:table-cell">所属会社</TableHead>
           <TableHead>権限</TableHead>
           <TableHead className="hidden md:table-cell">登録日</TableHead>
           <TableHead>
