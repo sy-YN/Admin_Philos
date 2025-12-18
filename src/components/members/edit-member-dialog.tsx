@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -96,7 +97,7 @@ export function EditMemberDialog({ member, organizations, onSuccess, children }:
     try {
       const companyName = organizationId ? findCompanyName(organizationId, organizations) : '';
 
-      const updatedData: Partial<Member> & { updatedAt: any } = {
+      const updatedData: Partial<Omit<Member, 'createdAt' | 'updatedAt'>> & { updatedAt: any } = {
         displayName,
         employeeId,
         organizationId: organizationId || null,
