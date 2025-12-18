@@ -96,7 +96,7 @@ export function EditMemberDialog({ member, organizations, onSuccess, children, o
       const isCurrentlyManager = currentOrg?.managerUids.includes(member.uid) || false;
 
       // Case 1: Was manager, now is not
-      if (isCurrentlyManager && !isGoalManager) {
+      if (isCurrentlyManager && !isGoalManager && organizationId) {
         await updateDoc(doc(firestore, 'organizations', organizationId), { managerUids: arrayRemove(member.uid) });
       }
       // Case 2: Was not manager, now is
@@ -137,7 +137,7 @@ export function EditMemberDialog({ member, organizations, onSuccess, children, o
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleEditMember}>
           <DialogHeader>
             <DialogTitle>メンバー情報を編集</DialogTitle>
@@ -146,45 +146,42 @@ export function EditMemberDialog({ member, organizations, onSuccess, children, o
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
+             <div className="grid gap-2">
+              <Label htmlFor="email">
                 メール
               </Label>
               <Input
                 id="email"
                 type="email"
                 value={member.email}
-                className="col-span-3"
                 disabled
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="displayName" className="text-right">
+            <div className="grid gap-2">
+              <Label htmlFor="displayName">
                 氏名
               </Label>
               <Input
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="col-span-3"
                 required
                 disabled={isLoading}
               />
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="employeeId" className="text-right">
+             <div className="grid gap-2">
+              <Label htmlFor="employeeId">
                 社員番号
               </Label>
               <Input
                 id="employeeId"
                 value={employeeId}
                 onChange={(e) => setEmployeeId(e.target.value)}
-                className="col-span-3"
                 disabled={isLoading}
               />
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="organization" className="text-right">
+             <div className="grid gap-2">
+              <Label htmlFor="organization">
                 所属組織
               </Label>
               <Combobox
@@ -194,12 +191,11 @@ export function EditMemberDialog({ member, organizations, onSuccess, children, o
                   placeholder="組織を選択..."
                   searchPlaceholder="組織を検索..."
                   emptyResultText="組織が見つかりません。"
-                  className="col-span-3"
                   disabled={isLoading}
                 />
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">
+             <div className="grid gap-2">
+              <Label>
                 権限
               </Label>
                <Select
@@ -207,7 +203,7 @@ export function EditMemberDialog({ member, organizations, onSuccess, children, o
                   onValueChange={(value) => setRole(value as Member['role'])}
                   disabled={isLoading}
                 >
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger>
                     <SelectValue placeholder="権限を選択" />
                   </SelectTrigger>
                   <SelectContent>
@@ -218,7 +214,7 @@ export function EditMemberDialog({ member, organizations, onSuccess, children, o
                   </SelectContent>
                 </Select>
             </div>
-            <div className="col-start-2 col-span-3 flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
                 <Checkbox
                     id="isGoalManager"
                     checked={isGoalManager}

@@ -163,7 +163,7 @@ export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogPro
       <DialogTrigger asChild>
         {triggerButton}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleAddMember}>
           <DialogHeader>
             <DialogTitle>{isFirstAdmin ? '最初の管理者アカウントを作成' : '新しいメンバーを追加'}</DialogTitle>
@@ -172,51 +172,47 @@ export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogPro
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="displayName" className="text-right">氏名</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="displayName">氏名</Label>
               <Input
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="col-span-3"
                 disabled={isLoading}
               />
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">メール</Label>
+             <div className="grid gap-2">
+              <Label htmlFor="email">メール</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="col-span-3"
                 disabled={isLoading}
               />
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="password" className="text-right">パスワード</Label>
+             <div className="grid gap-2">
+              <Label htmlFor="password">パスワード</Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="col-span-3"
                 disabled={isLoading}
                 placeholder="6文字以上"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="employeeId" className="text-right">社員番号</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="employeeId">社員番号</Label>
               <Input
                 id="employeeId"
                 value={employeeId}
                 onChange={(e) => setEmployeeId(e.target.value)}
-                className="col-span-3"
                 disabled={isLoading}
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="organization" className="text-right">所属組織</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="organization">所属組織</Label>
               <Combobox
                   options={organizationOptions}
                   value={organizationId}
@@ -224,29 +220,24 @@ export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogPro
                   placeholder="組織を選択..."
                   searchPlaceholder="組織を検索..."
                   emptyResultText="組織が見つかりません。"
-                  className="col-span-3"
                   disabled={isLoading}
                 />
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
+             <div className="grid gap-2">
                {isFirstAdmin ? (
-                <>
-                  <Label className="text-right">権限</Label>
                   <Input
                     value="管理者 (admin)"
-                    className="col-span-3"
                     disabled
                   />
-                </>
               ) : (
                 <>
-                  <Label htmlFor="role" className="text-right">権限</Label>
+                  <Label htmlFor="role">権限</Label>
                   <Select
                     value={role}
                     onValueChange={(value) => setRole(value as Member['role'])}
                     disabled={isLoading}
                   >
-                    <SelectTrigger className="col-span-3">
+                    <SelectTrigger>
                       <SelectValue placeholder="権限を選択" />
                     </SelectTrigger>
                     <SelectContent>
@@ -260,7 +251,7 @@ export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogPro
               )}
             </div>
             {!isFirstAdmin && (
-              <div className="col-start-2 col-span-3 flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
                 <Checkbox
                   id="isGoalManager"
                   checked={isGoalManager}
