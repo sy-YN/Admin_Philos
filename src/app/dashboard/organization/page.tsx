@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
@@ -25,12 +24,12 @@ import {
   type DragEndEvent,
   DragOverlay,
   useDroppable,
-  useDraggable,
 } from '@dnd-kit/core';
 import {
   SortableContext,
   verticalListSortingStrategy,
   arrayMove,
+  useSortable,
 } from '@dnd-kit/sortable';
 import { createPortal } from 'react-dom';
 import { CSS } from '@dnd-kit/utilities';
@@ -159,17 +158,17 @@ function OrganizationNode({
   onEdit: (id: string, data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'order'>>) => void;
   onDelete: (id: string) => void;
 }) {
-    const [isOpen, setIsOpen] = useState(node.type === 'holding'); // Auto-expand only holding companies
+    const [isOpen, setIsOpen] = useState(node.type === 'holding');
     const hasChildren = node.children && node.children.length > 0;
     
     const {
       attributes,
       listeners,
-      setNodeRef: setDraggableNodeRef,
+      setNodeRef,
       transform,
       transition,
       isDragging,
-    } = useDraggable({
+    } = useSortable({
       id: node.id,
       data: { name: node.name, level },
     });
@@ -187,7 +186,7 @@ function OrganizationNode({
     const TypeIcon = orgTypeOptions.find(o => o.value === node.type)?.icon || Building;
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full" ref={setDraggableNodeRef} style={style}>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full" ref={setNodeRef} style={style}>
       <div 
         ref={setDroppableNodeRef} 
         className={cn(
@@ -233,16 +232,18 @@ function OrganizationNode({
       <CollapsibleContent>
          {hasChildren && (
             <div className="pl-4 border-l-2 ml-5">
-                {node.children.map(childNode => (
-                    <OrganizationNode
-                        key={childNode.id}
-                        node={childNode}
-                        allOrganizations={allOrganizations}
-                        level={level + 1}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                    />
-                ))}
+              <SortableContext items={node.children.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                  {node.children.map(childNode => (
+                      <OrganizationNode
+                          key={childNode.id}
+                          node={childNode}
+                          allOrganizations={allOrganizations}
+                          level={level + 1}
+                          onEdit={onEdit}
+                          onDelete={onDelete}
+                      />
+                  ))}
+                </SortableContext>
             </div>
          )}
       </CollapsibleContent>
@@ -464,7 +465,7 @@ export default function OrganizationPage() {
               onDragCancel={handleDragCancel}
               modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
             >
-              <SortableContext items={organizations?.map(o => o.id) || []} strategy={verticalListSortingStrategy}>
+              <SortableContext items={organizationTree.map(o => o.id)} strategy={verticalListSortingStrategy}>
                   {isLoading ? (
                     <div className="flex justify-center items-center h-32">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
