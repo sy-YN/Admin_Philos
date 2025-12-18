@@ -91,7 +91,7 @@ export function AddMemberDialog({ organizationOptions = [] }: AddMemberDialogPro
       displayName,
       role: (isFirstAdmin ? 'admin' : role) as Member['role'],
       employeeId,
-      organizationId,
+      organizationId: organizationId || null,
     };
 
     try {

@@ -19,7 +19,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Input } from "./input"
 
 interface ComboboxProps {
   options: { value: string; label: string }[];
@@ -43,55 +42,31 @@ export function Combobox({
   disabled = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
-  const [inputValue, setInputValue] = React.useState(value)
 
-  // Sync internal state if the external value changes
-  React.useEffect(() => {
-    setInputValue(value)
-  }, [value])
+  const selectedLabel = React.useMemo(() => {
+    return options.find(option => option.value === value)?.label || "";
+  }, [options, value]);
 
   const handleSelect = (currentValue: string) => {
-    const newValue = currentValue === value ? "" : currentValue
-    onChange(newValue)
-    setInputValue(newValue) // Also update internal state
+    onChange(currentValue === value ? "" : currentValue)
     setOpen(false)
-  }
-
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(event.target.value)
-    // To allow free-form input, we can call onChange on every keystroke
-    onChange(event.target.value)
-  }
-
-  const handleBlur = () => {
-    // On blur, ensure the final input value is propagated
-    onChange(inputValue);
   }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className={cn("relative w-full", className)}>
-          <Input
-            value={inputValue}
-            onChange={handleInputChange}
-            onBlur={handleBlur}
-            placeholder={placeholder}
-            className="pr-8"
-            disabled={disabled}
-            onClick={() => setOpen(true)}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="absolute right-0 top-0 h-full px-2 text-muted-foreground"
-            onClick={() => setOpen((prev) => !prev)}
-            disabled={disabled}
-          >
-            <ChevronsUpDown className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("w-full justify-between font-normal", !value && "text-muted-foreground", className)}
+          disabled={disabled}
+        >
+          <span className="truncate">
+            {value ? selectedLabel : placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command>
