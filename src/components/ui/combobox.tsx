@@ -48,9 +48,8 @@ export function Combobox({
   const selectedLabel = React.useMemo(() => {
     const fullLabel = options.find(option => option.value === value)?.label || "";
     if (!fullLabel) return placeholder;
-    // return fullLabel; // Show full path
     const parts = fullLabel.split(' > ');
-    return parts[parts.length - 1]; // Show only last part
+    return parts[parts.length - 1];
   }, [options, value, placeholder]);
 
 
