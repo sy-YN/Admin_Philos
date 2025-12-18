@@ -22,6 +22,10 @@ export type Organization = {
    */
   parentId: string | null;
   /**
+   * A number to determine the display order within the same parent.
+   */
+  order: number;
+  /**
    * An array of user UIDs who are designated as managers
    * for this organization's goals.
    */

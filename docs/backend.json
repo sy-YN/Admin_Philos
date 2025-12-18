@@ -67,7 +67,6 @@
         "displayName",
         "role",
         "organizationId",
-        "company",
         "createdAt",
         "updatedAt"
       ]
@@ -90,6 +89,10 @@
           "type": ["string", "null"],
           "description": "The ID of the parent unit. Null for top-level organizations (e.g., the holding company)."
         },
+        "order": {
+          "type": "number",
+          "description": "The display order of the organization within its parent."
+        },
         "managerUids": {
           "type": "array",
           "items": {
@@ -106,7 +109,7 @@
           "format": "date-time"
         }
       },
-      "required": ["name", "type", "parentId", "managerUids", "createdAt", "updatedAt"]
+      "required": ["name", "type", "parentId", "order", "managerUids", "createdAt", "updatedAt"]
     },
     "ExecutiveMessage": {
       "title": "Executive Message",

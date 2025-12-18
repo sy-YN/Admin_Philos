@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, writeBatch, where } from 'firebase/firestore';
+import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, writeBatch, where, orderBy } from 'firebase/firestore';
 import type { Organization, OrganizationType } from '@/types/organization';
 import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, Building, Building2, Landmark, Users } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -30,6 +30,7 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
+  arrayMove,
 } from '@dnd-kit/sortable';
 import { createPortal } from 'react-dom';
 import { CSS } from '@dnd-kit/utilities';
@@ -49,11 +50,13 @@ function OrganizationDialog({
   organizations,
   onSave,
   children,
+  parentId: defaultParentId,
 }: {
   organization?: Organization;
   organizations: Organization[];
   onSave: (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'managerUids'>>) => void;
   children: React.ReactNode;
+  parentId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -80,7 +83,7 @@ function OrganizationDialog({
     if (isOpen) {
       setName(organization?.name || '');
       setType(organization?.type || 'department');
-      setParentId(organization?.parentId || null);
+      setParentId(organization?.parentId !== undefined ? organization.parentId : defaultParentId || null);
     }
     setOpen(isOpen);
   };
@@ -114,7 +117,12 @@ function OrganizationDialog({
               </SelectTrigger>
               <SelectContent>
                 {orgTypeOptions.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    <SelectItem key={opt.value} value={opt.value}>
+                        <div className="flex items-center gap-2">
+                            <opt.icon className="h-4 w-4" />
+                            {opt.label}
+                        </div>
+                    </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -148,16 +156,14 @@ function OrganizationNode({
   level,
   onEdit,
   onDelete,
-  onReorder,
 }: {
   node: OrganizationWithChildren;
   allOrganizations: Organization[];
   level: number;
   onEdit: (id: string, data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>>) => void;
   onDelete: (id: string) => void;
-  onReorder: (draggedId: string, targetId: string | null) => void;
 }) {
-    const [isOpen, setIsOpen] = useState(level === 0);
+    const [isOpen, setIsOpen] = useState(level < 2); // Auto-expand first 2 levels
     const hasChildren = node.children && node.children.length > 0;
     
     const {
@@ -189,8 +195,8 @@ function OrganizationNode({
       <div 
         ref={setDroppableNodeRef} 
         className={cn(
-            "flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/50 group",
-            isOver && "bg-primary/20"
+            "flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/50 group border border-transparent",
+            isOver && "bg-primary/20 border-primary/50"
         )}>
          <div style={{ paddingLeft: `${level * 1.5}rem` }} className="flex-1 flex items-center gap-2">
             {hasChildren ? (
@@ -206,7 +212,7 @@ function OrganizationNode({
             </div>
         </div>
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <OrganizationDialog organization={node} organizations={allOrganizations} onSave={(data) => onEdit(node.id, data)}>
+          <OrganizationDialog organization={node} organizations={allOrganizations} onSave={(data) => onEdit(node.id, data)} parentId={node.parentId}>
             <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
           </OrganizationDialog>
           <AlertDialog>
@@ -230,7 +236,7 @@ function OrganizationNode({
       </div>
       <CollapsibleContent>
          {hasChildren && (
-            <div className="pl-4">
+            <div className="pl-4 border-l-2 ml-5">
                 {node.children.map(childNode => (
                     <OrganizationNode
                         key={childNode.id}
@@ -239,7 +245,6 @@ function OrganizationNode({
                         level={level + 1}
                         onEdit={onEdit}
                         onDelete={onDelete}
-                        onReorder={onReorder}
                     />
                 ))}
             </div>
@@ -258,7 +263,7 @@ export default function OrganizationPage() {
 
   const organizationsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'organizations'));
+    return query(collection(firestore, 'organizations'), orderBy('order'));
   }, [firestore]);
 
   const { data: organizations, isLoading } = useCollection<Organization>(organizationsQuery);
@@ -266,24 +271,27 @@ export default function OrganizationPage() {
   const organizationTree = useMemo(() => {
     if (!organizations) return [];
     
-    // Sort to ensure parent comes before child if possible, and maintain a consistent order
-    const sortedOrgs = [...organizations].sort((a,b) => {
-        // Simple heuristic: parents (null parentId) first
-        if (a.parentId === null && b.parentId !== null) return -1;
-        if (b.parentId === null && a.parentId !== null) return 1;
-        return a.name.localeCompare(b.name);
-    });
-
-    const orgsById = new Map(sortedOrgs.map(org => [org.id, { ...org, children: [] }]));
+    const orgsById = new Map(organizations.map(org => [org.id, { ...org, children: [] }]));
     const tree: OrganizationWithChildren[] = [];
 
-    sortedOrgs.forEach(org => {
+    organizations.forEach(org => {
       if (org.parentId && orgsById.has(org.parentId)) {
         orgsById.get(org.parentId)?.children.push(orgsById.get(org.id)!);
       } else {
         tree.push(orgsById.get(org.id)!);
       }
     });
+
+    // Sort children by order at each level
+    const sortChildrenRecursive = (nodes: OrganizationWithChildren[]) => {
+      nodes.sort((a,b) => a.order - b.order);
+      nodes.forEach(node => {
+        if(node.children.length > 0) {
+          sortChildrenRecursive(node.children);
+        }
+      });
+    }
+    sortChildrenRecursive(tree);
 
     return tree;
   }, [organizations]);
@@ -300,40 +308,82 @@ export default function OrganizationPage() {
     setActiveId(event.active.id);
   };
   
-  const handleDragEnd = (event: any) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-        handleReorder(active.id, over.id);
-    }
     setActiveId(null);
+
+    if (!over || !organizations) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    if (activeId === overId) return;
+
+    const activeOrg = organizations.find(o => o.id === activeId);
+    const overOrg = organizations.find(o => o.id === overId);
+
+    if (!activeOrg || !overOrg) return;
+
+    const isSameContainer = activeOrg.parentId === overOrg.parentId;
+
+    if (isSameContainer) {
+      // Reordering within the same parent
+      const siblings = organizations.filter(o => o.parentId === activeOrg.parentId).sort((a, b) => a.order - b.order);
+      const oldIndex = siblings.findIndex(o => o.id === activeId);
+      const newIndex = siblings.findIndex(o => o.id === overId);
+      
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reorderedSiblings = arrayMove(siblings, oldIndex, newIndex);
+      
+      const batch = writeBatch(firestore);
+      reorderedSiblings.forEach((org, index) => {
+        const orgRef = doc(firestore, 'organizations', org.id);
+        batch.update(orgRef, { order: index });
+      });
+      
+      try {
+        await batch.commit();
+        toast({ title: '成功', description: '表示順を更新しました。' });
+      } catch (error) {
+        console.error('Error updating order:', error);
+        toast({ title: 'エラー', description: '表示順の更新に失敗しました。', variant: 'destructive' });
+      }
+
+    } else {
+      // Moving to a new parent
+      const newParentId = overId;
+      const siblingsInNewParent = organizations.filter(o => o.parentId === newParentId);
+      const newOrder = siblingsInNewParent.length > 0 ? Math.max(...siblingsInNewParent.map(o => o.order)) + 1 : 0;
+      
+      try {
+        await updateDoc(doc(firestore, 'organizations', activeId), {
+            parentId: newParentId,
+            order: newOrder
+        });
+        toast({ title: '成功', description: `「${activeOrg.name}」を「${overOrg.name}」に移動しました。`});
+      } catch(error) {
+        console.error('Error moving organization:', error);
+        toast({ title: 'エラー', description: '組織の移動に失敗しました。', variant: 'destructive'});
+      }
+    }
   };
+
 
   const handleDragCancel = () => {
     setActiveId(null);
   }
   
-  const handleReorder = async (draggedId: string, targetId: string | null) => {
-    if (!firestore || !organizations) return;
-
-    const draggedOrg = organizations.find(o => o.id === draggedId);
-    if (!draggedOrg) return;
-
-    try {
-        await updateDoc(doc(firestore, 'organizations', draggedId), {
-            parentId: targetId
-        });
-        toast({ title: '成功', description: `「${draggedOrg.name}」の階層を更新しました。`});
-    } catch(error) {
-        console.error('Error reordering organization:', error);
-        toast({ title: 'エラー', description: '組織の階層変更に失敗しました。', variant: 'destructive'});
-    }
-  };
-  
   const handleAddItem = async (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>>) => {
-    if (!firestore) return;
+    if (!firestore || !organizations) return;
+    
+    const siblings = organizations.filter(o => o.parentId === data.parentId);
+    const newOrder = siblings.length > 0 ? Math.max(...siblings.map(o => o.order)) + 1 : 0;
+
     try {
       await addDoc(collection(firestore, 'organizations'), {
         ...data,
+        order: newOrder,
         managerUids: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -360,7 +410,6 @@ export default function OrganizationPage() {
   const handleDeleteItem = async (id: string) => {
     if (!firestore || !organizations) return;
 
-    // Check if the organization has children
     const hasChildren = organizations.some(org => org.parentId === id);
     if (hasChildren) {
       toast({
@@ -373,19 +422,16 @@ export default function OrganizationPage() {
 
     try {
         const batch = writeBatch(firestore);
-
-        // Delete the organization document
         const orgRef = doc(firestore, 'organizations', id);
         batch.delete(orgRef);
 
-        // Find users associated with this organization and update them
         const usersRef = collection(firestore, 'users');
         const q = query(usersRef, where('organizationId', '==', id));
         const usersSnapshot = await getDocs(q);
 
         usersSnapshot.forEach(userDoc => {
             const userRef = doc(firestore, 'users', userDoc.id);
-            batch.update(userRef, { organizationId: null });
+            batch.update(userRef, { organizationId: null, company: null });
         });
         
         await batch.commit();
@@ -412,7 +458,7 @@ export default function OrganizationPage() {
       <Card>
         <CardHeader>
           <CardTitle>組織構造</CardTitle>
-          <CardDescription>ドラッグ＆ドロップで組織の階層を変更できます。</CardDescription>
+          <CardDescription>ドラッグ＆ドロップで組織の階層や順序を変更できます。</CardDescription>
         </CardHeader>
         <CardContent>
            <DndContext
@@ -436,7 +482,6 @@ export default function OrganizationPage() {
                         level={0}
                         onEdit={handleEditItem}
                         onDelete={handleDeleteItem}
-                        onReorder={handleReorder}
                       />
                     ))
                   ) : (
