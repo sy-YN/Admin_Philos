@@ -241,6 +241,9 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
                                 <SelectItem value="3">3時間</SelectItem>
                                 <SelectItem value="8">8時間 (1営業日)</SelectItem>
                                 <SelectItem value="24">24時間</SelectItem>
+                                <SelectItem value="72">3日間</SelectItem>
+                                <SelectItem value="168">7日間</SelectItem>
+                                <SelectItem value="720">30日間</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
