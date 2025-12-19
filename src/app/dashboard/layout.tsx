@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft, CalendarDays, User, Network } from 'lucide-react';
+import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft, CalendarDays, User, Network, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { useEffect, useState } from 'react';
@@ -18,6 +18,7 @@ import { Separator } from '@/components/ui/separator';
 const navItems = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users },
   { href: '/dashboard/organization', label: '組織管理', icon: Network },
+  { href: '/dashboard/permissions', label: '権限管理', icon: Shield },
   { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film },
   { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen },
   { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays },
