@@ -34,8 +34,8 @@ const menuItems = [
 ];
 
 const initialPermissions = {
-  admin: ['members', 'organization', 'permissions', 'contents', 'philosophy', 'calendar', 'dashboard', 'ranking'],
-  executive: ['contents', 'dashboard'],
+  admin: ['members', 'organization', 'permissions'],
+  executive: ['contents', 'philosophy', 'calendar', 'dashboard', 'ranking'],
   manager: [],
   employee: [],
 };
@@ -120,7 +120,8 @@ export default function PermissionsPage() {
                         <Checkbox
                           checked={permissions[role.id as keyof typeof permissions]?.includes(menu.id)}
                           onCheckedChange={(checked) => handlePermissionChange(role.id, menu.id, !!checked)}
-                          disabled={role.id === 'admin'} // Admin role is always super user
+                          // 管理者(admin)の権限は常に全開であり、誤操作を防ぐため変更不可とします。
+                          disabled={role.id === 'admin'}
                           aria-label={`${role.name} - ${menu.name}`}
                         />
                       </TableCell>
@@ -276,6 +277,7 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
                                 <div key={item.id} className="flex items-center gap-2">
                                     <Checkbox 
                                         id={`perm-${item.id}`}
+                                        checked={grantedPermissions.includes(item.id)}
                                         onCheckedChange={(checked) => handlePermissionChange(item.id, !!checked)}
                                     />
                                     <Label htmlFor={`perm-${item.id}`} className="font-normal">{item.name}</Label>
