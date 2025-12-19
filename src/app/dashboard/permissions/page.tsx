@@ -52,6 +52,7 @@ type TemporaryAccessGrant = {
     userName: string;
     grantedBy: string;
     expiresAt: Date;
+    permissions: string[]; // <-- 付与された権限のIDリスト
 }
 
 export default function PermissionsPage() {
@@ -68,7 +69,7 @@ export default function PermissionsPage() {
     });
   };
 
-  const addTempGrant = (userId: string, durationHours: number) => {
+  const addTempGrant = (userId: string, durationHours: number, grantedPermissions: string[]) => {
     const user = mockUsers.find(u => u.id === userId);
     if(!user) return;
 
@@ -78,6 +79,7 @@ export default function PermissionsPage() {
         userName: user.name,
         grantedBy: "山田 太郎 (Admin)", // Mock admin user
         expiresAt: addHours(new Date(), durationHours),
+        permissions: grantedPermissions,
     }
     setTempGrants(prev => [...prev, newGrant]);
   }
@@ -149,6 +151,7 @@ export default function PermissionsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>ユーザー</TableHead>
+                  <TableHead>付与された権限</TableHead>
                   <TableHead>権限付与者</TableHead>
                   <TableHead>有効期限</TableHead>
                   <TableHead className="text-right">操作</TableHead>
@@ -157,7 +160,7 @@ export default function PermissionsPage() {
               <TableBody>
                 {tempGrants.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                             一時的なアクセス権限が付与されたユーザーはいません。
                         </TableCell>
                     </TableRow>
@@ -165,9 +168,19 @@ export default function PermissionsPage() {
                 {tempGrants.map(grant => (
                   <TableRow key={grant.id}>
                     <TableCell className="font-medium">{grant.userName}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {grant.permissions.map(p => (
+                          <Badge key={p} variant="secondary" className="font-normal">
+                            {menuItems.find(m => m.id === p)?.name || p}
+                          </Badge>
+                        ))}
+                         {grant.permissions.length === 0 && <span className="text-xs text-muted-foreground">権限なし</span>}
+                      </div>
+                    </TableCell>
                     <TableCell>{grant.grantedBy}</TableCell>
                     <TableCell>
-                        <Badge variant="secondary">
+                        <Badge variant="outline">
                            {formatDistanceToNow(grant.expiresAt, { addSuffix: true, locale: ja })}
                         </Badge>
                     </TableCell>
@@ -188,17 +201,26 @@ export default function PermissionsPage() {
 }
 
 
-function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durationHours: number) => void}) {
+function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durationHours: number, permissions: string[]) => void}) {
     const [open, setOpen] = useState(false);
     const [userId, setUserId] = useState('');
-    const [duration, setDuration] = useState('1'); // Default to 1 hour
+    const [duration, setDuration] = useState('24'); // Default to 24 hours
+    const [grantedPermissions, setGrantedPermissions] = useState<string[]>([]);
+
+    const handlePermissionChange = (menuId: string, checked: boolean) => {
+        setGrantedPermissions(prev => 
+            checked ? [...prev, menuId] : prev.filter(p => p !== menuId)
+        );
+    }
 
     const handleGrant = () => {
         if(!userId || !duration) return;
-        onGrant(userId, Number(duration));
+        onGrant(userId, Number(duration), grantedPermissions);
         setOpen(false);
+        // Reset form
         setUserId('');
-        setDuration('1');
+        setDuration('24');
+        setGrantedPermissions([]);
     }
 
     return (
@@ -213,7 +235,7 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
                 <DialogHeader>
                     <DialogTitle>一時的なアクセス権限を付与</DialogTitle>
                     <DialogDescription>
-                        選択したユーザーに、指定した期間だけ管理者と同等のアクセス権限を付与します。
+                        選択したユーザーに、指定した期間・範囲で管理画面へのアクセス権限を付与します。
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -246,6 +268,20 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
                                 <SelectItem value="720">30日間</SelectItem>
                             </SelectContent>
                         </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>付与する権限</Label>
+                        <div className="grid grid-cols-2 gap-2 rounded-md border p-4">
+                            {menuItems.filter(item => item.id !== 'permissions').map(item => (
+                                <div key={item.id} className="flex items-center gap-2">
+                                    <Checkbox 
+                                        id={`perm-${item.id}`}
+                                        onCheckedChange={(checked) => handlePermissionChange(item.id, !!checked)}
+                                    />
+                                    <Label htmlFor={`perm-${item.id}`} className="font-normal">{item.name}</Label>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
                 <DialogFooter>
