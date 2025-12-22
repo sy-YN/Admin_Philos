@@ -187,6 +187,7 @@ function OrganizationNode({
     } = useSortable({
       id: node.id,
       data: { name: node.name, level },
+      disabled: node.type === 'holding'
     });
 
     const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
@@ -217,7 +218,7 @@ function OrganizationNode({
                     </Button>
                 </CollapsibleTrigger>
             ) : <div className="w-6"/>}
-             <div {...listeners} {...attributes} className="flex-1 cursor-grab flex items-center gap-2">
+             <div {...listeners} {...attributes} className={cn("flex-1 flex items-center gap-2", node.type !== 'holding' && "cursor-grab")}>
                  <TypeIcon className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">{node.name}</span>
             </div>
@@ -336,6 +337,22 @@ export default function OrganizationPage() {
     const overOrg = organizations.find(o => o.id === overId);
 
     if (!activeOrg || !overOrg) return;
+
+    // --- Parent-Child Rule Validation ---
+    if (activeOrg.type === 'holding') {
+        toast({ title: '移動不可', description: '持株会社は他の組織の下に移動できません。', variant: 'destructive' });
+        return;
+    }
+    if (activeOrg.type === 'company' && overOrg.type === 'department') {
+        toast({ title: '移動不可', description: '事業会社を部署の下に移動することはできません。', variant: 'destructive' });
+        return;
+    }
+    // New rule from user: A holding company can't be a child of a company or department.
+    if (activeOrg.type === 'holding' && (overOrg.type === 'company' || overOrg.type === 'department')) {
+        toast({ title: '移動不可', description: '持株会社は事業会社や部署の下に移動できません。', variant: 'destructive' });
+        return;
+    }
+
 
     const isSameContainer = activeOrg.parentId === overOrg.parentId;
 
