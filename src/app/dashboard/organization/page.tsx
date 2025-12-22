@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -63,8 +63,9 @@ function OrganizationDialog({
   const [type, setType] = useState<OrganizationType>('department');
   const [parentId, setParentId] = useState<string | null>(null);
 
-  const parentOptions = useMemo(() => {
-    // Prevent an organization from being its own parent or child
+  const { holdingCompanyExists, parentOptions } = useMemo(() => {
+    const holdingExists = organizations.some(o => o.type === 'holding' && o.id !== organization?.id);
+    
     const getDescendants = (orgId: string): string[] => {
       const children = organizations.filter(o => o.parentId === orgId);
       return [orgId, ...children.flatMap(c => getDescendants(c.id))];
@@ -75,15 +76,29 @@ function OrganizationDialog({
         excludedIds = getDescendants(organization.id);
     }
     
-    return organizations.filter(o => !excludedIds.includes(o.id));
+    const validParents = organizations.filter(o => !excludedIds.includes(o.id));
 
+    return { 
+      holdingCompanyExists: holdingExists,
+      parentOptions: validParents
+    };
   }, [organizations, organization]);
+
+  useEffect(() => {
+    if (type === 'holding') {
+      setParentId(null);
+    }
+  }, [type]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen) {
       setName(organization?.name || '');
-      setType(organization?.type || 'department');
+      const initialType = organization?.type || 'department';
+      setType(initialType);
       setParentId(organization?.parentId !== undefined ? organization.parentId : defaultParentId || null);
+      if (initialType === 'holding') {
+        setParentId(null);
+      }
     }
     setOpen(isOpen);
   };
@@ -117,7 +132,7 @@ function OrganizationDialog({
               </SelectTrigger>
               <SelectContent>
                 {orgTypeOptions.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>
+                    <SelectItem key={opt.value} value={opt.value} disabled={opt.value === 'holding' && holdingCompanyExists}>
                         <div className="flex items-center gap-2">
                             <opt.icon className="h-4 w-4" />
                             {opt.label}
@@ -134,6 +149,7 @@ function OrganizationDialog({
               value={parentId || ''}
               onChange={(value) => setParentId(value || null)}
               placeholder="なし (トップレベル組織)"
+              disabled={type === 'holding'}
             />
           </div>
         </div>
