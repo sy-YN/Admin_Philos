@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -186,12 +187,13 @@ function OrganizationNode({
       isDragging,
     } = useSortable({
       id: node.id,
-      data: { name: node.name, level },
+      data: { name: node.name, level, parentId: node.parentId },
       disabled: node.type === 'holding'
     });
 
     const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
       id: node.id,
+      data: { type: node.type, parentId: node.parentId }
     });
     
     const style = {
@@ -285,7 +287,7 @@ export default function OrganizationPage() {
   const organizationTree = useMemo(() => {
     if (!organizations) return [];
     
-    const orgsById = new Map(organizations.map(org => [org.id, { ...org, children: [] }]));
+    const orgsById = new Map(organizations.map(org => [org.id, { ...org, children: [] as OrganizationWithChildren[] }]));
     const tree: OrganizationWithChildren[] = [];
 
     organizations.forEach(org => {
@@ -347,55 +349,68 @@ export default function OrganizationPage() {
         toast({ title: '移動不可', description: '事業会社を部署の下に移動することはできません。', variant: 'destructive' });
         return;
     }
-    // New rule from user: A holding company can't be a child of a company or department.
-    if (activeOrg.type === 'holding' && (overOrg.type === 'company' || overOrg.type === 'department')) {
-        toast({ title: '移動不可', description: '持株会社は事業会社や部署の下に移動できません。', variant: 'destructive' });
-        return;
-    }
-
-
+    
+    // Check if the drop target `overOrg` can be a parent.
+    const canBeParent = overOrg.type === 'holding' || overOrg.type === 'company';
     const isSameContainer = activeOrg.parentId === overOrg.parentId;
+    
+    // If the target can be a parent AND the dragged item is not being dropped on its own parent
+    if (canBeParent && activeOrg.parentId !== overId) {
+        // --- Move to a new parent ---
+        
+        // Validate hierarchy rules before committing
+        if (overOrg.type === 'department' && activeOrg.type === 'company') {
+             toast({ title: '移動不可', description: '事業会社を部署の下に移動することはできません。', variant: 'destructive' });
+             return;
+        }
+         if (overOrg.type !== 'holding' && activeOrg.type === 'holding') {
+             toast({ title: '移動不可', description: '持株会社は他の組織の下に移動できません。', variant: 'destructive' });
+             return;
+        }
 
-    if (isSameContainer) {
-      // Reordering within the same parent
-      const siblings = organizations.filter(o => o.parentId === activeOrg.parentId).sort((a, b) => a.order - b.order);
-      const oldIndex = siblings.findIndex(o => o.id === activeId);
-      const newIndex = siblings.findIndex(o => o.id === overId);
-      
-      if (oldIndex === -1 || newIndex === -1) return;
-
-      const reorderedSiblings = arrayMove(siblings, oldIndex, newIndex);
-      
-      const batch = writeBatch(firestore);
-      reorderedSiblings.forEach((org, index) => {
-        const orgRef = doc(firestore, 'organizations', org.id);
-        batch.update(orgRef, { order: index });
-      });
-      
-      try {
-        await batch.commit();
-        toast({ title: '成功', description: '表示順を更新しました。' });
-      } catch (error) {
-        console.error('Error updating order:', error);
-        toast({ title: 'エラー', description: '表示順の更新に失敗しました。', variant: 'destructive' });
-      }
-
+        const newParentId = overId;
+        const siblingsInNewParent = organizations.filter(o => o.parentId === newParentId);
+        const newOrder = siblingsInNewParent.length > 0 ? Math.max(...siblingsInNewParent.map(o => o.order)) + 1 : 0;
+        
+        try {
+          await updateDoc(doc(firestore, 'organizations', activeId), {
+              parentId: newParentId,
+              order: newOrder
+          });
+          toast({ title: '成功', description: `「${activeOrg.name}」を「${overOrg.name}」に移動しました。`});
+        } catch(error) {
+          console.error('Error moving organization:', error);
+          toast({ title: 'エラー', description: '組織の移動に失敗しました。', variant: 'destructive'});
+        }
     } else {
-      // Moving to a new parent
-      const newParentId = overId;
-      const siblingsInNewParent = organizations.filter(o => o.parentId === newParentId);
-      const newOrder = siblingsInNewParent.length > 0 ? Math.max(...siblingsInNewParent.map(o => o.order)) + 1 : 0;
-      
-      try {
-        await updateDoc(doc(firestore, 'organizations', activeId), {
-            parentId: newParentId,
-            order: newOrder
+        // --- Reordering within the same parent ---
+        if (activeOrg.parentId !== overOrg.parentId) {
+            // This case might happen if dropping on a department when trying to reorder companies.
+            // We can treat this as an invalid move or try to be smarter. For now, we'll just prevent it.
+            return;
+        }
+
+        const siblings = organizations.filter(o => o.parentId === activeOrg.parentId).sort((a, b) => a.order - b.order);
+        const oldIndex = siblings.findIndex(o => o.id === activeId);
+        const newIndex = siblings.findIndex(o => o.id === overId);
+        
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const reorderedSiblings = arrayMove(siblings, oldIndex, newIndex);
+        
+        const batch = writeBatch(firestore);
+        reorderedSiblings.forEach((org, index) => {
+          const orgRef = doc(firestore, 'organizations', org.id);
+          batch.update(orgRef, { order: index });
         });
-        toast({ title: '成功', description: `「${activeOrg.name}」を「${overOrg.name}」に移動しました。`});
-      } catch(error) {
-        console.error('Error moving organization:', error);
-        toast({ title: 'エラー', description: '組織の移動に失敗しました。', variant: 'destructive'});
-      }
+        
+        try {
+          await batch.commit();
+          toast({ title: '成功', description: '表示順を更新しました。' });
+        } catch (error) {
+          console.error('Error updating order:', error);
+          toast({ title: 'エラー', description: '表示順の更新に失敗しました。', variant: 'destructive' });
+        }
     }
   };
 
