@@ -34,7 +34,7 @@ const menuItems = [
 ];
 
 const initialPermissions = {
-  admin: ['members', 'organization', 'permissions'],
+  admin: menuItems.map(item => item.id),
   executive: ['contents', 'philosophy', 'calendar', 'dashboard', 'ranking'],
   manager: [],
   employee: [],
