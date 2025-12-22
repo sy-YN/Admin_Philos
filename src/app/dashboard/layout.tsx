@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -6,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft, CalendarDays, User, Network, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -15,16 +14,24 @@ import type { Member } from '@/types/member';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
-const navItems = [
-  { href: '/dashboard/members', label: 'メンバー管理', icon: Users },
-  { href: '/dashboard/organization', label: '組織管理', icon: Network },
-  { href: '/dashboard/permissions', label: '権限管理', icon: Shield },
-  { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film },
-  { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen },
-  { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays },
-  { href: '/dashboard/dashboard', label: '目標設定', icon: BarChart3 },
-  { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy },
+const allNavItems = [
+  { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members' },
+  { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization' },
+  { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions' },
+  { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film, id: 'contents' },
+  { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen, id: 'philosophy' },
+  { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays, id: 'calendar' },
+  { href: '/dashboard/dashboard', label: '目標設定', icon: BarChart3, id: 'dashboard' },
+  { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy, id: 'ranking' },
 ];
+
+const rolePermissions: Record<Member['role'], string[]> = {
+  admin: allNavItems.map(item => item.id), // Admin has access to all items
+  executive: ['contents', 'philosophy', 'calendar', 'dashboard', 'ranking'],
+  manager: [], // Will be handled by temporary access
+  employee: [],
+};
+
 
 export default function DashboardLayout({
   children,
@@ -37,51 +44,56 @@ export default function DashboardLayout({
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isAuthorized, setIsAuthorized] = useState(false); // New state to track authorization
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<Member['role'] | null>(null);
 
   useEffect(() => {
     if (isUserLoading) {
-      return; // Wait until Firebase auth state is loaded
+      return;
     }
 
     if (!user) {
-      router.replace('/login'); // No user, redirect to login
+      router.replace('/login');
       return;
     }
 
     if (!firestore) {
-      // Firestore might not be ready, handle this case if necessary
-      setIsAuthorized(false); // Can't verify role without firestore
+      setIsAuthorized(false);
       return;
     }
 
-    // Check user role in Firestore
     const userDocRef = doc(firestore, 'users', user.uid);
     getDoc(userDocRef).then(userDoc => {
       if (userDoc.exists()) {
-        const userRole = (userDoc.data() as Member).role;
+        const userData = userDoc.data() as Member;
+        const userRole = userData.role;
+        setCurrentUserRole(userRole); 
         if (userRole === 'admin' || userRole === 'executive') {
-          setIsAuthorized(true); // User is an admin or executive, grant access
+          setIsAuthorized(true);
         } else {
-           // Not an admin or executive, sign out and redirect
            auth?.signOut().then(() => {
             router.replace('/login');
           });
         }
       } else {
-        // Doc doesn't exist, sign out and redirect
         auth?.signOut().then(() => {
           router.replace('/login');
         });
       }
     }).catch(() => {
-      // Error fetching document, sign out and redirect
       auth?.signOut().then(() => {
         router.replace('/login');
       });
     });
 
   }, [user, isUserLoading, router, firestore, auth]);
+  
+  const navItems = useMemo(() => {
+    if (!currentUserRole) return [];
+    const allowedMenuIds = rolePermissions[currentUserRole] || [];
+    return allNavItems.filter(item => allowedMenuIds.includes(item.id));
+  }, [currentUserRole]);
+
 
   const handleLogout = async () => {
     if (auth) {
@@ -90,8 +102,7 @@ export default function DashboardLayout({
     router.push('/login');
   };
 
-  // While checking auth or authorization, show a loader
-  if (isUserLoading || !isAuthorized) {
+  if (isUserLoading || !isAuthorized || !currentUserRole) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -99,7 +110,6 @@ export default function DashboardLayout({
     );
   }
   
-  // If authorized, render the dashboard
   return (
     <TooltipProvider>
       <div className="flex h-screen w-full bg-muted/40">
