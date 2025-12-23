@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -27,8 +28,8 @@ const allNavItems = [
 
 const rolePermissions: Record<Member['role'], string[]> = {
   admin: ['members', 'organization', 'permissions', 'video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting', 'org_personal_goal_setting', 'ranking'],
-  executive: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting'],
-  manager: [], // Will be handled by temporary access
+  executive: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting', 'org_personal_goal_setting', 'ranking'],
+  manager: ['org_personal_goal_setting'],
   employee: [],
 };
 
@@ -46,6 +47,8 @@ export default function DashboardLayout({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<Member['role'] | null>(null);
+
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
 
   useEffect(() => {
     if (isUserLoading) {
@@ -67,8 +70,14 @@ export default function DashboardLayout({
       if (userDoc.exists()) {
         const userData = userDoc.data() as Member;
         const userRole = userData.role;
-        setCurrentUserRole(userRole); 
-        if (userRole === 'admin' || userRole === 'executive') {
+        setCurrentUserRole(userRole);
+        
+        // TODO: ここで一時的な権限も考慮に入れる
+        const permanentPermissions = rolePermissions[userRole] || [];
+        const currentPermissions = [...new Set(permanentPermissions)];
+        setUserPermissions(currentPermissions);
+
+        if (currentPermissions.length > 0) {
           setIsAuthorized(true);
         } else {
            auth?.signOut().then(() => {
@@ -90,11 +99,10 @@ export default function DashboardLayout({
   
   const navItems = useMemo(() => {
     if (!currentUserRole) return [];
-    const allowedMenuIds = rolePermissions[currentUserRole] || [];
     return allNavItems.filter(item => 
-      item.requiredPermissions.some(p => allowedMenuIds.includes(p))
+      item.requiredPermissions.some(p => userPermissions.includes(p))
     );
-  }, [currentUserRole]);
+  }, [currentUserRole, userPermissions]);
 
 
   const handleLogout = async () => {

@@ -45,8 +45,8 @@ const allPermissions = [...menuItems, ...permissionCategories];
 
 const initialPermissions = {
   admin: allPermissions.map(item => item.id),
-  executive: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting'],
-  manager: [],
+  executive: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting', 'org_personal_goal_setting', 'ranking'],
+  manager: ['org_personal_goal_setting'],
   employee: [],
 };
 
@@ -112,23 +112,23 @@ export default function PermissionsPage() {
         </CardHeader>
         <CardContent>
           <ScrollArea>
-            <Table className="w-max">
+            <Table className="min-w-[1000px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[120px] sticky left-0 bg-background z-10">役割</TableHead>
+                  <TableHead className="w-[120px] sticky left-0 bg-background z-10 px-2">役割</TableHead>
                   {menuItems.map(menu => (
                     <TableHead key={menu.id} className="text-center px-2">{menu.name}</TableHead>
                   ))}
-                  <TableHead className="text-center border-l px-2">ビデオ管理</TableHead>
-                  <TableHead className="text-center px-2">メッセージ管理</TableHead>
-                  <TableHead className="text-center border-l px-2">会社目標設定</TableHead>
-                  <TableHead className="text-center px-2">組織・個人目標</TableHead>
+                   <TableHead className="text-center border-l px-2">ビデオ管理</TableHead>
+                   <TableHead className="text-center px-2">メッセージ管理</TableHead>
+                   <TableHead className="text-center border-l px-2">会社目標設定</TableHead>
+                   <TableHead className="text-center px-2">組織・個人目標</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {roles.map(role => (
                   <TableRow key={role.id}>
-                    <TableCell className="font-medium sticky left-0 bg-background z-10">{role.name}</TableCell>
+                    <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">{role.name}</TableCell>
                     {menuItems.map(menu => (
                       <TableCell key={menu.id} className="text-center px-2">
                         <Checkbox
@@ -340,5 +340,3 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
         </Dialog>
     )
 }
-
-    
