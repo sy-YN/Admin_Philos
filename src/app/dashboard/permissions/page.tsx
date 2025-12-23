@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -13,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow, addHours } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { Separator } from '@/components/ui/separator';
 
 // Mock Data
 const roles = [
@@ -23,19 +23,27 @@ const roles = [
 ];
 
 const menuItems = [
-  { id: 'members', name: 'メンバー管理' },
-  { id: 'organization', name: '組織管理' },
-  { id: 'permissions', name: '権限管理' },
-  { id: 'contents', name: 'コンテンツ管理' },
-  { id: 'philosophy', name: '理念管理' },
-  { id: 'calendar', name: 'カレンダー設定' },
-  { id: 'dashboard', name: '目標設定' },
-  { id: 'ranking', name: 'ランキング設定' },
+    { id: 'members', name: 'メンバー管理' },
+    { id: 'organization', name: '組織管理' },
+    { id: 'permissions', name: '権限管理' },
+    { id: 'philosophy', name: '理念管理' },
+    { id: 'calendar', name: 'カレンダー設定' },
+    { id: 'ranking', name: 'ランキング設定' },
 ];
 
+const permissionCategories = [
+    { id: 'video_management', name: 'ビデオ管理' },
+    { id: 'message_management', name: 'メッセージ管理' },
+    { id: 'company_goal_setting', name: '会社目標設定' },
+    { id: 'org_personal_goal_setting', name: '組織・個人目標設定' },
+];
+
+const allPermissions = [...menuItems, ...permissionCategories];
+
+
 const initialPermissions = {
-  admin: menuItems.map(item => item.id),
-  executive: ['contents', 'philosophy', 'calendar', 'dashboard', 'ranking'],
+  admin: allPermissions.map(item => item.id),
+  executive: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting'],
   manager: [],
   employee: [],
 };
@@ -59,12 +67,12 @@ export default function PermissionsPage() {
   const [permissions, setPermissions] = useState(initialPermissions);
   const [tempGrants, setTempGrants] = useState<TemporaryAccessGrant[]>([]);
 
-  const handlePermissionChange = (roleId: string, menuId: string, checked: boolean) => {
+  const handlePermissionChange = (roleId: string, permissionId: string, checked: boolean) => {
     setPermissions(prev => {
       const currentRolePermissions = prev[roleId as keyof typeof prev] || [];
       const newPermissions = checked
-        ? [...currentRolePermissions, menuId]
-        : currentRolePermissions.filter(p => p !== menuId);
+        ? [...currentRolePermissions, permissionId]
+        : currentRolePermissions.filter(p => p !== permissionId);
       return { ...prev, [roleId]: newPermissions };
     });
   };
@@ -98,7 +106,7 @@ export default function PermissionsPage() {
       <Card>
         <CardHeader>
           <CardTitle>役割別メニューアクセス設定</CardTitle>
-          <CardDescription>役割（ロール）ごとに、管理画面で表示・アクセスできるメニュー項目を設定します。</CardDescription>
+          <CardDescription>役割（ロール）ごとに、管理画面でアクセスできる機能を設定します。</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -107,8 +115,12 @@ export default function PermissionsPage() {
                 <TableRow>
                   <TableHead className="w-[150px]">役割</TableHead>
                   {menuItems.map(menu => (
-                    <TableHead key={menu.id} className="text-center">{menu.name}</TableHead>
+                    <TableHead key={menu.id} className="text-center min-w-[120px]">{menu.name}</TableHead>
                   ))}
+                  <TableHead className="text-center min-w-[120px] border-l">ビデオ管理</TableHead>
+                  <TableHead className="text-center min-w-[120px]">メッセージ管理</TableHead>
+                  <TableHead className="text-center min-w-[120px] border-l">会社目標設定</TableHead>
+                  <TableHead className="text-center min-w-[120px]">組織・個人目標</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -120,12 +132,43 @@ export default function PermissionsPage() {
                         <Checkbox
                           checked={permissions[role.id as keyof typeof permissions]?.includes(menu.id)}
                           onCheckedChange={(checked) => handlePermissionChange(role.id, menu.id, !!checked)}
-                          // 管理者(admin)の権限は常に全開であり、誤操作を防ぐため変更不可とします。
                           disabled={role.id === 'admin'}
                           aria-label={`${role.name} - ${menu.name}`}
                         />
                       </TableCell>
                     ))}
+                    <TableCell className="text-center border-l">
+                        <Checkbox
+                          checked={permissions[role.id as keyof typeof permissions]?.includes('video_management')}
+                          onCheckedChange={(checked) => handlePermissionChange(role.id, 'video_management', !!checked)}
+                          disabled={role.id === 'admin'}
+                          aria-label={`${role.name} - ビデオ管理`}
+                        />
+                    </TableCell>
+                    <TableCell className="text-center">
+                        <Checkbox
+                          checked={permissions[role.id as keyof typeof permissions]?.includes('message_management')}
+                          onCheckedChange={(checked) => handlePermissionChange(role.id, 'message_management', !!checked)}
+                          disabled={role.id === 'admin'}
+                          aria-label={`${role.name} - メッセージ管理`}
+                        />
+                    </TableCell>
+                    <TableCell className="text-center border-l">
+                        <Checkbox
+                          checked={permissions[role.id as keyof typeof permissions]?.includes('company_goal_setting')}
+                          onCheckedChange={(checked) => handlePermissionChange(role.id, 'company_goal_setting', !!checked)}
+                          disabled={role.id === 'admin'}
+                          aria-label={`${role.name} - 会社目標設定`}
+                        />
+                    </TableCell>
+                    <TableCell className="text-center">
+                        <Checkbox
+                          checked={permissions[role.id as keyof typeof permissions]?.includes('org_personal_goal_setting')}
+                          onCheckedChange={(checked) => handlePermissionChange(role.id, 'org_personal_goal_setting', !!checked)}
+                          disabled={role.id === 'admin'}
+                          aria-label={`${role.name} - 組織・個人目標設定`}
+                        />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -173,7 +216,7 @@ export default function PermissionsPage() {
                       <div className="flex flex-wrap gap-1">
                         {grant.permissions.map(p => (
                           <Badge key={p} variant="secondary" className="font-normal">
-                            {menuItems.find(m => m.id === p)?.name || p}
+                            {allPermissions.find(m => m.id === p)?.name || p}
                           </Badge>
                         ))}
                          {grant.permissions.length === 0 && <span className="text-xs text-muted-foreground">権限なし</span>}
@@ -208,9 +251,9 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
     const [duration, setDuration] = useState('24'); // Default to 24 hours
     const [grantedPermissions, setGrantedPermissions] = useState<string[]>([]);
 
-    const handlePermissionChange = (menuId: string, checked: boolean) => {
+    const handlePermissionChange = (permissionId: string, checked: boolean) => {
         setGrantedPermissions(prev => 
-            checked ? [...prev, menuId] : prev.filter(p => p !== menuId)
+            checked ? [...prev, permissionId] : prev.filter(p => p !== permissionId)
         );
     }
 
@@ -273,7 +316,7 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
                     <div className="space-y-2">
                         <Label>付与する権限</Label>
                         <div className="grid grid-cols-2 gap-2 rounded-md border p-4">
-                            {menuItems.filter(item => item.id !== 'permissions').map(item => (
+                            {allPermissions.filter(item => item.id !== 'permissions').map(item => (
                                 <div key={item.id} className="flex items-center gap-2">
                                     <Checkbox 
                                         id={`perm-${item.id}`}

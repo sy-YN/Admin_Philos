@@ -15,19 +15,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
 const allNavItems = [
-  { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members' },
-  { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization' },
-  { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions' },
-  { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film, id: 'contents' },
-  { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen, id: 'philosophy' },
-  { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays, id: 'calendar' },
-  { href: '/dashboard/dashboard', label: '目標設定', icon: BarChart3, id: 'dashboard' },
-  { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy, id: 'ranking' },
+  { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members', requiredPermissions: ['members'] },
+  { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization', requiredPermissions: ['organization'] },
+  { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions', requiredPermissions: ['permissions'] },
+  { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film, id: 'contents', requiredPermissions: ['video_management', 'message_management'] },
+  { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen, id: 'philosophy', requiredPermissions: ['philosophy'] },
+  { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays, id: 'calendar', requiredPermissions: ['calendar'] },
+  { href: '/dashboard/dashboard', label: '目標設定', icon: BarChart3, id: 'dashboard', requiredPermissions: ['company_goal_setting', 'org_personal_goal_setting'] },
+  { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy, id: 'ranking', requiredPermissions: ['ranking'] },
 ];
 
 const rolePermissions: Record<Member['role'], string[]> = {
-  admin: allNavItems.map(item => item.id), // Admin has access to all items
-  executive: ['contents', 'philosophy', 'calendar', 'dashboard', 'ranking'],
+  admin: ['members', 'organization', 'permissions', 'video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting', 'org_personal_goal_setting', 'ranking'],
+  executive: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting'],
   manager: [], // Will be handled by temporary access
   employee: [],
 };
@@ -91,7 +91,9 @@ export default function DashboardLayout({
   const navItems = useMemo(() => {
     if (!currentUserRole) return [];
     const allowedMenuIds = rolePermissions[currentUserRole] || [];
-    return allNavItems.filter(item => allowedMenuIds.includes(item.id));
+    return allNavItems.filter(item => 
+      item.requiredPermissions.some(p => allowedMenuIds.includes(p))
+    );
   }, [currentUserRole]);
 
 
