@@ -1,27 +1,25 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2, ShieldAlert } from 'lucide-react';
+import { PlusCircle, ShieldAlert, Loader2, User, UserCog, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { formatDistanceToNow, addHours } from 'date-fns';
-import { ja } from 'date-fns/locale';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, doc, setDoc, getDocs, writeBatch, serverTimestamp, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import type { Role } from '@/types/role';
+import type { UserPermission } from '@/types/user-permission';
+import type { Member } from '@/types/member';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
-// Mock Data
-const roles = [
-  { id: 'admin', name: '管理者' },
-  { id: 'executive', name: '経営層' },
-  { id: 'manager', name: 'マネージャー' },
-  { id: 'employee', name: '従業員' },
-];
 
 const permissionGroups = [
   { name: 'メンバー管理', permissions: [{ id: 'members', name: 'メンバー管理' }] },
@@ -46,40 +44,46 @@ const permissionGroups = [
   { name: 'ランキング設定', permissions: [{ id: 'ranking', name: 'ランキング設定' }] },
 ];
 
-
 const permissionColumns = permissionGroups.flatMap(g => g.permissions);
-const allPermissions = permissionColumns.map(p => ({ id: p.id, name: p.name }));
+const allPermissionItems = permissionColumns.map(p => ({ id: p.id, name: p.name }));
 
-
-const initialPermissions = {
-  admin: allPermissions.map(item => item.id),
-  executive: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting', 'org_personal_goal_setting', 'ranking'],
-  manager: ['org_personal_goal_setting'],
-  employee: [],
-};
-
-const mockUsers = [
-    { id: 'user-1', name: '田中 圭', email: 'tanaka@example.com', role: 'manager' },
-    { id: 'user-2', name: '鈴木 一恵', email: 'suzuki@example.com', role: 'manager' },
-    { id: 'user-3', name: '佐藤 健', email: 'sato@example.com', role: 'employee' },
+const roleDefinitions: Omit<Role, 'id'>[] = [
+  { id: 'admin', name: '管理者', permissions: allPermissionItems.map(p => p.id) },
+  { id: 'executive', name: '経営層', permissions: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting', 'org_personal_goal_setting', 'ranking'] },
+  { id: 'manager', name: 'マネージャー', permissions: ['org_personal_goal_setting'] },
+  { id: 'employee', name: '従業員', permissions: [] },
 ];
 
-type TemporaryAccessGrant = {
-    id: string;
-    userId: string;
-    userName: string;
-    grantedBy: string;
-    expiresAt: Date;
-    permissions: string[]; // <-- 付与された権限のIDリスト
-}
 
 export default function PermissionsPage() {
-  const [permissions, setPermissions] = useState(initialPermissions);
-  const [tempGrants, setTempGrants] = useState<TemporaryAccessGrant[]>([]);
+  const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user: currentUser } = useUser();
+  
+  const rolesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'roles')) : null, [firestore]);
+  const userPermsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'user_permissions')) : null, [firestore]);
+  const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+
+  const { data: rolesData, isLoading: isLoadingRoles } = useCollection<Role>(rolesQuery);
+  const { data: userPermsData, isLoading: isLoadingUserPerms } = useCollection<UserPermission>(userPermsQuery);
+  const { data: usersData, isLoading: isLoadingUsers } = useCollection<Member>(usersQuery);
+
+  const [permissions, setPermissions] = useState<Record<string, string[]>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (rolesData) {
+      const perms: Record<string, string[]> = {};
+      rolesData.forEach(role => {
+        perms[role.id] = role.permissions;
+      });
+      setPermissions(perms);
+    }
+  }, [rolesData]);
 
   const handlePermissionChange = (roleId: string, permissionId: string, checked: boolean) => {
     setPermissions(prev => {
-      const currentRolePermissions = prev[roleId as keyof typeof prev] || [];
+      const currentRolePermissions = prev[roleId] || [];
       const newPermissions = checked
         ? [...currentRolePermissions, permissionId]
         : currentRolePermissions.filter(p => p !== permissionId);
@@ -87,25 +91,79 @@ export default function PermissionsPage() {
     });
   };
 
-  const addTempGrant = (userId: string, durationHours: number, grantedPermissions: string[]) => {
-    const user = mockUsers.find(u => u.id === userId);
-    if(!user) return;
+  const handleSaveRolePermissions = async () => {
+    if (!firestore) return;
+    setIsSaving(true);
+    const batch = writeBatch(firestore);
+    
+    Object.entries(permissions).forEach(([roleId, perms]) => {
+      const roleRef = doc(firestore, 'roles', roleId);
+      const roleData = rolesData?.find(r => r.id === roleId);
+      if(roleData) {
+        batch.update(roleRef, { permissions: perms });
+      }
+    });
 
-    const newGrant: TemporaryAccessGrant = {
-        id: `grant-${Date.now()}`,
-        userId: user.id,
-        userName: user.name,
-        grantedBy: "山田 太郎 (Admin)", // Mock admin user
-        expiresAt: addHours(new Date(), durationHours),
-        permissions: grantedPermissions,
+    try {
+      await batch.commit();
+      toast({ title: '成功', description: '役割別の権限設定を保存しました。' });
+    } catch (error) {
+      console.error("Error saving role permissions:", error);
+      toast({ title: 'エラー', description: '権限設定の保存に失敗しました。', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
-    setTempGrants(prev => [...prev, newGrant]);
-  }
+  };
   
-  const revokeTempGrant = (grantId: string) => {
-      setTempGrants(prev => prev.filter(g => g.id !== grantId));
-  }
+  const handleSeedRoles = async () => {
+    if (!firestore) return;
+    setIsSaving(true);
+    const batch = writeBatch(firestore);
+    roleDefinitions.forEach(role => {
+      const roleRef = doc(firestore, 'roles', role.id);
+      batch.set(roleRef, { name: role.name, permissions: role.permissions });
+    });
 
+    try {
+      await batch.commit();
+      toast({ title: '成功', description: '初期の役割データを登録しました。' });
+    } catch (error) {
+      console.error("Error seeding roles:", error);
+      toast({ title: 'エラー', description: '初期データの登録に失敗しました。', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleAddIndividualPermission = async (userId: string, permsToAdd: string[]) => {
+    if (!firestore || !currentUser) return;
+    const userPermRef = doc(firestore, 'user_permissions', userId);
+    try {
+      await setDoc(userPermRef, {
+        userId,
+        permissions: permsToAdd,
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser.uid,
+      }, { merge: true });
+      toast({ title: '成功', description: '個別のユーザー権限を更新しました。' });
+    } catch (error) {
+      console.error("Error updating individual permissions:", error);
+      toast({ title: 'エラー', description: '個別権限の更新に失敗しました。', variant: 'destructive' });
+    }
+  };
+
+  const handleRevokeIndividualPermission = async (userId: string) => {
+    if (!firestore) return;
+    try {
+      await deleteDoc(doc(firestore, 'user_permissions', userId));
+      toast({ title: '成功', description: '個別権限を取り消しました。' });
+    } catch (error) {
+      console.error("Error revoking individual permissions:", error);
+      toast({ title: 'エラー', description: '個別権限の取り消しに失敗しました。', variant: 'destructive' });
+    }
+  };
+
+  const isLoading = isLoadingRoles || isLoadingUserPerms || isLoadingUsers;
 
   return (
     <div className="w-full space-y-6">
@@ -119,60 +177,69 @@ export default function PermissionsPage() {
           <CardDescription>役割（ロール）ごとに、管理画面でアクセスできる機能を設定します。</CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea>
-            <Table className="min-w-[1200px] border-collapse">
-              <TableHeader>
-                <TableRow>
-                    <TableHead rowSpan={2} className="w-[120px] sticky left-0 bg-background z-10 px-2 align-middle border-b">役割</TableHead>
-                    {permissionGroups.map(group => (
-                        <TableHead
-                            key={group.name}
-                            colSpan={group.permissions.length}
-                            className="text-center p-1 border-l border-b"
-                        >
-                            {group.name}
-                        </TableHead>
+          {isLoading ? <Loader2 className="animate-spin" /> : rolesData && rolesData.length > 0 ? (
+            <>
+            <ScrollArea>
+                <Table className="min-w-[1200px] border-collapse">
+                <TableHeader>
+                    <TableRow>
+                        <TableHead rowSpan={2} className="w-[120px] sticky left-0 bg-background z-10 px-2 align-middle border-b">役割</TableHead>
+                        {permissionGroups.map(group => (
+                            <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
+                        ))}
+                    </TableRow>
+                    <TableRow>
+                        {permissionColumns.map(col => {
+                           const group = permissionGroups.find(g => g.permissions.includes(col));
+                           const isFirstInGroup = group?.permissions[0].id === col.id;
+                           return (
+                             <TableHead key={col.id} className={`text-center px-1 text-xs text-muted-foreground font-normal ${isFirstInGroup && 'border-l'}`}>
+                               {col.name}
+                             </TableHead>
+                           )
+                        })}
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {rolesData.sort((a,b) => roleDefinitions.findIndex(def => def.id === a.id) - roleDefinitions.findIndex(def => def.id === b.id)).map(role => (
+                    <TableRow key={role.id}>
+                        <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">{role.name}</TableCell>
+                        {permissionColumns.map(col => {
+                        const group = permissionGroups.find(g => g.permissions.includes(col));
+                        const isFirstInGroup = group?.permissions[0].id === col.id;
+                        return (
+                        <TableCell key={col.id} className={`text-center p-1 ${isFirstInGroup && 'border-l'}`}>
+                            <Checkbox
+                            checked={permissions[role.id]?.includes(col.id)}
+                            onCheckedChange={(checked) => handlePermissionChange(role.id, col.id, !!checked)}
+                            disabled={role.id === 'admin' || isSaving}
+                            aria-label={`${role.name} - ${col.name}`}
+                            />
+                        </TableCell>
+                        )
+                        })}
+                    </TableRow>
                     ))}
-                </TableRow>
-                <TableRow>
-                    {permissionColumns.map((col, index) => {
-                       const group = permissionGroups.find(g => g.permissions.includes(col));
-                       const isFirstInGroup = group?.permissions[0].id === col.id;
-                       return (
-                         <TableHead key={col.id} className={`text-center px-1 text-xs text-muted-foreground font-normal ${isFirstInGroup && 'border-l'}`}>
-                           {col.name}
-                         </TableHead>
-                       )
-                    })}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {roles.map(role => (
-                  <TableRow key={role.id}>
-                    <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">{role.name}</TableCell>
-                    {permissionColumns.map(col => {
-                      const group = permissionGroups.find(g => g.permissions.includes(col));
-                      const isFirstInGroup = group?.permissions[0].id === col.id;
-                      return (
-                       <TableCell key={col.id} className={`text-center p-1 ${isFirstInGroup && 'border-l'}`}>
-                        <Checkbox
-                          checked={permissions[role.id as keyof typeof permissions]?.includes(col.id)}
-                          onCheckedChange={(checked) => handlePermissionChange(role.id, col.id, !!checked)}
-                          disabled={role.id === 'admin'}
-                          aria-label={`${role.name} - ${col.name}`}
-                        />
-                      </TableCell>
-                      )
-                    })}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-           <div className="flex justify-end mt-4">
-                <Button>設定を保存</Button>
+                </TableBody>
+                </Table>
+                <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+            <div className="flex justify-end mt-4">
+                <Button onClick={handleSaveRolePermissions} disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    設定を保存
+                </Button>
             </div>
+           </>
+          ) : (
+            <div className="text-center py-10 text-muted-foreground">
+                <p>役割データが見つかりません。</p>
+                 <Button onClick={handleSeedRoles} disabled={isSaving} variant="outline" className="mt-4">
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    初期の役割データを登録する
+                </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -180,10 +247,14 @@ export default function PermissionsPage() {
         <CardHeader>
             <div className="flex items-center justify-between">
                 <div>
-                    <CardTitle>一時的なアクセス権の管理</CardTitle>
-                    <CardDescription>マネージャーなど、通常は権限のないユーザーに一時的に管理画面へのアクセスを許可します。</CardDescription>
+                    <CardTitle>ユーザー個別権限の管理</CardTitle>
+                    <CardDescription>役割の権限に加えて、特定のユーザーに追加の権限を付与します。</CardDescription>
                 </div>
-                <GrantTemporaryAccessDialog onGrant={addTempGrant}/>
+                <AddIndividualPermissionDialog 
+                    users={usersData || []}
+                    onGrant={handleAddIndividualPermission}
+                    existingUserPerms={userPermsData || []}
+                />
             </div>
         </CardHeader>
         <CardContent>
@@ -191,47 +262,72 @@ export default function PermissionsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>ユーザー</TableHead>
-                  <TableHead>付与された権限</TableHead>
-                  <TableHead>権限付与者</TableHead>
-                  <TableHead>有効期限</TableHead>
+                  <TableHead>付与された追加権限</TableHead>
+                  <TableHead>最終更新者</TableHead>
+                  <TableHead>最終更新日時</TableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tempGrants.length === 0 && (
-                    <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                            一時的なアクセス権限が付与されたユーザーはいません。
+                {isLoading && (
+                     <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                            <Loader2 className="mx-auto h-6 w-6 animate-spin" />
                         </TableCell>
                     </TableRow>
                 )}
-                {tempGrants.map(grant => (
-                  <TableRow key={grant.id}>
-                    <TableCell className="font-medium">{grant.userName}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {grant.permissions.map(p => (
-                          <Badge key={p} variant="secondary" className="font-normal">
-                            {allPermissions.find(m => m.id === p)?.name || p}
-                          </Badge>
-                        ))}
-                         {grant.permissions.length === 0 && <span className="text-xs text-muted-foreground">権限なし</span>}
-                      </div>
-                    </TableCell>
-                    <TableCell>{grant.grantedBy}</TableCell>
-                    <TableCell>
-                        <Badge variant="outline">
-                           {formatDistanceToNow(grant.expiresAt, { addSuffix: true, locale: ja })}
-                        </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => revokeTempGrant(grant.id)}>
-                        <ShieldAlert className="mr-2 h-4 w-4" />
-                        権限を取り消す
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {!isLoading && userPermsData?.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                            個別の権限が付与されたユーザーはいません。
+                        </TableCell>
+                    </TableRow>
+                )}
+                {!isLoading && userPermsData?.map(grant => {
+                    const user = usersData?.find(u => u.uid === grant.userId);
+                    const updater = usersData?.find(u => u.uid === grant.updatedBy);
+                    return (
+                        <TableRow key={grant.id}>
+                            <TableCell className="font-medium">{user?.displayName || grant.userId}</TableCell>
+                            <TableCell>
+                            <div className="flex flex-wrap gap-1 max-w-md">
+                                {grant.permissions.map(p => (
+                                <Badge key={p} variant="secondary" className="font-normal">
+                                    {allPermissionItems.find(m => m.id === p)?.name || p}
+                                </Badge>
+                                ))}
+                                {grant.permissions.length === 0 && <span className="text-xs text-muted-foreground">権限なし</span>}
+                            </div>
+                            </TableCell>
+                            <TableCell>{updater?.displayName || '不明'}</TableCell>
+                            <TableCell>
+                                {grant.updatedAt ? new Date(grant.updatedAt.seconds * 1000).toLocaleString('ja-JP') : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                    <ShieldAlert className="mr-2 h-4 w-4" />
+                                    権限を取り消す
+                                </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>本当に取り消しますか？</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            {user?.displayName || 'このユーザー'}に付与された個別の追加権限をすべて取り消します。役割に基づく基本権限は維持されます。
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleRevokeIndividualPermission(grant.id)}>取り消す</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                            </TableCell>
+                        </TableRow>
+                    )
+                })}
               </TableBody>
             </Table>
         </CardContent>
@@ -241,11 +337,30 @@ export default function PermissionsPage() {
 }
 
 
-function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durationHours: number, permissions: string[]) => void}) {
+function AddIndividualPermissionDialog({
+    users,
+    onGrant,
+    existingUserPerms
+}: {
+    users: Member[],
+    onGrant: (userId: string, permissions: string[]) => void,
+    existingUserPerms: UserPermission[],
+}) {
     const [open, setOpen] = useState(false);
     const [userId, setUserId] = useState('');
-    const [duration, setDuration] = useState('24'); // Default to 24 hours
     const [grantedPermissions, setGrantedPermissions] = useState<string[]>([]);
+
+    const availableUsers = useMemo(() => {
+        const grantedUserIds = new Set(existingUserPerms.map(p => p.userId));
+        return users.filter(u => u.role !== 'admin' && !grantedUserIds.has(u.uid));
+    }, [users, existingUserPerms]);
+    
+    useEffect(() => {
+        if(open) {
+            setUserId('');
+            setGrantedPermissions([]);
+        }
+    }, [open]);
 
     const handlePermissionChange = (permissionId: string, checked: boolean) => {
         setGrantedPermissions(prev => 
@@ -254,28 +369,24 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
     }
 
     const handleGrant = () => {
-        if(!userId || !duration) return;
-        onGrant(userId, Number(duration), grantedPermissions);
+        if(!userId) return;
+        onGrant(userId, grantedPermissions);
         setOpen(false);
-        // Reset form
-        setUserId('');
-        setDuration('24');
-        setGrantedPermissions([]);
     }
 
     return (
          <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    一時権限を付与
+                    <UserCog className="mr-2 h-4 w-4" />
+                    個別権限を付与
                 </Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>一時的なアクセス権限を付与</DialogTitle>
+                    <DialogTitle>ユーザー個別権限を付与</DialogTitle>
                     <DialogDescription>
-                        選択したユーザーに、指定した期間・範囲で管理画面へのアクセス権限を付与します。
+                        選択したユーザーに、役割の権限に加えて追加の権限を付与します。
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -286,40 +397,23 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
                                 <SelectValue placeholder="ユーザーを選択..."/>
                             </SelectTrigger>
                             <SelectContent>
-                                {mockUsers.filter(u => u.role === 'manager').map(user => (
-                                    <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                                {availableUsers.map(user => (
+                                    <SelectItem key={user.uid} value={user.uid}>{user.displayName} ({user.email})</SelectItem>
                                 ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="duration-select">有効期間</Label>
-                        <Select value={duration} onValueChange={setDuration}>
-                            <SelectTrigger id="duration-select">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="1">1時間</SelectItem>
-                                <SelectItem value="3">3時間</SelectItem>
-                                <SelectItem value="8">8時間 (1営業日)</SelectItem>
-                                <SelectItem value="24">24時間</SelectItem>
-                                <SelectItem value="72">3日間</SelectItem>
-                                <SelectItem value="168">7日間</SelectItem>
-                                <SelectItem value="720">30日間</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <div className="space-y-2">
                         <Label>付与する権限</Label>
-                        <div className="grid grid-cols-2 gap-2 rounded-md border p-4">
-                            {allPermissions.filter(item => item.id !== 'permissions').map(item => (
+                        <div className="grid grid-cols-2 gap-2 rounded-md border p-4 max-h-60 overflow-y-auto">
+                            {allPermissionItems.map(item => (
                                 <div key={item.id} className="flex items-center gap-2">
                                     <Checkbox 
                                         id={`perm-${item.id}`}
                                         checked={grantedPermissions.includes(item.id)}
                                         onCheckedChange={(checked) => handlePermissionChange(item.id, !!checked)}
                                     />
-                                    <Label htmlFor={`perm-${item.id}`} className="font-normal">{permissionColumns.find(c => c.id === item.id)?.name || item.name}</Label>
+                                    <Label htmlFor={`perm-${item.id}`} className="font-normal">{item.name}</Label>
                                 </div>
                             ))}
                         </div>
@@ -333,5 +427,3 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
         </Dialog>
     )
 }
-
-    

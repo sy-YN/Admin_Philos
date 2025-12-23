@@ -450,6 +450,53 @@
         }
       },
       "required": ["year", "month", "counts"]
+    },
+    "Role": {
+      "title": "Role",
+      "description": "Defines the set of permissions associated with a user role.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The display name of the role (e.g., '管理者', '経営層')."
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "A list of permission keys that this role grants."
+        }
+      },
+      "required": ["name", "permissions"]
+    },
+    "UserPermission": {
+      "title": "User Permission",
+      "description": "Grants specific, additional permissions to an individual user, overriding their role-based permissions.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user to whom the permissions are granted. This should match the document ID."
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "A list of additional permission keys granted to this user."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of when the permissions were last updated."
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "The UID of the administrator who last updated these permissions."
+        }
+      },
+      "required": ["userId", "permissions", "updatedAt", "updatedBy"]
     }
   },
   "auth": {
@@ -549,6 +596,18 @@
     "/goals/{goalId}/projectComplianceRecords/{recordId}": {
       "schema": { "$ref": "#/entities/ProjectComplianceRecord" },
       "description": "Subcollection storing monthly project compliance records for a specific goal."
+    },
+    "/roles/{roleId}": {
+      "schema": {
+        "$ref": "#/entities/Role"
+      },
+      "description": "Stores the default permissions for each user role (admin, executive, etc.)."
+    },
+    "/user_permissions/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserPermission"
+      },
+      "description": "Stores individual permission overrides for specific users, keyed by their UID."
     }
   }
 }

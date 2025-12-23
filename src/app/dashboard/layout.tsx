@@ -6,32 +6,26 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft, CalendarDays, User, Network, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import type { Member } from '@/types/member';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import type { Role } from '@/types/role';
 
 const allNavItems = [
-  { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members', requiredPermissions: ['members'] },
-  { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization', requiredPermissions: ['organization'] },
-  { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions', requiredPermissions: ['permissions'] },
+  { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members' },
+  { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization' },
+  { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions' },
   { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film, id: 'contents', requiredPermissions: ['video_management', 'message_management'] },
-  { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen, id: 'philosophy', requiredPermissions: ['philosophy'] },
-  { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays, id: 'calendar', requiredPermissions: ['calendar'] },
+  { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen, id: 'philosophy' },
+  { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays, id: 'calendar' },
   { href: '/dashboard/dashboard', label: '目標設定', icon: BarChart3, id: 'dashboard', requiredPermissions: ['company_goal_setting', 'org_personal_goal_setting'] },
-  { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy, id: 'ranking', requiredPermissions: ['ranking'] },
+  { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy, id: 'ranking' },
 ];
-
-const rolePermissions: Record<Member['role'], string[]> = {
-  admin: ['members', 'organization', 'permissions', 'video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting', 'org_personal_goal_setting', 'ranking'],
-  executive: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting', 'org_personal_goal_setting', 'ranking'],
-  manager: ['org_personal_goal_setting'],
-  employee: [],
-};
 
 
 export default function DashboardLayout({
@@ -45,64 +39,78 @@ export default function DashboardLayout({
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<Member['role'] | null>(null);
-
+  
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
+
+  const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
+    if (!firestore) return [];
+
+    try {
+      const userDocRef = doc(firestore, 'users', userUid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        console.error("User document not found.");
+        return [];
+      }
+      
+      const userData = userDoc.data() as Member;
+      const userRole = userData.role;
+
+      const roleDocRef = doc(firestore, 'roles', userRole);
+      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
+
+      const [roleDoc, userPermsDoc] = await Promise.all([
+        getDoc(roleDocRef),
+        getDoc(userPermsDoc),
+      ]);
+      
+      const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
+      const individualPermissions = userPermsDoc.exists() ? userPermsDoc.data().permissions : [];
+      
+      return [...new Set([...rolePermissions, ...individualPermissions])];
+
+    } catch (error) {
+      console.error("Error fetching permissions:", error);
+      return [];
+    }
+  }, [firestore]);
+  
 
   useEffect(() => {
     if (isUserLoading) {
-      return;
+      return; // Wait until Firebase Auth state is resolved.
     }
 
     if (!user) {
       router.replace('/login');
       return;
     }
-
-    if (!firestore) {
-      setIsAuthorized(false);
-      return;
-    }
-
-    const userDocRef = doc(firestore, 'users', user.uid);
-    getDoc(userDocRef).then(userDoc => {
-      if (userDoc.exists()) {
-        const userData = userDoc.data() as Member;
-        const userRole = userData.role;
-        setCurrentUserRole(userRole);
-        
-        // TODO: ここで一時的な権限も考慮に入れる
-        const permanentPermissions = rolePermissions[userRole] || [];
-        const currentPermissions = [...new Set(permanentPermissions)];
-        setUserPermissions(currentPermissions);
-
-        if (currentPermissions.length > 0) {
-          setIsAuthorized(true);
-        } else {
-           auth?.signOut().then(() => {
-            router.replace('/login');
-          });
-        }
-      } else {
+    
+    setIsCheckingPermissions(true);
+    fetchUserPermissions(user.uid).then(permissions => {
+      setUserPermissions(permissions);
+      if (permissions.length === 0) {
+        // If user has no permissions at all, sign them out.
         auth?.signOut().then(() => {
           router.replace('/login');
         });
+      } else {
+        setIsCheckingPermissions(false);
       }
-    }).catch(() => {
-      auth?.signOut().then(() => {
-        router.replace('/login');
-      });
     });
 
-  }, [user, isUserLoading, router, firestore, auth]);
+  }, [user, isUserLoading, router, auth, fetchUserPermissions]);
   
   const navItems = useMemo(() => {
-    if (!currentUserRole) return [];
-    return allNavItems.filter(item => 
-      item.requiredPermissions.some(p => userPermissions.includes(p))
-    );
-  }, [currentUserRole, userPermissions]);
+    return allNavItems.filter(item => {
+      if (item.requiredPermissions) {
+        return item.requiredPermissions.some(p => userPermissions.includes(p));
+      }
+      return userPermissions.includes(item.id);
+    });
+  }, [userPermissions]);
 
 
   const handleLogout = async () => {
@@ -112,7 +120,7 @@ export default function DashboardLayout({
     router.push('/login');
   };
 
-  if (isUserLoading || !isAuthorized || !currentUserRole) {
+  if (isUserLoading || isCheckingPermissions) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
