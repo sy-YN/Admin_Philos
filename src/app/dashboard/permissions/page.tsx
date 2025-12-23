@@ -26,6 +26,7 @@ const roles = [
 const permissionGroups = [
   { name: 'メンバー管理', permissions: [{ id: 'members', name: 'メンバー管理' }] },
   { name: '組織管理', permissions: [{ id: 'organization', name: '組織管理' }] },
+  { name: '権限管理', permissions: [{ id: 'permissions', name: '権限管理' }] },
   {
     name: 'コンテンツ管理',
     permissions: [
@@ -43,8 +44,8 @@ const permissionGroups = [
     ],
   },
   { name: 'ランキング設定', permissions: [{ id: 'ranking', name: 'ランキング設定' }] },
-  { name: '権限管理', permissions: [{ id: 'permissions', name: '権限管理' }] },
 ];
+
 
 const permissionColumns = permissionGroups.flatMap(g => g.permissions);
 const allPermissions = permissionColumns.map(p => ({ id: p.id, name: p.name }));
@@ -127,7 +128,7 @@ export default function PermissionsPage() {
                         <TableHead
                             key={group.name}
                             colSpan={group.permissions.length}
-                            className="text-center px-1 border-l border-b"
+                            className="text-center p-1 border-l border-b"
                         >
                             {group.name}
                         </TableHead>
@@ -153,7 +154,7 @@ export default function PermissionsPage() {
                       const group = permissionGroups.find(g => g.permissions.includes(col));
                       const isFirstInGroup = group?.permissions[0].id === col.id;
                       return (
-                       <TableCell key={col.id} className={`text-center px-1 ${isFirstInGroup && 'border-l'}`}>
+                       <TableCell key={col.id} className={`text-center p-1 ${isFirstInGroup && 'border-l'}`}>
                         <Checkbox
                           checked={permissions[role.id as keyof typeof permissions]?.includes(col.id)}
                           onCheckedChange={(checked) => handlePermissionChange(role.id, col.id, !!checked)}
@@ -332,3 +333,5 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
         </Dialog>
     )
 }
+
+    
