@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow, addHours } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 // Mock Data
@@ -24,23 +23,20 @@ const roles = [
   { id: 'employee', name: '従業員' },
 ];
 
-const menuItems = [
+const permissionColumns = [
     { id: 'members', name: 'メンバー管理' },
     { id: 'organization', name: '組織管理' },
-    { id: 'permissions', name: '権限管理' },
+    { id: 'video_management', name: 'ビデオ管理', group: 'contents' },
+    { id: 'message_management', name: 'メッセージ管理', group: 'contents' },
     { id: 'philosophy', name: '理念管理' },
     { id: 'calendar', name: 'カレンダー設定' },
+    { id: 'company_goal_setting', name: '会社目標設定', group: 'goals' },
+    { id: 'org_personal_goal_setting', name: '組織・個人目標', group: 'goals' },
     { id: 'ranking', name: 'ランキング設定' },
+    { id: 'permissions', name: '権限管理' }, // This is usually admin-only
 ];
 
-const permissionCategories = [
-    { id: 'video_management', name: 'ビデオ管理' },
-    { id: 'message_management', name: 'メッセージ管理' },
-    { id: 'company_goal_setting', name: '会社目標設定' },
-    { id: 'org_personal_goal_setting', name: '組織・個人目標設定' },
-];
-
-const allPermissions = [...menuItems, ...permissionCategories];
+const allPermissions = permissionColumns.map(p => ({id: p.id, name: p.name}));
 
 
 const initialPermissions = {
@@ -112,65 +108,29 @@ export default function PermissionsPage() {
         </CardHeader>
         <CardContent>
           <ScrollArea>
-            <Table className="min-w-[1000px]">
+            <Table className="min-w-[1200px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[120px] sticky left-0 bg-background z-10 px-2">役割</TableHead>
-                  {menuItems.map(menu => (
-                    <TableHead key={menu.id} className="text-center px-2">{menu.name}</TableHead>
+                   {permissionColumns.map(col => (
+                     <TableHead key={col.id} className="text-center px-1">{col.name}</TableHead>
                   ))}
-                   <TableHead className="text-center border-l px-2">ビデオ管理</TableHead>
-                   <TableHead className="text-center px-2">メッセージ管理</TableHead>
-                   <TableHead className="text-center border-l px-2">会社目標設定</TableHead>
-                   <TableHead className="text-center px-2">組織・個人目標</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {roles.map(role => (
                   <TableRow key={role.id}>
                     <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">{role.name}</TableCell>
-                    {menuItems.map(menu => (
-                      <TableCell key={menu.id} className="text-center px-2">
+                    {permissionColumns.map(col => (
+                       <TableCell key={col.id} className="text-center px-1">
                         <Checkbox
-                          checked={permissions[role.id as keyof typeof permissions]?.includes(menu.id)}
-                          onCheckedChange={(checked) => handlePermissionChange(role.id, menu.id, !!checked)}
+                          checked={permissions[role.id as keyof typeof permissions]?.includes(col.id)}
+                          onCheckedChange={(checked) => handlePermissionChange(role.id, col.id, !!checked)}
                           disabled={role.id === 'admin'}
-                          aria-label={`${role.name} - ${menu.name}`}
+                          aria-label={`${role.name} - ${col.name}`}
                         />
                       </TableCell>
                     ))}
-                    <TableCell className="text-center border-l px-2">
-                        <Checkbox
-                          checked={permissions[role.id as keyof typeof permissions]?.includes('video_management')}
-                          onCheckedChange={(checked) => handlePermissionChange(role.id, 'video_management', !!checked)}
-                          disabled={role.id === 'admin'}
-                          aria-label={`${role.name} - ビデオ管理`}
-                        />
-                    </TableCell>
-                    <TableCell className="text-center px-2">
-                        <Checkbox
-                          checked={permissions[role.id as keyof typeof permissions]?.includes('message_management')}
-                          onCheckedChange={(checked) => handlePermissionChange(role.id, 'message_management', !!checked)}
-                          disabled={role.id === 'admin'}
-                          aria-label={`${role.name} - メッセージ管理`}
-                        />
-                    </TableCell>
-                    <TableCell className="text-center border-l px-2">
-                        <Checkbox
-                          checked={permissions[role.id as keyof typeof permissions]?.includes('company_goal_setting')}
-                          onCheckedChange={(checked) => handlePermissionChange(role.id, 'company_goal_setting', !!checked)}
-                          disabled={role.id === 'admin'}
-                          aria-label={`${role.name} - 会社目標設定`}
-                        />
-                    </TableCell>
-                    <TableCell className="text-center px-2">
-                        <Checkbox
-                          checked={permissions[role.id as keyof typeof permissions]?.includes('org_personal_goal_setting')}
-                          onCheckedChange={(checked) => handlePermissionChange(role.id, 'org_personal_goal_setting', !!checked)}
-                          disabled={role.id === 'admin'}
-                          aria-label={`${role.name} - 組織・個人目標設定`}
-                        />
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
