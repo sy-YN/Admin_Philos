@@ -23,20 +23,31 @@ const roles = [
   { id: 'employee', name: '従業員' },
 ];
 
-const permissionColumns = [
-    { id: 'members', name: 'メンバー管理' },
-    { id: 'organization', name: '組織管理' },
-    { id: 'video_management', name: 'ビデオ管理', group: 'contents' },
-    { id: 'message_management', name: 'メッセージ管理', group: 'contents' },
-    { id: 'philosophy', name: '理念管理' },
-    { id: 'calendar', name: 'カレンダー設定' },
-    { id: 'company_goal_setting', name: '会社目標設定', group: 'goals' },
-    { id: 'org_personal_goal_setting', name: '組織・個人目標', group: 'goals' },
-    { id: 'ranking', name: 'ランキング設定' },
-    { id: 'permissions', name: '権限管理' }, // This is usually admin-only
+const permissionGroups = [
+  { name: 'メンバー管理', permissions: [{ id: 'members', name: 'メンバー管理' }] },
+  { name: '組織管理', permissions: [{ id: 'organization', name: '組織管理' }] },
+  {
+    name: 'コンテンツ管理',
+    permissions: [
+      { id: 'video_management', name: 'ビデオ' },
+      { id: 'message_management', name: 'メッセージ' },
+    ],
+  },
+  { name: '理念管理', permissions: [{ id: 'philosophy', name: '理念管理' }] },
+  { name: 'カレンダー設定', permissions: [{ id: 'calendar', name: 'カレンダー設定' }] },
+  {
+    name: '目標設定',
+    permissions: [
+      { id: 'company_goal_setting', name: '会社目標' },
+      { id: 'org_personal_goal_setting', name: '組織・個人目標' },
+    ],
+  },
+  { name: 'ランキング設定', permissions: [{ id: 'ranking', name: 'ランキング設定' }] },
+  { name: '権限管理', permissions: [{ id: 'permissions', name: '権限管理' }] },
 ];
 
-const allPermissions = permissionColumns.map(p => ({id: p.id, name: p.name}));
+const permissionColumns = permissionGroups.flatMap(g => g.permissions);
+const allPermissions = permissionColumns.map(p => ({ id: p.id, name: p.name }));
 
 
 const initialPermissions = {
@@ -108,21 +119,41 @@ export default function PermissionsPage() {
         </CardHeader>
         <CardContent>
           <ScrollArea>
-            <Table className="min-w-[1200px]">
+            <Table className="min-w-[1200px] border-collapse">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[120px] sticky left-0 bg-background z-10 px-2">役割</TableHead>
-                   {permissionColumns.map(col => (
-                     <TableHead key={col.id} className="text-center px-1">{col.name}</TableHead>
-                  ))}
+                    <TableHead rowSpan={2} className="w-[120px] sticky left-0 bg-background z-10 px-2 align-middle border-b">役割</TableHead>
+                    {permissionGroups.map(group => (
+                        <TableHead
+                            key={group.name}
+                            colSpan={group.permissions.length}
+                            className="text-center px-1 border-l border-b"
+                        >
+                            {group.name}
+                        </TableHead>
+                    ))}
+                </TableRow>
+                <TableRow>
+                    {permissionColumns.map((col, index) => {
+                       const group = permissionGroups.find(g => g.permissions.includes(col));
+                       const isFirstInGroup = group?.permissions[0].id === col.id;
+                       return (
+                         <TableHead key={col.id} className={`text-center px-1 text-xs text-muted-foreground font-normal ${isFirstInGroup && 'border-l'}`}>
+                           {col.name}
+                         </TableHead>
+                       )
+                    })}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {roles.map(role => (
                   <TableRow key={role.id}>
                     <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">{role.name}</TableCell>
-                    {permissionColumns.map(col => (
-                       <TableCell key={col.id} className="text-center px-1">
+                    {permissionColumns.map(col => {
+                      const group = permissionGroups.find(g => g.permissions.includes(col));
+                      const isFirstInGroup = group?.permissions[0].id === col.id;
+                      return (
+                       <TableCell key={col.id} className={`text-center px-1 ${isFirstInGroup && 'border-l'}`}>
                         <Checkbox
                           checked={permissions[role.id as keyof typeof permissions]?.includes(col.id)}
                           onCheckedChange={(checked) => handlePermissionChange(role.id, col.id, !!checked)}
@@ -130,7 +161,8 @@ export default function PermissionsPage() {
                           aria-label={`${role.name} - ${col.name}`}
                         />
                       </TableCell>
-                    ))}
+                      )
+                    })}
                   </TableRow>
                 ))}
               </TableBody>
@@ -286,7 +318,7 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
                                         checked={grantedPermissions.includes(item.id)}
                                         onCheckedChange={(checked) => handlePermissionChange(item.id, !!checked)}
                                     />
-                                    <Label htmlFor={`perm-${item.id}`} className="font-normal">{item.name}</Label>
+                                    <Label htmlFor={`perm-${item.id}`} className="font-normal">{permissionColumns.find(c => c.id === item.id)?.name || item.name}</Label>
                                 </div>
                             ))}
                         </div>
