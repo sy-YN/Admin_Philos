@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -13,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow, addHours } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 // Mock Data
 const roles = [
@@ -109,26 +111,26 @@ export default function PermissionsPage() {
           <CardDescription>役割（ロール）ごとに、管理画面でアクセスできる機能を設定します。</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
+          <ScrollArea>
+            <Table className="w-max">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[150px]">役割</TableHead>
+                  <TableHead className="w-[120px] sticky left-0 bg-background z-10">役割</TableHead>
                   {menuItems.map(menu => (
-                    <TableHead key={menu.id} className="text-center min-w-[120px]">{menu.name}</TableHead>
+                    <TableHead key={menu.id} className="text-center px-2">{menu.name}</TableHead>
                   ))}
-                  <TableHead className="text-center min-w-[120px] border-l">ビデオ管理</TableHead>
-                  <TableHead className="text-center min-w-[120px]">メッセージ管理</TableHead>
-                  <TableHead className="text-center min-w-[120px] border-l">会社目標設定</TableHead>
-                  <TableHead className="text-center min-w-[120px]">組織・個人目標</TableHead>
+                  <TableHead className="text-center border-l px-2">ビデオ管理</TableHead>
+                  <TableHead className="text-center px-2">メッセージ管理</TableHead>
+                  <TableHead className="text-center border-l px-2">会社目標設定</TableHead>
+                  <TableHead className="text-center px-2">組織・個人目標</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {roles.map(role => (
                   <TableRow key={role.id}>
-                    <TableCell className="font-medium">{role.name}</TableCell>
+                    <TableCell className="font-medium sticky left-0 bg-background z-10">{role.name}</TableCell>
                     {menuItems.map(menu => (
-                      <TableCell key={menu.id} className="text-center">
+                      <TableCell key={menu.id} className="text-center px-2">
                         <Checkbox
                           checked={permissions[role.id as keyof typeof permissions]?.includes(menu.id)}
                           onCheckedChange={(checked) => handlePermissionChange(role.id, menu.id, !!checked)}
@@ -137,7 +139,7 @@ export default function PermissionsPage() {
                         />
                       </TableCell>
                     ))}
-                    <TableCell className="text-center border-l">
+                    <TableCell className="text-center border-l px-2">
                         <Checkbox
                           checked={permissions[role.id as keyof typeof permissions]?.includes('video_management')}
                           onCheckedChange={(checked) => handlePermissionChange(role.id, 'video_management', !!checked)}
@@ -145,7 +147,7 @@ export default function PermissionsPage() {
                           aria-label={`${role.name} - ビデオ管理`}
                         />
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center px-2">
                         <Checkbox
                           checked={permissions[role.id as keyof typeof permissions]?.includes('message_management')}
                           onCheckedChange={(checked) => handlePermissionChange(role.id, 'message_management', !!checked)}
@@ -153,7 +155,7 @@ export default function PermissionsPage() {
                           aria-label={`${role.name} - メッセージ管理`}
                         />
                     </TableCell>
-                    <TableCell className="text-center border-l">
+                    <TableCell className="text-center border-l px-2">
                         <Checkbox
                           checked={permissions[role.id as keyof typeof permissions]?.includes('company_goal_setting')}
                           onCheckedChange={(checked) => handlePermissionChange(role.id, 'company_goal_setting', !!checked)}
@@ -161,7 +163,7 @@ export default function PermissionsPage() {
                           aria-label={`${role.name} - 会社目標設定`}
                         />
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center px-2">
                         <Checkbox
                           checked={permissions[role.id as keyof typeof permissions]?.includes('org_personal_goal_setting')}
                           onCheckedChange={(checked) => handlePermissionChange(role.id, 'org_personal_goal_setting', !!checked)}
@@ -173,7 +175,8 @@ export default function PermissionsPage() {
                 ))}
               </TableBody>
             </Table>
-          </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
            <div className="flex justify-end mt-4">
                 <Button>設定を保存</Button>
             </div>
@@ -337,3 +340,5 @@ function GrantTemporaryAccessDialog({onGrant}: {onGrant: (userId: string, durati
         </Dialog>
     )
 }
+
+    
