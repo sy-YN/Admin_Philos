@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -1093,14 +1094,6 @@ function WidgetList({
     return (
       <div className="text-center py-10 text-muted-foreground">
         <p>この単位のウィジェットはまだありません。</p>
-         {canEdit && (
-            <WidgetDialog onSave={onSave} defaultScope={scope} currentUser={currentUser} organizations={organizations}>
-                <Button className="mt-4">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    最初のウィジェットを追加
-                </Button>
-            </WidgetDialog>
-         )}
       </div>
     );
   }
@@ -1190,21 +1183,20 @@ function PersonalGoalsList({
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">進行中の目標</h3>
              {!hasOngoingGoal && (
-                <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
-                 目標を保存してメッセージを生成！
-               </Button>
+                <div className="flex flex-col items-center gap-4 text-center">
+                    <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg max-w-md">
+                        <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                        <p>
+                        新しい目標を作成しましょう。メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
+                        </p>
+                    </div>
+                    <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
+                        目標を保存してメッセージを生成！
+                    </Button>
+                </div>
             )}
           </div>
-           {!hasOngoingGoal ? (
-            <div className="flex flex-col items-center gap-4 text-center">
-               <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg max-w-md">
-                 <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                 <p>
-                   新しい目標を作成しましょう。メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
-                 </p>
-               </div>
-            </div>
-           ) : (
+           {hasOngoingGoal && (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {ongoing.map(goal => (
                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
@@ -1434,7 +1426,7 @@ export default function DashboardSettingsPage() {
     }, [authUser, isAuthUserLoading, fetchUserWithPermissions, allOrganizations, isLoadingOrgs]);
     
     const goalsQuery = useMemoFirebase(() => {
-        if (isAuthUserLoading || isCurrentUserLoading || !currentUserData || !firestore) return null;
+        if (!firestore || !currentUserData || isAuthUserLoading || isCurrentUserLoading) return null;
         
         let queryConstraints = [where('scope', '==', activeTab)];
 
@@ -1757,7 +1749,7 @@ export default function DashboardSettingsPage() {
             </TabsContent>
             <TabsContent value="personal">
                  {canManageOrgPersonalGoals ? (
-                    isAuthUserLoading || isCurrentUserLoading || !currentUserData ? (
+                    !currentUserData ? (
                       <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>
                     ) : (
                       <PersonalGoalsList
