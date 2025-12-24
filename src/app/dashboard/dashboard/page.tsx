@@ -344,6 +344,65 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
   );
 }
 
+function TeamGoalDataDialog({
+  widget,
+  onSave,
+  children,
+}: {
+  widget: Goal;
+  onSave: (data: { currentValue: number }) => void;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const [currentValue, setCurrentValue] = useState(widget.currentValue || 0);
+
+  useEffect(() => {
+    if (open) {
+      setCurrentValue(widget.currentValue || 0);
+    }
+  }, [open, widget.currentValue]);
+
+  const handleSave = () => {
+    onSave({ currentValue });
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>進捗データ入力</DialogTitle>
+          <DialogDescription>
+            「{widget.title}」の現在の進捗値を更新します。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label>目標値</Label>
+            <Input value={`${widget.targetValue || 0} ${widget.unit || ''}`} disabled />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="current-value">現在の進捗</Label>
+            <Input
+              id="current-value"
+              type="number"
+              value={currentValue}
+              onChange={(e) => setCurrentValue(Number(e.target.value))}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            キャンセル
+          </Button>
+          <Button onClick={handleSave}>保存</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SalesDataManagementDialog({
   widget,
   onSave,
@@ -874,6 +933,7 @@ function WidgetCard({
   onSaveProfitRecords,
   onSaveCustomerRecords,
   onSaveProjectComplianceRecords,
+  onSaveTeamGoalData,
   currentUser,
   canEdit,
   organizations,
@@ -886,6 +946,7 @@ function WidgetCard({
   onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
+  onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
   currentUser: Member | null;
   canEdit: boolean;
   organizations: Organization[];
@@ -1011,6 +1072,14 @@ function WidgetCard({
                     </DropdownMenuItem>
                 </ProjectComplianceDataManagementDialog>
               )}
+               {widget.scope === 'team' && (
+                <TeamGoalDataDialog widget={widget} onSave={(data) => onSaveTeamGoalData(widget.id, data)}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Database className="mr-2 h-4 w-4" />
+                    データ入力
+                  </DropdownMenuItem>
+                </TeamGoalDataDialog>
+              )}
                <DropdownMenuSeparator />
                <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -1072,6 +1141,7 @@ function WidgetList({
   onSaveProfitRecords,
   onSaveCustomerRecords,
   onSaveProjectComplianceRecords,
+  onSaveTeamGoalData,
   currentUser,
   canEdit,
   organizations,
@@ -1085,6 +1155,7 @@ function WidgetList({
   onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
+  onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
   currentUser: Member | null;
   canEdit: boolean;
   organizations: Organization[];
@@ -1111,6 +1182,7 @@ function WidgetList({
           onSaveProfitRecords={onSaveProfitRecords}
           onSaveCustomerRecords={onSaveCustomerRecords}
           onSaveProjectComplianceRecords={onSaveProjectComplianceRecords}
+          onSaveTeamGoalData={onSaveTeamGoalData}
           currentUser={currentUser}
           canEdit={canEdit}
           organizations={organizations}
@@ -1597,6 +1669,21 @@ export default function DashboardSettingsPage() {
         }
     };
 
+    const handleSaveTeamGoalData = async (goalId: string, data: { currentValue: number }) => {
+      if (!firestore) return;
+      try {
+        const goalRef = doc(firestore, 'goals', goalId);
+        await updateDoc(goalRef, {
+          currentValue: data.currentValue,
+          updatedAt: serverTimestamp(),
+        });
+        toast({ title: '成功', description: '進捗を更新しました。' });
+      } catch (error) {
+        console.error('Error updating team goal data:', error);
+        toast({ title: 'エラー', description: '進捗の更新に失敗しました。', variant: 'destructive' });
+      }
+    };
+    
     const handleSavePersonalGoal = async (data: Partial<PersonalGoal>, id?: string) => {
       if (!firestore || !currentUserData) return;
       const collectionRef = collection(firestore, 'users', currentUserData.uid, 'personalGoals');
@@ -1703,6 +1790,7 @@ export default function DashboardSettingsPage() {
                       onSaveProfitRecords={handleSaveProfitRecords}
                       onSaveCustomerRecords={handleSaveCustomerRecords}
                       onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
+                      onSaveTeamGoalData={handleSaveTeamGoalData}
                       currentUser={currentUserData}
                       canEdit={canManageCompanyGoals}
                       organizations={allOrganizations || []}
@@ -1734,6 +1822,7 @@ export default function DashboardSettingsPage() {
                           onSaveProfitRecords={handleSaveProfitRecords}
                           onSaveCustomerRecords={handleSaveCustomerRecords}
                           onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
+                          onSaveTeamGoalData={handleSaveTeamGoalData}
                           currentUser={currentUserData}
                           canEdit={canManageOrgPersonalGoals}
                           organizations={allOrganizations || []}
