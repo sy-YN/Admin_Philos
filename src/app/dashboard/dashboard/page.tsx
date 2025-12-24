@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2 } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,7 +24,7 @@ import {
 } from '@/lib/fiscal-year';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs, Query, getDoc } from 'firebase/firestore';
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs, Query, getDoc, Timestamp } from 'firebase/firestore';
 import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
 import type { ProfitRecord } from '@/types/profit-record';
@@ -34,7 +34,15 @@ import type { Member } from '@/types/member';
 import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
 import type { Role } from '@/types/role';
 import { PersonalGoalCard } from '@/components/dashboard/personal-goal-card';
-import type { PersonalGoal } from '@/types/personal-goal';
+import type { PersonalGoal, GoalStatus } from '@/types/personal-goal';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { format, startOfDay } from 'date-fns';
+import { ja } from 'date-fns/locale';
+import { DateRange } from 'react-day-picker';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -1025,8 +1033,19 @@ function WidgetList({
   );
 }
 
-function PersonalGoalsList({ user }: { user: Member | null }) {
+function PersonalGoalsList({
+  user,
+  onSave,
+  onDelete,
+}: {
+  user: Member | null;
+  onSave: (goal: Partial<PersonalGoal>, id?: string) => void;
+  onDelete: (id: string) => void;
+}) {
   const firestore = useFirestore();
+  const [selectedGoal, setSelectedGoal] = useState<PersonalGoal | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   const personalGoalsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'users', user.uid, 'personalGoals'));
@@ -1043,6 +1062,20 @@ function PersonalGoalsList({ user }: { user: Member | null }) {
     };
   }, [goals]);
 
+  const handleEdit = (goal: PersonalGoal) => {
+    setSelectedGoal(goal);
+    setIsDialogOpen(true);
+  };
+
+  const handleCreate = () => {
+    setSelectedGoal(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    onDelete(id);
+  };
+
   if (isLoading) {
     return <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>;
   }
@@ -1056,32 +1089,187 @@ function PersonalGoalsList({ user }: { user: Member | null }) {
     );
   }
 
+  const hasOngoingGoal = ongoing.length > 0;
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
-        {ongoing.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {ongoing.map(goal => <PersonalGoalCard key={goal.id} goal={goal} />)}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">現在進行中の目標はありません。</p>
-        )}
+    <>
+      <PersonalGoalDialog
+        goal={selectedGoal}
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSave={onSave}
+        hasOngoingGoal={hasOngoingGoal}
+      />
+      <div className="space-y-8">
+         {!hasOngoingGoal && (
+           <div className="flex flex-col items-center gap-4">
+              <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
+                目標を保存してメッセージを生成！
+              </Button>
+              <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg max-w-md">
+                <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                <p>
+                  新しい目標を作成しましょう。メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
+                </p>
+              </div>
+           </div>
+         )}
+        <div>
+          <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
+          {ongoing.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {ongoing.map(goal => (
+                <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">現在進行中の目標はありません。</p>
+          )}
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold mb-4">過去の目標</h3>
+          {completed.length > 0 || failed.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {completed.map(goal => (
+                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
+              ))}
+              {failed.map(goal => (
+                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">完了した目標はまだありません。</p>
+          )}
+        </div>
       </div>
-      <div>
-        <h3 className="text-lg font-semibold mb-4">過去の目標</h3>
-        {completed.length > 0 || failed.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {completed.map(goal => <PersonalGoalCard key={goal.id} goal={goal} />)}
-            {failed.map(goal => <PersonalGoalCard key={goal.id} goal={goal} />)}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">完了した目標はまだありません。</p>
-        )}
-      </div>
-    </div>
+    </>
   );
 }
+
+function PersonalGoalDialog({
+  goal,
+  open,
+  onOpenChange,
+  onSave,
+  hasOngoingGoal,
+}: {
+  goal: PersonalGoal | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (goal: Partial<PersonalGoal>, id?: string) => void;
+  hasOngoingGoal: boolean;
+}) {
+  const [title, setTitle] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [progress, setProgress] = useState(0);
+  const [isPublic, setIsPublic] = useState(true);
+
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      setTitle(goal?.title || '');
+      setDateRange({
+        from: goal?.startDate?.toDate(),
+        to: goal?.endDate?.toDate(),
+      });
+      setProgress(goal?.progress || 0);
+      setIsPublic(goal?.isPublic === undefined ? true : goal.isPublic);
+    }
+  }, [goal, open]);
+
+  const handleSubmit = () => {
+    if (!title) {
+      toast({ title: 'エラー', description: '目標タイトルは必須です。', variant: 'destructive' });
+      return;
+    }
+    if (!dateRange?.from || !dateRange?.to) {
+      toast({ title: 'エラー', description: '目標期間は必須です。', variant: 'destructive' });
+      return;
+    }
+
+    if (!goal && hasOngoingGoal) {
+      toast({ title: 'エラー', description: '「進行中」の目標は同時に複数設定できません。', variant: 'destructive' });
+      return;
+    }
+
+    const today = startOfDay(new Date());
+    let status: GoalStatus = '進行中';
+    if (progress === 100) {
+      status = '達成済';
+    } else if (dateRange.to < today) {
+      status = '未達成';
+    }
+
+    const goalData: Partial<PersonalGoal> = {
+      title,
+      startDate: Timestamp.fromDate(dateRange.from),
+      endDate: Timestamp.fromDate(dateRange.to),
+      progress,
+      isPublic,
+      status,
+    };
+
+    onSave(goalData, goal?.id);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{goal ? '個人目標を編集' : '新しい個人目標を作成'}</DialogTitle>
+          <DialogDescription>
+            あなたの目標を設定し、進捗を管理しましょう。
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-6 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="goal-title">目標</Label>
+            <Input id="goal-title" value={title} onChange={e => setTitle(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="goal-date">期間</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button id="goal-date" variant="outline" className={cn('w-full justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, 'PPP', { locale: ja })} - {format(dateRange.to, 'PPP', { locale: ja })}
+                      </>
+                    ) : (
+                      format(dateRange.from, 'PPP', { locale: ja })
+                    )
+                  ) : (
+                    <span>日付を選択</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus locale={ja} />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <Label>進捗 ({progress}%)</Label>
+            <Slider value={[progress]} onValueChange={([val]) => setProgress(val)} max={100} step={1} />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Switch id="is-public" checked={isPublic} onCheckedChange={setIsPublic} />
+            <Label htmlFor="is-public">他の従業員に目標を共有する</Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
+          <Button onClick={handleSubmit}>保存</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 export default function DashboardSettingsPage() {
     const { toast } = useToast();
@@ -1323,6 +1511,37 @@ export default function DashboardSettingsPage() {
             toast({ title: "エラー", description: "プロジェクト遵守率データの保存に失敗しました。", variant: "destructive" });
         }
     };
+
+    const handleSavePersonalGoal = async (data: Partial<PersonalGoal>, id?: string) => {
+      if (!firestore || !currentUserData) return;
+      const collectionRef = collection(firestore, 'users', currentUserData.uid, 'personalGoals');
+
+      try {
+        if (id) {
+          const docRef = doc(collectionRef, id);
+          await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+          toast({ title: "成功", description: "個人目標を更新しました。" });
+        } else {
+          await addDoc(collectionRef, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+          toast({ title: "成功", description: "新しい個人目標を作成しました。" });
+        }
+      } catch (error) {
+        console.error("Error saving personal goal:", error);
+        toast({ title: "エラー", description: "個人目標の保存に失敗しました。", variant: 'destructive' });
+      }
+    };
+
+    const handleDeletePersonalGoal = async (id: string) => {
+      if (!firestore || !currentUserData) return;
+      try {
+        await deleteDoc(doc(firestore, 'users', currentUserData.uid, 'personalGoals', id));
+        toast({ title: "成功", description: "個人目標を削除しました。" });
+      } catch (error) {
+        console.error("Error deleting personal goal:", error);
+        toast({ title: "エラー", description: "個人目標の削除に失敗しました。", variant: 'destructive' });
+      }
+    };
+
     
     const widgetsForTab = useMemo(() => {
       if (!widgets) return [];
@@ -1370,9 +1589,7 @@ export default function DashboardSettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
-            <TabsList className={cn("grid w-full mb-6", 
-               (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1 max-w-[150px]" : "hidden"))
-            )}>
+          <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1 max-w-[150px]" : "hidden")))}>
               {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
               {canManageOrgPersonalGoals && (
                 <>
@@ -1415,7 +1632,11 @@ export default function DashboardSettingsPage() {
             </TabsContent>
             <TabsContent value="personal">
                  {canManageOrgPersonalGoals ? (
-                    <PersonalGoalsList user={currentUserData} />
+                    <PersonalGoalsList
+                      user={currentUserData}
+                      onSave={handleSavePersonalGoal}
+                      onDelete={handleDeletePersonalGoal}
+                    />
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">
                     <p>個人単位の目標を管理する権限がありません。</p>

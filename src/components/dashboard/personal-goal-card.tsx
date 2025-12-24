@@ -14,9 +14,11 @@ import { ja } from 'date-fns/locale';
 
 interface PersonalGoalCardProps {
     goal: PersonalGoal;
+    onEdit: () => void;
+    onDelete: () => void;
 }
 
-export function PersonalGoalCard({ goal }: PersonalGoalCardProps) {
+export function PersonalGoalCard({ goal, onEdit, onDelete }: PersonalGoalCardProps) {
   const { title, startDate, endDate, progress, status } = goal;
 
   const getStatusColor = () => {
@@ -61,7 +63,7 @@ export function PersonalGoalCard({ goal }: PersonalGoalCardProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={onEdit}>
               <Edit className="mr-2 h-4 w-4" />
               編集
             </DropdownMenuItem>
@@ -69,7 +71,7 @@ export function PersonalGoalCard({ goal }: PersonalGoalCardProps) {
               <Share2 className="mr-2 h-4 w-4" />
               共有する
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem className="text-destructive" onClick={onDelete}>
               <Trash2 className="mr-2 h-4 w-4" />
               削除
             </DropdownMenuItem>
@@ -130,21 +132,6 @@ export function PersonalGoalCard({ goal }: PersonalGoalCardProps) {
           </div>
         </div>
       </CardContent>
-      <CardFooter className="flex-col items-stretch gap-4">
-        {status === '進行中' && (
-          <>
-            <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
-              目標を保存してメッセージを生成！
-            </Button>
-            <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg">
-              <Info className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>
-                メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
-              </p>
-            </div>
-          </>
-        )}
-      </CardFooter>
     </Card>
   );
 }
