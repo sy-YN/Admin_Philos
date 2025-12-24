@@ -1093,7 +1093,7 @@ function WidgetList({
   if (widgets.length === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground">
-        {scope !== 'company' && scope !== 'team' ? <p>この単位のウィジェットはまだありません。</p> : null}
+        <p>表示できるウィジェットがありません。</p>
       </div>
     );
   }
@@ -1426,7 +1426,7 @@ export default function DashboardSettingsPage() {
     }, [authUser, isAuthUserLoading, fetchUserWithPermissions, allOrganizations, isLoadingOrgs]);
     
     const goalsQuery = useMemoFirebase(() => {
-        if (!firestore || isAuthUserLoading || isCurrentUserLoading) return null;
+        if (!firestore || isCurrentUserLoading) return null;
         if (activeTab === 'personal') return null; // Personal goals are fetched separately
         
         let queryConstraints = [where('scope', '==', activeTab)];
@@ -1441,7 +1441,7 @@ export default function DashboardSettingsPage() {
 
         return query(collection(firestore, 'goals'), ...queryConstraints);
 
-    }, [firestore, currentUserData, activeTab, isAuthUserLoading, isCurrentUserLoading, selectedOrgId]);
+    }, [firestore, currentUserData, activeTab, isCurrentUserLoading, selectedOrgId]);
 
     const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
 
