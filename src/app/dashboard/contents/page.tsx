@@ -15,9 +15,9 @@ import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Tr
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -26,6 +26,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { Video as VideoType } from '@/types/video';
 import { ContentDetailsDialog } from '@/components/contents/content-details-dialog';
 import type { Comment } from '@/types/comment';
+import type { Member } from '@/types/member';
+import type { Role } from '@/types/role';
 
 
 // --- Message Section (Firestore) ---
@@ -848,18 +850,60 @@ export default function ContentsPage() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
+  
+  const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
+    if (!firestore) return [];
+    try {
+      const userDocRef = doc(firestore, 'users', userUid);
+      const userDoc = await getDoc(userDocRef);
+      if (!userDoc.exists()) return [];
+      
+      const userData = userDoc.data() as Member;
+      const roleDocRef = doc(firestore, 'roles', userData.role);
+      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
+
+      const [roleDoc, userPermsDoc] = await Promise.all([
+        getDoc(roleDocRef),
+        getDoc(userPermsDocRef),
+      ]);
+      
+      const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
+      const individualPermissions = userPermsDoc.exists() ? userPermsDoc.data().permissions : [];
+      
+      return [...new Set([...rolePermissions, ...individualPermissions])];
+    } catch (error) {
+      console.error("Error fetching permissions:", error);
+      return [];
+    }
+  }, [firestore]);
+  
+  useEffect(() => {
+    if (isUserLoading) return;
+    if (user) {
+      setIsCheckingPermissions(true);
+      fetchUserPermissions(user.uid).then(perms => {
+        setUserPermissions(perms);
+        setIsCheckingPermissions(false);
+      });
+    } else {
+      setIsCheckingPermissions(false);
+    }
+  }, [user, isUserLoading, fetchUserPermissions]);
+
 
   const videosQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading) return null;
+    if (!firestore || isUserLoading || isCheckingPermissions) return null;
     return query(collection(firestore, 'videos'), orderBy('uploadedAt', 'desc'));
-  }, [firestore, isUserLoading]);
+  }, [firestore, isUserLoading, isCheckingPermissions]);
 
   const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
   
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading) return null;
+    if (!firestore || isUserLoading || isCheckingPermissions) return null;
     return query(collection(firestore, 'executiveMessages'), orderBy('createdAt', 'desc'));
-  }, [firestore, isUserLoading]);
+  }, [firestore, isUserLoading, isCheckingPermissions]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ExecutiveMessage>(messagesQuery);
 
@@ -972,106 +1016,141 @@ export default function ContentsPage() {
     }
   };
 
+  const isLoading = isUserLoading || isCheckingPermissions;
+
+  const canManageVideos = userPermissions.includes('video_management');
+  const canManageMessages = userPermissions.includes('message_management');
+  
   const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
+  
+  const getDefaultTab = () => {
+    if (canManageVideos) return 'videos';
+    if (canManageMessages) return 'messages';
+    return '';
+  }
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+  
+  const showTabs = canManageVideos && canManageMessages;
+  const defaultTab = getDefaultTab();
+
+  if (!defaultTab) {
+    return (
+      <div className="w-full max-w-7xl mx-auto">
+        <div className="flex items-center mb-6">
+          <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
+        </div>
+        <p>コンテンツを管理する権限がありません。</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-7xl mx-auto">
       <div className="flex items-center mb-6">
         <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
       </div>
-      <Tabs defaultValue="videos">
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="videos"><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>
-          <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue={defaultTab}>
+        {showTabs && (
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            {canManageVideos && <TabsTrigger value="videos"><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>}
+            {canManageMessages && <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>}
+          </TabsList>
+        )}
 
         {/* ビデオ管理タブ */}
-        <TabsContent value="videos">
-          <Card>
-            <CardHeader>
-              <CardTitle>ビデオ一覧</CardTitle>
-              <CardDescription>
-                全社に共有するビデオコンテンツを管理します。
-              </CardDescription>
-              <div className="flex justify-end items-center gap-2">
-                 {selectedVideos.length > 0 && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedVideos.length}件を削除</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          選択した{selectedVideos.length}件のビデオを削除します。この操作は元に戻せません。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleBulkDelete('videos')}>削除</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-                {showSeedButton && <SeedInitialVideosButton onSeeded={() => setInitialVideosSeeded(true)} />}
-                <VideoDialog mode="add" onSave={handleAddVideo} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <VideosTable 
-                selected={selectedVideos} 
-                onSelectedChange={setSelectedVideos} 
-                videos={videos} 
-                isLoading={videosLoading} 
-                onAddComment={(contentId, commentData) => handleAddComment('videos', contentId, commentData)}
-                onDeleteComment={(contentId, commentId) => handleDeleteComment('videos', contentId, commentId)}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* メッセージ管理タブ */}
-        <TabsContent value="messages">
-          <Card>
-            <CardHeader>
-              <CardTitle>メッセージ一覧</CardTitle>
-              <CardDescription>経営層からのメッセージを管理します。</CardDescription>
-               <div className="flex justify-end items-center gap-2">
-                 {selectedMessages.length > 0 && (
+        {canManageVideos && (
+          <TabsContent value="videos">
+            <Card>
+              <CardHeader>
+                <CardTitle>ビデオ一覧</CardTitle>
+                <CardDescription>
+                  全社に共有するビデオコンテンツを管理します。
+                </CardDescription>
+                <div className="flex justify-end items-center gap-2">
+                  {selectedVideos.length > 0 && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedMessages.length}件を削除</Button>
+                        <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedVideos.length}件を削除</Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
                           <AlertDialogDescription>
-                            選択した{selectedMessages.length}件のメッセージを削除します。この操作は元に戻せません。
+                            選択した{selectedVideos.length}件のビデオを削除します。この操作は元に戻せません。
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleBulkDelete('messages')}>削除</AlertDialogAction>
+                          <AlertDialogAction onClick={() => handleBulkDelete('videos')}>削除</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
                   )}
-                <SeedMessagesButton />
-                <AddMessageDialog />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <MessagesTable 
-                selected={selectedMessages} 
-                onSelectedChange={setSelectedMessages}
-                messages={messages}
-                isLoading={messagesLoading}
-                onAddComment={(contentId, commentData) => handleAddComment('executiveMessages', contentId, commentData)}
-                onDeleteComment={(contentId, commentId) => handleDeleteComment('executiveMessages', contentId, commentId)}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  {showSeedButton && <SeedInitialVideosButton onSeeded={() => setInitialVideosSeeded(true)} />}
+                  <VideoDialog mode="add" onSave={handleAddVideo} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <VideosTable 
+                  selected={selectedVideos} 
+                  onSelectedChange={setSelectedVideos} 
+                  videos={videos} 
+                  isLoading={videosLoading} 
+                  onAddComment={(contentId, commentData) => handleAddComment('videos', contentId, commentData)}
+                  onDeleteComment={(contentId, commentId) => handleDeleteComment('videos', contentId, commentId)}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* メッセージ管理タブ */}
+        {canManageMessages && (
+          <TabsContent value="messages">
+            <Card>
+              <CardHeader>
+                <CardTitle>メッセージ一覧</CardTitle>
+                <CardDescription>経営層からのメッセージを管理します。</CardDescription>
+                <div className="flex justify-end items-center gap-2">
+                  {selectedMessages.length > 0 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedMessages.length}件を削除</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              選択した{selectedMessages.length}件のメッセージを削除します。この操作は元に戻せません。
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleBulkDelete('messages')}>削除</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  <SeedMessagesButton />
+                  <AddMessageDialog />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <MessagesTable 
+                  selected={selectedMessages} 
+                  onSelectedChange={setSelectedMessages}
+                  messages={messages}
+                  isLoading={messagesLoading}
+                  onAddComment={(contentId, commentData) => handleAddComment('executiveMessages', contentId, commentData)}
+                  onDeleteComment={(contentId, commentId) => handleDeleteComment('executiveMessages', contentId, commentId)}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
