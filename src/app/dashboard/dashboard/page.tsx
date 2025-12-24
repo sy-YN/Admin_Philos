@@ -1066,10 +1066,6 @@ function PersonalGoalsList({
     setSelectedGoal(goal);
     setIsDialogOpen(true);
   };
-  
-  const handleToggleShare = async (goal: PersonalGoal) => {
-    onSave({ isPublic: !goal.isPublic }, goal.id);
-  }
 
   const handleCreate = () => {
     setSelectedGoal(null);
@@ -1098,13 +1094,7 @@ function PersonalGoalsList({
       <div className="space-y-8">
         <div>
           <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
-           {hasOngoingGoal ? (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {ongoing.map(goal => (
-                <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} onToggleShare={() => handleToggleShare(goal)} />
-              ))}
-            </div>
-           ) : (
+           {!hasOngoingGoal ? (
             <div className="flex flex-col items-center gap-4">
                <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
                  目標を保存してメッセージを生成！
@@ -1116,6 +1106,12 @@ function PersonalGoalsList({
                  </p>
                </div>
             </div>
+           ) : (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {ongoing.map(goal => (
+                <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
+              ))}
+            </div>
            )}
         </div>
         <div>
@@ -1123,10 +1119,10 @@ function PersonalGoalsList({
           {completed.length > 0 || failed.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {completed.map(goal => (
-                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} onToggleShare={() => handleToggleShare(goal)} />
+                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
               ))}
               {failed.map(goal => (
-                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} onToggleShare={() => handleToggleShare(goal)} />
+                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
               ))}
             </div>
           ) : (
@@ -1255,7 +1251,7 @@ function PersonalGoalDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
-          <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700 text-white">保存</Button>
+          <Button onClick={handleSubmit}>保存</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
