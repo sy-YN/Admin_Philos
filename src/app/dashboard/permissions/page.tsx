@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, ShieldAlert, Loader2, User, UserCog, Sparkles } from 'lucide-react';
+import { PlusCircle, ShieldAlert, Loader2, User, UserCog, Sparkles, Edit } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -135,13 +135,15 @@ export default function PermissionsPage() {
     }
   };
   
-  const handleAddIndividualPermission = async (userId: string, permsToAdd: string[]) => {
+  const handleUpdateIndividualPermission = async (userId: string, permsToSet: string[]) => {
     if (!firestore || !currentUser) return;
     const userPermRef = doc(firestore, 'user_permissions', userId);
     try {
+      // Use setDoc with merge:true to create or update the document.
+      // This is slightly safer than just setDoc as it won't overwrite other fields if any exist.
       await setDoc(userPermRef, {
-        userId,
-        permissions: permsToAdd,
+        userId, // good practice to keep userId in the doc
+        permissions: permsToSet,
         updatedAt: serverTimestamp(),
         updatedBy: currentUser.uid,
       }, { merge: true });
@@ -252,7 +254,7 @@ export default function PermissionsPage() {
                 </div>
                 <AddIndividualPermissionDialog 
                     users={usersData || []}
-                    onGrant={handleAddIndividualPermission}
+                    onGrant={handleUpdateIndividualPermission}
                     existingUserPerms={userPermsData || []}
                 />
             </div>
@@ -303,27 +305,32 @@ export default function PermissionsPage() {
                             <TableCell>
                                 {grant.updatedAt ? new Date(grant.updatedAt.seconds * 1000).toLocaleString('ja-JP') : 'N/A'}
                             </TableCell>
-                            <TableCell className="text-right">
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                    <ShieldAlert className="mr-2 h-4 w-4" />
-                                    権限を取り消す
-                                </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>本当に取り消しますか？</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            {user?.displayName || 'このユーザー'}に付与された個別の追加権限をすべて取り消します。役割に基づく基本権限は維持されます。
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleRevokeIndividualPermission(grant.id)}>取り消す</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                            <TableCell className="text-right space-x-2">
+                                <EditIndividualPermissionDialog 
+                                  userPermission={grant}
+                                  user={user}
+                                  onUpdate={handleUpdateIndividualPermission}
+                                />
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="outline" size="sm">
+                                            <ShieldAlert className="mr-2 h-4 w-4" />
+                                            権限を取り消す
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>本当に取り消しますか？</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                {user?.displayName || 'このユーザー'}に付与された個別の追加権限をすべて取り消します。役割に基づく基本権限は維持されます。
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleRevokeIndividualPermission(grant.id)}>取り消す</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             </TableCell>
                         </TableRow>
                     )
@@ -422,6 +429,80 @@ function AddIndividualPermissionDialog({
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
                     <Button onClick={handleGrant}>権限を付与</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function EditIndividualPermissionDialog({
+    userPermission,
+    user,
+    onUpdate,
+}: {
+    userPermission: UserPermission;
+    user?: Member;
+    onUpdate: (userId: string, permissions: string[]) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const [grantedPermissions, setGrantedPermissions] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (open) {
+            setGrantedPermissions(userPermission.permissions || []);
+        }
+    }, [open, userPermission]);
+
+    const handlePermissionChange = (permissionId: string, checked: boolean) => {
+        setGrantedPermissions(prev =>
+            checked ? [...prev, permissionId] : prev.filter(p => p !== permissionId)
+        );
+    }
+
+    const handleUpdate = () => {
+        onUpdate(userPermission.userId, grantedPermissions);
+        setOpen(false);
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                    <Edit className="mr-2 h-4 w-4" />
+                    編集
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>個別権限を編集</DialogTitle>
+                    <DialogDescription>
+                        {user?.displayName || userPermission.userId} の追加権限を編集します。
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>対象ユーザー</Label>
+                        <Input value={user?.displayName || userPermission.userId} disabled />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>付与する権限</Label>
+                        <div className="grid grid-cols-2 gap-2 rounded-md border p-4 max-h-60 overflow-y-auto">
+                            {allPermissionItems.map(item => (
+                                <div key={item.id} className="flex items-center gap-2">
+                                    <Checkbox
+                                        id={`edit-perm-${item.id}`}
+                                        checked={grantedPermissions.includes(item.id)}
+                                        onCheckedChange={(checked) => handlePermissionChange(item.id, !!checked)}
+                                    />
+                                    <Label htmlFor={`edit-perm-${item.id}`} className="font-normal">{item.name}</Label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
+                    <Button onClick={handleUpdate}>権限を更新</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
