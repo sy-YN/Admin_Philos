@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,8 @@ import { AddMemberDialog } from '@/components/members/add-member-dialog';
 import { Separator } from '@/components/ui/separator';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Member } from '@/types/member';
+import type { Role } from '@/types/role';
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,6 +30,41 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingRole, setIsCheckingRole] = useState(true);
 
+  const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
+    if (!firestore) return [];
+
+    try {
+      const userDocRef = doc(firestore, 'users', userUid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        console.error("User document not found.");
+        return [];
+      }
+      
+      const userData = userDoc.data() as Member;
+      const userRole = userData.role;
+
+      const roleDocRef = doc(firestore, 'roles', userRole);
+      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
+
+      const [roleDoc, userPermsDoc] = await Promise.all([
+        getDoc(roleDocRef),
+        getDoc(userPermsDocRef),
+      ]);
+      
+      const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
+      const individualPermissions = userPermsDoc.exists() ? userPermsDoc.data().permissions : [];
+      
+      return [...new Set([...rolePermissions, ...individualPermissions])];
+
+    } catch (error) {
+      console.error("Error fetching permissions:", error);
+      return [];
+    }
+  }, [firestore]);
+
+
   useEffect(() => {
     // This effect handles redirection based on auth state and role.
     const checkUserRoleAndRedirect = async () => {
@@ -40,49 +77,36 @@ export default function LoginPage() {
         return;
       }
       
-      // User is authenticated, now check their role in Firestore
+      // User is authenticated, now check their permissions
       if (!firestore) {
         setIsCheckingRole(false);
         return;
       };
       
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
+      const permissions = await fetchUserPermissions(user.uid);
 
-      if (userDoc.exists()) {
-        const userRole = (userDoc.data() as Member).role;
-        if (userRole === 'admin' || userRole === 'executive') {
-          router.replace('/dashboard');
-        } else {
-          // Not an authorized role, sign them out and show an error
-          await auth.signOut();
-          toast({
-            title: 'ログインエラー',
-            description: '管理者または経営層のアカウントでログインしてください。',
-            variant: 'destructive',
-          });
-          setIsCheckingRole(false); // Stop checking and show login form
-        }
+      if (permissions.length > 0) {
+        router.replace('/dashboard');
       } else {
-        // User doc doesn't exist, they can't be authorized
+        // Not an authorized role, sign them out and show an error
         await auth.signOut();
         toast({
           title: 'ログインエラー',
-          description: '有効なユーザーではありません。',
+          description: '管理画面にアクセスするための権限がありません。',
           variant: 'destructive',
         });
-        setIsCheckingRole(false);
+        setIsCheckingRole(false); // Stop checking and show login form
       }
     };
 
     checkUserRoleAndRedirect();
-  }, [user, isUserLoading, router, firestore, auth, toast]);
+  }, [user, isUserLoading, router, firestore, auth, toast, fetchUserPermissions]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    if (!email || !password || !firestore) {
+    if (!email || !password || !firestore || !auth) {
       toast({
         title: '入力エラー',
         description: 'メールアドレスとパスワードを入力してください。',
@@ -95,34 +119,21 @@ export default function LoginPage() {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const loggedInUser = userCredential.user;
+      
+      const permissions = await fetchUserPermissions(loggedInUser.uid);
 
-      // After successful authentication, check the user's role from Firestore.
-      const userDocRef = doc(firestore, 'users', loggedInUser.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const userRole = (userDoc.data() as Member).role;
-        if (userRole === 'admin' || userRole === 'executive') {
-            toast({
-            title: 'ログイン成功',
-            description: 'ダッシュボードへようこそ！',
-            });
-            // The useEffect will handle the redirection.
-        } else {
-            // If not an authorized role, sign out and show error.
-            await auth.signOut();
-            toast({
-                title: 'ログインエラー',
-                description: '管理者または経営層の権限がありません。',
-                variant: 'destructive',
-            });
-        }
+      if (permissions.length > 0) {
+          toast({
+          title: 'ログイン成功',
+          description: 'ダッシュボードへようこそ！',
+          });
+          // The useEffect will handle the redirection.
       } else {
-        // If document doesn't exist, sign out and show error.
+        // If user has no permissions, sign out and show error.
         await auth.signOut();
         toast({
             title: 'ログインエラー',
-            description: '指定されたユーザーは存在しません。',
+            description: 'このアカウントには管理画面へアクセスする権限がありません。',
             variant: 'destructive',
         });
       }
