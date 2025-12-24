@@ -1274,7 +1274,7 @@ export default function DashboardSettingsPage() {
       });
     }, [widgets]);
 
-  const isLoading = isAuthUserLoading || isCurrentUserLoading || (!!currentUserData && isLoadingWidgets);
+  const isLoading = isAuthUserLoading || isCurrentUserLoading || isLoadingWidgets;
 
   const canManageCompanyGoals = userPermissions.includes('company_goal_setting');
   const canManageOrgPersonalGoals = userPermissions.includes('org_personal_goal_setting');
@@ -1370,3 +1370,4 @@ export default function DashboardSettingsPage() {
 
 
     
+
