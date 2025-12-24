@@ -119,9 +119,12 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
   const [fiscalYearStartMonth, setFiscalYearStartMonth] = useState<number>(8);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [targetValue, setTargetValue] = useState(100);
-  const [currentValue, setCurrentValue] = useState(0);
   const [unit, setUnit] = useState('%');
   const [teamScopeId, setTeamScopeId] = useState('');
+
+  const teamScopeOrganizations = useMemo(() => {
+    return organizations.filter(org => org.type === 'department');
+  }, [organizations]);
 
   const availableChartOptions = useMemo(() => {
     if (!kpi) return [];
@@ -202,7 +205,6 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
       } else if (initialScope === 'team') {
         setDateRange({ from: widget?.startDate?.toDate(), to: widget?.endDate?.toDate() });
         setTargetValue(widget?.targetValue || 100);
-        setCurrentValue(widget?.currentValue || 0); // Still needed for internal state if any UI depends on it
         setUnit(widget?.unit || '%');
         setTeamScopeId(widget?.scopeId || '');
       }
@@ -216,7 +218,6 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
       setFiscalYearStartMonth(8);
       setDateRange(undefined);
       setTargetValue(100);
-      setCurrentValue(0);
       setUnit('%');
       setTeamScopeId('');
     }
@@ -284,7 +285,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                 <>
                  <div className="grid gap-2">
                     <Label htmlFor="team-org-picker">対象組織</Label>
-                    <OrganizationPicker organizations={organizations} value={teamScopeId} onChange={setTeamScopeId} />
+                    <OrganizationPicker organizations={teamScopeOrganizations} value={teamScopeId} onChange={setTeamScopeId} />
                  </div>
                   <div className="grid gap-2">
                      <Label>期間</Label>
@@ -1757,7 +1758,7 @@ export default function DashboardSettingsPage() {
               (activeTab === 'team' && canManageOrgPersonalGoals)
             )) && (
               <div className='flex items-center gap-4'>
-                  <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab} currentUser={currentUserData} organizations={editableOrgs}>
+                  <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab} currentUser={currentUserData} organizations={allOrganizations || []}>
                       <Button>
                           <PlusCircle className="mr-2 h-4 w-4" />
                           新規ウィジェット追加
