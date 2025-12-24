@@ -66,8 +66,8 @@ export default function LoginPage() {
 
 
   useEffect(() => {
-    // This effect handles redirection based on auth state and role.
-    const checkUserRoleAndRedirect = async () => {
+    // This effect handles redirection based on auth state.
+    const checkUserAndRedirect = async () => {
       if (isUserLoading) {
         return; // Wait until auth state is confirmed
       }
@@ -77,30 +77,14 @@ export default function LoginPage() {
         return;
       }
       
-      // User is authenticated, now check their permissions
-      if (!firestore) {
-        setIsCheckingRole(false);
-        return;
-      };
-      
-      const permissions = await fetchUserPermissions(user.uid);
+      // User is authenticated, redirect to dashboard.
+      // Temporarily disabled permission check.
+      router.replace('/dashboard');
 
-      if (permissions.length > 0) {
-        router.replace('/dashboard');
-      } else {
-        // Not an authorized role, sign them out and show an error
-        await auth.signOut();
-        toast({
-          title: 'ログインエラー',
-          description: '管理画面にアクセスするための権限がありません。',
-          variant: 'destructive',
-        });
-        setIsCheckingRole(false); // Stop checking and show login form
-      }
     };
 
-    checkUserRoleAndRedirect();
-  }, [user, isUserLoading, router, firestore, auth, toast, fetchUserPermissions]);
+    checkUserAndRedirect();
+  }, [user, isUserLoading, router, auth, toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,26 +101,15 @@ export default function LoginPage() {
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const loggedInUser = userCredential.user;
+      await signInWithEmailAndPassword(auth, email, password);
       
-      const permissions = await fetchUserPermissions(loggedInUser.uid);
+      // Temporarily disabled permission check.
+      // The useEffect will handle the redirection.
+      toast({
+        title: 'ログイン成功',
+        description: 'ダッシュボードへようこそ！',
+      });
 
-      if (permissions.length > 0) {
-          toast({
-          title: 'ログイン成功',
-          description: 'ダッシュボードへようこそ！',
-          });
-          // The useEffect will handle the redirection.
-      } else {
-        // If user has no permissions, sign out and show error.
-        await auth.signOut();
-        toast({
-            title: 'ログインエラー',
-            description: 'このアカウントには管理画面へアクセスする権限がありません。',
-            variant: 'destructive',
-        });
-      }
     } catch (error: any) {
       console.error('Login Error:', error);
       let description = 'ログイン中にエラーが発生しました。';
