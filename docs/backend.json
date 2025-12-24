@@ -394,6 +394,22 @@
         },
         "required": ["title", "scope", "scopeId", "kpi", "chartType", "status", "authorId", "createdAt", "updatedAt"]
     },
+    "PersonalGoal": {
+      "title": "Personal Goal",
+      "description": "Represents an individual user's personal goal.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the goal." },
+        "startDate": { "type": "string", "format": "date-time", "description": "The start date of the goal period." },
+        "endDate": { "type": "string", "format": "date-time", "description": "The end date of the goal period." },
+        "progress": { "type": "number", "description": "The progress of the goal, from 0 to 100." },
+        "isPublic": { "type": "boolean", "description": "Whether the goal is visible to other users." },
+        "status": { "type": "string", "enum": ["進行中", "達成済", "未達成"], "description": "The current status of the goal." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "startDate", "endDate", "progress", "isPublic", "status", "createdAt", "updatedAt"]
+    },
     "SalesRecord": {
       "title": "Sales Record",
       "description": "Stores monthly sales target and actual data for a specific goal.",
@@ -510,6 +526,12 @@
         "$ref": "#/entities/User"
       },
       "description": "Stores profile information for each user, keyed by their Firebase Auth UID."
+    },
+    "/users/{userId}/personalGoals/{goalId}": {
+      "schema": {
+        "$ref": "#/entities/PersonalGoal"
+      },
+      "description": "Stores personal goals for each user in a subcollection."
     },
     "/organizations/{organizationId}": {
       "schema": {

@@ -24,7 +24,7 @@ import {
 } from '@/lib/fiscal-year';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs, Query, limit, getDoc } from 'firebase/firestore';
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs, Query, getDoc } from 'firebase/firestore';
 import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
 import type { ProfitRecord } from '@/types/profit-record';
@@ -33,6 +33,7 @@ import type { ProjectComplianceRecord } from '@/types/project-compliance-record'
 import type { Member } from '@/types/member';
 import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
 import type { Role } from '@/types/role';
+import { PersonalGoalCard } from '@/components/dashboard/personal-goal-card';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -1081,22 +1082,30 @@ export default function DashboardSettingsPage() {
     }, [authUser, isAuthUserLoading, fetchUserWithPermissions]);
     
     const goalsQuery = useMemoFirebase(() => {
-        if (!firestore || isCurrentUserLoading || !currentUserData) return null;
+        if (!firestore || isCurrentUserLoading) return null;
         
-        let queryConstraints = [where('scope', '==', activeTab)];
+        // This query will fetch goals for the currently active tab.
+        // It's dependent on activeTab and the currentUserData which provides the scopeId.
         
-        if (activeTab === 'company' && currentUserData.company) {
-          queryConstraints.push(where('scopeId', '==', currentUserData.company));
-        } else if (activeTab === 'team' && currentUserData.department) {
-           queryConstraints.push(where('scopeId', '==', currentUserData.department));
-        } else if (activeTab === 'personal') {
-           queryConstraints.push(where('scopeId', '==', currentUserData.uid));
-        } else {
-          // If scopeId is missing, return null to prevent query
-          return null;
+        let scopeId: string | null = null;
+        if (activeTab === 'company' && currentUserData?.company) {
+            scopeId = currentUserData.company;
+        } else if (activeTab === 'team' && currentUserData?.department) {
+            scopeId = currentUserData.department;
+        } else if (activeTab === 'personal' && currentUserData?.uid) {
+            scopeId = currentUserData.uid;
+        }
+        
+        // If we don't have a scopeId for the active tab, we can't query.
+        if (!scopeId) {
+            return null;
         }
 
-        return query(collection(firestore, 'goals'), ...queryConstraints);
+        return query(
+            collection(firestore, 'goals'), 
+            where('scope', '==', activeTab),
+            where('scopeId', '==', scopeId)
+        );
 
     }, [firestore, currentUserData, activeTab, isCurrentUserLoading]);
 
@@ -1296,7 +1305,7 @@ export default function DashboardSettingsPage() {
               <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
             </div>
 
-            {((activeTab === 'company' && canManageCompanyGoals) || (activeTab !== 'company' && canManageOrgPersonalGoals)) && (
+            {(activeTab === 'company' && canManageCompanyGoals) && (
               <div className='flex items-center gap-4'>
                   <div className='flex items-center gap-2'>
                     <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab} currentUser={currentUserData}>
@@ -1311,17 +1320,21 @@ export default function DashboardSettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
-            <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageCompanyGoals || canManageOrgPersonalGoals) ? "grid-cols-2" : "grid-cols-1")}>
+             <TabsList className={cn("grid w-full mb-6", 
+              (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" 
+              : "grid-cols-1"
+             )}>
               {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
               {canManageOrgPersonalGoals && (
                 <>
-                  <TabsTrigger value="team" disabled>組織単位</TabsTrigger>
-                  <TabsTrigger value="personal" disabled>個人単位</TabsTrigger>
+                  <TabsTrigger value="team">組織単位</TabsTrigger>
+                  <TabsTrigger value="personal">個人単位</TabsTrigger>
                 </>
               )}
             </TabsList>
             <TabsContent value="company">
                 {canManageCompanyGoals ? (
+                  isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
                   <WidgetList 
                       widgets={widgetsForTab} 
                       onSave={handleSaveWidget} 
@@ -1353,9 +1366,9 @@ export default function DashboardSettingsPage() {
             </TabsContent>
             <TabsContent value="personal">
                  {canManageOrgPersonalGoals ? (
-                  <div className="text-center py-10 text-muted-foreground">
-                      <p>この機能は現在準備中です。</p>
-                  </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <PersonalGoalCard />
+                    </div>
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">
                     <p>個人単位の目標を管理する権限がありません。</p>
@@ -1367,7 +1380,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-
-
-    
-
