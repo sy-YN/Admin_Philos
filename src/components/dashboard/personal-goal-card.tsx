@@ -43,11 +43,16 @@ export function PersonalGoalCard({ title, startDate, endDate, progress, status }
   }
 
   const statusColor = getStatusColor();
+  const StatusIcon = status === '達成済' ? CheckCircle2 : status === '未達成' ? XCircle : null;
+
 
   return (
     <Card className="flex flex-col">
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle className="text-lg font-bold">個人目標</CardTitle>
+      <CardHeader className="flex-row items-start justify-between">
+        <div className="flex flex-col space-y-1.5">
+          <CardTitle className="text-lg font-bold">個人目標</CardTitle>
+          <CardDescription>あなたの個人目標の進捗です。</CardDescription>
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -96,18 +101,15 @@ export function PersonalGoalCard({ title, startDate, endDate, progress, status }
               ></circle>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              {status === '達成済' ? (
-                 <CheckCircle2 className={cn("h-10 w-10 mb-1", statusColor)} />
-              ) : status === '未達成' ? (
-                 <XCircle className={cn("h-10 w-10 mb-1", statusColor)} />
-              ) : (
-                <span className="text-2xl font-bold text-foreground">{progress}%</span>
-              )}
+              <span className="text-3xl font-bold text-foreground">{progress}%</span>
               <span className="text-xs text-muted-foreground">進捗</span>
             </div>
           </div>
           <div className="text-center">
-            <p className="font-semibold text-foreground">{title}</p>
+             <div className="flex items-center justify-center gap-2">
+                {StatusIcon && <StatusIcon className={cn("h-5 w-5", statusColor)} />}
+                <p className="font-semibold text-foreground text-lg">{title}</p>
+            </div>
             <Badge variant={getBadgeVariant()} className="mt-1">{status}</Badge>
           </div>
         </div>
