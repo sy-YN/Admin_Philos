@@ -1061,51 +1061,36 @@ export default function DashboardSettingsPage() {
 
 
     useEffect(() => {
-        if (isAuthUserLoading || !authUser) {
-            if (!isAuthUserLoading) {
-                setIsCurrentUserLoading(false);
-            }
-            return;
-        }
+        if (isAuthUserLoading) return;
         
-        setIsCurrentUserLoading(true);
-        fetchUserWithPermissions(authUser.uid).then(({ user, permissions }) => {
-            setCurrentUserData(user);
-            setUserPermissions(permissions);
-            if (!permissions.includes('company_goal_setting') && permissions.includes('org_personal_goal_setting')) {
-              setActiveTab('team');
-            } else {
-              setActiveTab('company');
-            }
+        if (authUser) {
+            setIsCurrentUserLoading(true);
+            fetchUserWithPermissions(authUser.uid).then(({ user, permissions }) => {
+                setCurrentUserData(user);
+                setUserPermissions(permissions);
+                if (!permissions.includes('company_goal_setting') && permissions.includes('org_personal_goal_setting')) {
+                  setActiveTab('team');
+                } else {
+                  setActiveTab('company');
+                }
+                setIsCurrentUserLoading(false);
+            });
+        } else {
             setIsCurrentUserLoading(false);
-        });
+        }
     }, [authUser, isAuthUserLoading, fetchUserWithPermissions]);
     
     const goalsQuery = useMemoFirebase(() => {
-        if (!firestore || isCurrentUserLoading) return null;
-        
-        // This query will fetch goals for the currently active tab.
-        // It's dependent on activeTab and the currentUserData which provides the scopeId.
+        if (!firestore || isCurrentUserLoading || !currentUserData) return null;
         
         let scopeId: string | null = null;
-        if (activeTab === 'company' && currentUserData?.company) {
-            scopeId = currentUserData.company;
-        } else if (activeTab === 'team' && currentUserData?.department) {
-            scopeId = currentUserData.department;
-        } else if (activeTab === 'personal' && currentUserData?.uid) {
-            scopeId = currentUserData.uid;
+        if (activeTab === 'company') {
+            scopeId = currentUserData.company || '';
+        } else if (activeTab === 'team') {
+            scopeId = currentUserData.department || '';
         }
         
-        // If we don't have a scopeId for the active tab, we can't query.
-        if (!scopeId && activeTab !== 'personal') { // Personal goals might not need a scopeId if it's the user's own goals, but based on your schema it does. Let's adjust.
-            return null;
-        }
-
-        if (activeTab === 'personal') {
-           // For the "personal" tab in the admin dashboard, we might want to see all public goals, or a user's goals.
-           // For now, let's assume it's just a placeholder and doesn't fetch any goals to avoid errors.
-           return null;
-        }
+        if (!scopeId) return null;
 
         return query(
             collection(firestore, 'goals'), 
@@ -1289,7 +1274,7 @@ export default function DashboardSettingsPage() {
       });
     }, [widgets]);
 
-  const isLoading = isAuthUserLoading || isCurrentUserLoading || isLoadingWidgets;
+  const isLoading = isAuthUserLoading || isCurrentUserLoading;
 
   const canManageCompanyGoals = userPermissions.includes('company_goal_setting');
   const canManageOrgPersonalGoals = userPermissions.includes('org_personal_goal_setting');
@@ -1327,8 +1312,7 @@ export default function DashboardSettingsPage() {
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
             <TabsList className={cn("grid w-full mb-6", 
-                (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" 
-                : (canManageOrgPersonalGoals ? "grid-cols-2" : "grid-cols-1")
+               (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1 max-w-[150px]" : "hidden"))
             )}>
               {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
               {canManageOrgPersonalGoals && (
@@ -1373,7 +1357,27 @@ export default function DashboardSettingsPage() {
             <TabsContent value="personal">
                  {canManageOrgPersonalGoals ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <PersonalGoalCard />
+                        <PersonalGoalCard 
+                           title="新規資格を1つ取得する"
+                           status="進行中"
+                           progress={65}
+                           startDate="2024/08/01"
+                           endDate="2025/01/31"
+                        />
+                        <PersonalGoalCard 
+                           title="顧客満足度調査で85点以上を獲得"
+                           status="達成済"
+                           progress={100}
+                           startDate="2024/04/01"
+                           endDate="2024/06/30"
+                        />
+                        <PersonalGoalCard 
+                           title="新規プロジェクト提案を3件行う"
+                           status="未達成"
+                           progress={33}
+                           startDate="2024/05/01"
+                           endDate="2024/07/31"
+                        />
                     </div>
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">
@@ -1386,4 +1390,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-

@@ -4,24 +4,45 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Edit, Share2, Trash2, Calendar as CalendarIcon, Flag, Repeat, Info } from 'lucide-react';
+import { MoreVertical, Edit, Share2, Trash2, Calendar as CalendarIcon, Flag, Repeat, Info, CheckCircle2, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
-// This is a placeholder component that mimics the UI provided in the image.
-// Data is currently hardcoded and not connected to Firestore.
+type GoalStatus = "進行中" | "達成済" | "未達成";
 
-export function PersonalGoalCard() {
-  const [progress, setProgress] = useState(65);
-  const goal = {
-    title: "新規資格を1つ取得する",
-    startDate: "2024/08/01",
-    endDate: "2025/01/31",
-    status: "進行中",
+interface PersonalGoalCardProps {
+    title: string;
+    startDate: string;
+    endDate: string;
+    progress: number;
+    status: GoalStatus;
+}
+
+export function PersonalGoalCard({ title, startDate, endDate, progress, status }: PersonalGoalCardProps) {
+  
+  const getStatusColor = () => {
+    switch (status) {
+      case '達成済':
+        return 'text-green-500';
+      case '未達成':
+        return 'text-red-500';
+      default: // 進行中
+        if (progress > 80) return 'text-blue-500';
+        if (progress > 50) return 'text-sky-500';
+        return 'text-yellow-500';
+    }
   };
 
-  const progressColor = progress > 80 ? "bg-green-500" : progress > 50 ? "bg-blue-500" : "bg-yellow-500";
+  const getBadgeVariant = (): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+        case '達成済': return "default";
+        case '未達成': return "destructive";
+        default: return "secondary";
+    }
+  }
+
+  const statusColor = getStatusColor();
 
   return (
     <Card className="flex flex-col">
@@ -62,9 +83,7 @@ export function PersonalGoalCard() {
                 fill="transparent"
               ></circle>
               <circle
-                className={`stroke-current ${
-                  progress > 80 ? "text-green-500" : progress > 50 ? "text-blue-500" : "text-yellow-500"
-                }`}
+                className={cn("stroke-current", statusColor)}
                 strokeWidth="10"
                 cx="50"
                 cy="50"
@@ -77,24 +96,30 @@ export function PersonalGoalCard() {
               ></circle>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold text-foreground">{progress}%</span>
+              {status === '達成済' ? (
+                 <CheckCircle2 className={cn("h-10 w-10 mb-1", statusColor)} />
+              ) : status === '未達成' ? (
+                 <XCircle className={cn("h-10 w-10 mb-1", statusColor)} />
+              ) : (
+                <span className="text-2xl font-bold text-foreground">{progress}%</span>
+              )}
               <span className="text-xs text-muted-foreground">進捗</span>
             </div>
           </div>
           <div className="text-center">
-            <p className="font-semibold text-foreground">{goal.title}</p>
-            <Badge variant="secondary" className="mt-1">{goal.status}</Badge>
+            <p className="font-semibold text-foreground">{title}</p>
+            <Badge variant={getBadgeVariant()} className="mt-1">{status}</Badge>
           </div>
         </div>
 
         <div className="space-y-3 text-sm text-muted-foreground">
           <div className="flex items-center gap-3">
             <CalendarIcon className="h-4 w-4" />
-            <span>期間: {goal.startDate} ~ {goal.endDate}</span>
+            <span>期間: {startDate} ~ {endDate}</span>
           </div>
           <div className="flex items-center gap-3">
             <Flag className="h-4 w-4" />
-            <span>ステータス: {goal.status}</span>
+            <span>ステータス: {status}</span>
           </div>
           <div className="flex items-center gap-3">
             <Repeat className="h-4 w-4" />
@@ -103,15 +128,19 @@ export function PersonalGoalCard() {
         </div>
       </CardContent>
       <CardFooter className="flex-col items-stretch gap-4">
-        <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
-          目標を保存してメッセージを生成！
-        </Button>
-        <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg">
-          <Info className="h-4 w-4 shrink-0 mt-0.5" />
-          <p>
-            メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
-          </p>
-        </div>
+        {status === '進行中' && (
+          <>
+            <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+              目標を保存してメッセージを生成！
+            </Button>
+            <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg">
+              <Info className="h-4 w-4 shrink-0 mt-0.5" />
+              <p>
+                メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
+              </p>
+            </div>
+          </>
+        )}
       </CardFooter>
     </Card>
   );
