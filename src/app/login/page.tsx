@@ -77,14 +77,26 @@ export default function LoginPage() {
         return;
       }
       
-      // User is authenticated, redirect to dashboard.
-      // Temporarily disabled permission check.
-      router.replace('/dashboard');
-
+      // User is authenticated, check for permissions.
+      const permissions = await fetchUserPermissions(user.uid);
+      if (permissions.length > 0) {
+        router.replace('/dashboard');
+      } else {
+        // User has no permissions, sign them out and show an error.
+        if (auth) {
+          await auth.signOut();
+        }
+        toast({
+          title: 'アクセスが拒否されました',
+          description: '管理画面にアクセスするための権限がありません。',
+          variant: 'destructive',
+        });
+        setIsCheckingRole(false);
+      }
     };
 
     checkUserAndRedirect();
-  }, [user, isUserLoading, router, auth, toast]);
+  }, [user, isUserLoading, router, auth, toast, fetchUserPermissions]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

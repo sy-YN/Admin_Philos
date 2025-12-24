@@ -87,22 +87,31 @@ export default function DashboardLayout({
       router.replace('/login');
       return;
     }
-    
-    // Temporarily disable permission check
-    setIsCheckingPermissions(false);
 
+    fetchUserPermissions(user.uid).then(perms => {
+      if (perms.length === 0) {
+        // If no permissions, sign out and redirect to login
+        if(auth) auth.signOut();
+        router.replace('/login');
+      } else {
+        setUserPermissions(perms);
+        setIsCheckingPermissions(false);
+      }
+    });
   }, [user, isUserLoading, router, auth, fetchUserPermissions]);
   
   const navItems = useMemo(() => {
-    // Temporarily show all items if permission check is disabled
-    if(!isCheckingPermissions && userPermissions.length === 0) {
-      return allNavItems;
+    if (isCheckingPermissions) {
+      return [];
     }
     return allNavItems.filter(item => {
-      if(item.id === 'contents' || item.id === 'dashboard') {
-        return item.requiredPermissions?.some(p => userPermissions.includes(p))
+      if(!item.requiredPermissions) {
+          // If the item doesn't require any specific permission, we assume it's a general one
+          // that should be checked by its ID. Example: 'members'
+          return userPermissions.includes(item.id);
       }
-      return userPermissions.includes(item.id);
+      // If it requires permissions, check if the user has at least one of them
+      return item.requiredPermissions?.some(p => userPermissions.includes(p))
     });
   }, [userPermissions, isCheckingPermissions]);
 
