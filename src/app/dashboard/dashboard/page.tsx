@@ -1080,15 +1080,6 @@ function PersonalGoalsList({
     return <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>;
   }
   
-  if (!goals || goals.length === 0) {
-    return (
-        <div className="text-center py-10 text-muted-foreground">
-            <p>まだ個人目標が設定されていません。</p>
-            <p className="text-sm mt-2">新しい目標を設定して、進捗の管理を始めましょう。</p>
-        </div>
-    );
-  }
-
   const hasOngoingGoal = ongoing.length > 0;
 
   return (
@@ -1123,7 +1114,7 @@ function PersonalGoalsList({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">現在進行中の目標はありません。</p>
+             <p className="text-sm text-muted-foreground">現在進行中の目標はありません。</p>
           )}
         </div>
         <div>
@@ -1162,7 +1153,6 @@ function PersonalGoalDialog({
   const [title, setTitle] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [progress, setProgress] = useState(0);
-  const [isPublic, setIsPublic] = useState(true);
 
   const { toast } = useToast();
 
@@ -1174,7 +1164,6 @@ function PersonalGoalDialog({
         to: goal?.endDate?.toDate(),
       });
       setProgress(goal?.progress || 0);
-      setIsPublic(goal?.isPublic === undefined ? true : goal.isPublic);
     }
   }, [goal, open]);
 
@@ -1206,8 +1195,8 @@ function PersonalGoalDialog({
       startDate: Timestamp.fromDate(dateRange.from),
       endDate: Timestamp.fromDate(dateRange.to),
       progress,
-      isPublic,
       status,
+      isPublic: false,
     };
 
     onSave(goalData, goal?.id);
@@ -1255,10 +1244,6 @@ function PersonalGoalDialog({
           <div className="space-y-2">
             <Label>進捗 ({progress}%)</Label>
             <Slider value={[progress]} onValueChange={([val]) => setProgress(val)} max={100} step={1} />
-          </div>
-          <div className="flex items-center space-x-2">
-            <Switch id="is-public" checked={isPublic} onCheckedChange={setIsPublic} />
-            <Label htmlFor="is-public">他の従業員に目標を共有する</Label>
           </div>
         </div>
         <DialogFooter>

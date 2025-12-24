@@ -67,10 +67,6 @@ export function PersonalGoalCard({ goal, onEdit, onDelete }: PersonalGoalCardPro
               <Edit className="mr-2 h-4 w-4" />
               編集
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Share2 className="mr-2 h-4 w-4" />
-              共有する
-            </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={onDelete}>
               <Trash2 className="mr-2 h-4 w-4" />
               削除
