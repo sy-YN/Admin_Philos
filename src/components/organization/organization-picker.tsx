@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -29,7 +30,7 @@ interface OrganizationPickerProps {
   searchPlaceholder?: string;
   emptyResultText?: string;
   className?: string;
-  disabled?: boolean;
+  disabled?: boolean | ((org: Organization) => boolean);
 }
 
 const OrganizationNode = ({
@@ -37,11 +38,13 @@ const OrganizationNode = ({
   onSelect,
   selectedValue,
   level = 0,
+  disabled,
 }: {
   node: OrganizationWithChildren;
   onSelect: (value: string) => void;
   selectedValue: string;
   level?: number;
+  disabled?: boolean;
 }) => {
   const [isOpen, setIsOpen] = React.useState(level < 2);
   const hasChildren = node.children && node.children.length > 0;
@@ -71,8 +74,12 @@ const OrganizationNode = ({
         )}
         <Button
           variant="ghost"
-          className="flex-1 justify-start h-8 px-2"
-          onClick={() => onSelect(node.id)}
+          className={cn(
+              "flex-1 justify-start h-8 px-2",
+              disabled && "text-muted-foreground"
+            )}
+          onClick={() => !disabled && onSelect(node.id)}
+          disabled={disabled}
         >
           {node.name}
         </Button>
@@ -93,6 +100,7 @@ const OrganizationNode = ({
                 onSelect={onSelect}
                 selectedValue={selectedValue}
                 level={level + 1}
+                disabled={disabled}
               />
             ))}
           </div>
@@ -154,6 +162,13 @@ export function OrganizationPicker({
     onChange(selectedValue);
     setOpen(false);
   };
+  
+  const isNodeDisabled = (node: Organization) => {
+    if (typeof disabled === 'function') {
+        return disabled(node);
+    }
+    return disabled;
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -167,7 +182,7 @@ export function OrganizationPicker({
             !value && 'text-muted-foreground',
             className
           )}
-          disabled={disabled}
+          disabled={typeof disabled === 'boolean' ? disabled : false}
         >
           <span className="truncate">
             {selectedOrganization ? selectedOrganization.name : placeholder}
@@ -187,7 +202,13 @@ export function OrganizationPicker({
             {organizationTree.length > 0 ? (
                  <div className="p-2">
                     {organizationTree.map(node => (
-                        <OrganizationNode key={node.id} node={node} onSelect={handleSelect} selectedValue={value} />
+                        <OrganizationNode 
+                            key={node.id} 
+                            node={node} 
+                            onSelect={handleSelect} 
+                            selectedValue={value} 
+                            disabled={isNodeDisabled(node)}
+                        />
                     ))}
                  </div>
             ) : (

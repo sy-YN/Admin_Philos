@@ -123,6 +123,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
   const [teamScopeId, setTeamScopeId] = useState('');
 
   const teamScopeOrganizations = useMemo(() => {
+    // For team scope goals, we can only assign them to 'department' type organizations.
     return organizations.filter(org => org.type === 'department');
   }, [organizations]);
 
@@ -180,8 +181,10 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
         baseData.endDate = Timestamp.fromDate(dateRange.to);
         baseData.targetValue = targetValue;
         
-        // When creating a new goal, currentValue is 0. When editing, keep the existing one unless changed via data entry dialog.
-        baseData.currentValue = widget?.currentValue ?? 0;
+        // When creating a new goal, currentValue is 0. When editing, keep the existing one.
+        if (!widget) {
+          baseData.currentValue = 0;
+        }
         
         baseData.unit = unit;
     }
@@ -285,7 +288,12 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                 <>
                  <div className="grid gap-2">
                     <Label htmlFor="team-org-picker">対象組織</Label>
-                    <OrganizationPicker organizations={teamScopeOrganizations} value={teamScopeId} onChange={setTeamScopeId} />
+                    <OrganizationPicker 
+                        organizations={organizations} 
+                        value={teamScopeId} 
+                        onChange={setTeamScopeId} 
+                        disabled={(org) => org.type !== 'department'}
+                    />
                  </div>
                   <div className="grid gap-2">
                      <Label>期間</Label>
@@ -1261,7 +1269,7 @@ function PersonalGoalsList({
             </div>
            ) : null}
         </div>
-
+        
         {!hasOngoingGoal && (
           <div className="my-8 flex flex-col items-center justify-center gap-4 text-center">
             <div className="flex max-w-md items-start gap-2 rounded-lg bg-muted/50 p-2 text-xs text-muted-foreground">
