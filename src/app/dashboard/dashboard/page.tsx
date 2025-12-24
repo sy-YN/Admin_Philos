@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,6 +42,7 @@ import { format, startOfDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -1065,6 +1066,10 @@ function PersonalGoalsList({
     setSelectedGoal(goal);
     setIsDialogOpen(true);
   };
+  
+  const handleToggleShare = async (goal: PersonalGoal) => {
+    onSave({ isPublic: !goal.isPublic }, goal.id);
+  }
 
   const handleCreate = () => {
     setSelectedGoal(null);
@@ -1093,36 +1098,35 @@ function PersonalGoalsList({
       <div className="space-y-8">
         <div>
           <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
-          {!hasOngoingGoal && (
-           <div className="flex flex-col items-center gap-4">
-              <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
-                目標を保存してメッセージを生成！
-              </Button>
-              <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg max-w-md">
-                <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                <p>
-                  新しい目標を作成しましょう。メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
-                </p>
-              </div>
-           </div>
-          )}
-          {hasOngoingGoal && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+           {hasOngoingGoal ? (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {ongoing.map(goal => (
-                <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
+                <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} onToggleShare={() => handleToggleShare(goal)} />
               ))}
             </div>
-          )}
+           ) : (
+            <div className="flex flex-col items-center gap-4">
+               <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
+                 目標を保存してメッセージを生成！
+               </Button>
+               <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg max-w-md">
+                 <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                 <p>
+                   新しい目標を作成しましょう。メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
+                 </p>
+               </div>
+            </div>
+           )}
         </div>
         <div>
           <h3 className="text-lg font-semibold mb-4">過去の目標</h3>
           {completed.length > 0 || failed.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {completed.map(goal => (
-                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
+                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} onToggleShare={() => handleToggleShare(goal)} />
               ))}
               {failed.map(goal => (
-                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
+                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} onToggleShare={() => handleToggleShare(goal)} />
               ))}
             </div>
           ) : (
@@ -1150,6 +1154,7 @@ function PersonalGoalDialog({
   const [title, setTitle] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [progress, setProgress] = useState(0);
+  const [isPublic, setIsPublic] = useState(true);
 
   const { toast } = useToast();
 
@@ -1161,6 +1166,7 @@ function PersonalGoalDialog({
         to: goal?.endDate?.toDate(),
       });
       setProgress(goal?.progress || 0);
+      setIsPublic(goal?.isPublic ?? true);
     }
   }, [goal, open]);
 
@@ -1193,7 +1199,7 @@ function PersonalGoalDialog({
       endDate: Timestamp.fromDate(dateRange.to),
       progress,
       status,
-      isPublic: false, // Sharing feature removed
+      isPublic,
     };
 
     onSave(goalData, goal?.id);
@@ -1242,10 +1248,14 @@ function PersonalGoalDialog({
             <Label>進捗 ({progress}%)</Label>
             <Slider value={[progress]} onValueChange={([val]) => setProgress(val)} max={100} step={1} />
           </div>
+          <div className="flex items-center space-x-2">
+            <Switch id="is-public-switch" checked={isPublic} onCheckedChange={setIsPublic} />
+            <Label htmlFor="is-public-switch">他のメンバーに共有する</Label>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
-          <Button onClick={handleSubmit}>保存</Button>
+          <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700 text-white">保存</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

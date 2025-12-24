@@ -16,9 +16,10 @@ interface PersonalGoalCardProps {
     goal: PersonalGoal;
     onEdit: () => void;
     onDelete: () => void;
+    onToggleShare: () => void;
 }
 
-export function PersonalGoalCard({ goal, onEdit, onDelete }: PersonalGoalCardProps) {
+export function PersonalGoalCard({ goal, onEdit, onDelete, onToggleShare }: PersonalGoalCardProps) {
   const { title, startDate, endDate, progress, status } = goal;
 
   const getStatusColor = () => {
@@ -66,6 +67,10 @@ export function PersonalGoalCard({ goal, onEdit, onDelete }: PersonalGoalCardPro
             <DropdownMenuItem onClick={onEdit}>
               <Edit className="mr-2 h-4 w-4" />
               編集
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onToggleShare}>
+              <Share2 className="mr-2 h-4 w-4" />
+              {goal.isPublic ? '非公開にする' : '公開する'}
             </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={onDelete}>
               <Trash2 className="mr-2 h-4 w-4" />
