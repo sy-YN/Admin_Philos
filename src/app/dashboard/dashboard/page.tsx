@@ -42,7 +42,6 @@ import { format, startOfDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -234,8 +233,8 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="company">会社単位</SelectItem>
-                  <SelectItem value="team" disabled>組織単位 (未実装)</SelectItem>
-                  <SelectItem value="personal" disabled>個人単位 (未実装)</SelectItem>
+                  <SelectItem value="team">組織単位</SelectItem>
+                  <SelectItem value="personal">個人単位</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1092,7 +1091,9 @@ function PersonalGoalsList({
         hasOngoingGoal={hasOngoingGoal}
       />
       <div className="space-y-8">
-         {!hasOngoingGoal && (
+        <div>
+          <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
+          {!hasOngoingGoal && (
            <div className="flex flex-col items-center gap-4">
               <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
                 目標を保存してメッセージを生成！
@@ -1104,17 +1105,13 @@ function PersonalGoalsList({
                 </p>
               </div>
            </div>
-         )}
-        <div>
-          <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
-          {ongoing.length > 0 ? (
+          )}
+          {hasOngoingGoal && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {ongoing.map(goal => (
                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
               ))}
             </div>
-          ) : (
-             <p className="text-sm text-muted-foreground">現在進行中の目標はありません。</p>
           )}
         </div>
         <div>
@@ -1196,7 +1193,7 @@ function PersonalGoalDialog({
       endDate: Timestamp.fromDate(dateRange.to),
       progress,
       status,
-      isPublic: false,
+      isPublic: false, // Sharing feature removed
     };
 
     onSave(goalData, goal?.id);
@@ -1315,20 +1312,20 @@ export default function DashboardSettingsPage() {
     const goalsQuery = useMemoFirebase(() => {
         if (!firestore || isCurrentUserLoading || !currentUserData) return null;
         
-        let scopeId: string | null = null;
-        if (activeTab === 'company') {
-            scopeId = currentUserData.company || '';
-        } else if (activeTab === 'team') {
-            scopeId = currentUserData.department || '';
-        }
-        
-        if (!scopeId) return null;
+        let queryConstraints = [where('scope', '==', activeTab)];
 
-        return query(
-            collection(firestore, 'goals'), 
-            where('scope', '==', activeTab),
-            where('scopeId', '==', scopeId)
-        );
+        if (activeTab === 'company') {
+          if (!currentUserData.company) return null;
+          queryConstraints.push(where('scopeId', '==', currentUserData.company));
+        } else if (activeTab === 'team') {
+          if (!currentUserData.department) return null;
+          queryConstraints.push(where('scopeId', '==', currentUserData.department));
+        } else if (activeTab === 'personal') {
+          // Note: Personal goals are handled in PersonalGoalsList via subcollection
+          return null;
+        }
+
+        return query(collection(firestore, 'goals'), ...queryConstraints);
 
     }, [firestore, currentUserData, activeTab, isCurrentUserLoading]);
 
