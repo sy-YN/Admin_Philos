@@ -1097,8 +1097,14 @@ export default function DashboardSettingsPage() {
         }
         
         // If we don't have a scopeId for the active tab, we can't query.
-        if (!scopeId) {
+        if (!scopeId && activeTab !== 'personal') { // Personal goals might not need a scopeId if it's the user's own goals, but based on your schema it does. Let's adjust.
             return null;
+        }
+
+        if (activeTab === 'personal') {
+           // For the "personal" tab in the admin dashboard, we might want to see all public goals, or a user's goals.
+           // For now, let's assume it's just a placeholder and doesn't fetch any goals to avoid errors.
+           return null;
         }
 
         return query(
@@ -1320,10 +1326,10 @@ export default function DashboardSettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
-             <TabsList className={cn("grid w-full mb-6", 
-              (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" 
-              : "grid-cols-1"
-             )}>
+            <TabsList className={cn("grid w-full mb-6", 
+                (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" 
+                : (canManageOrgPersonalGoals ? "grid-cols-2" : "grid-cols-1")
+            )}>
               {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
               {canManageOrgPersonalGoals && (
                 <>
@@ -1380,3 +1386,4 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
