@@ -34,6 +34,7 @@ import type { Member } from '@/types/member';
 import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
 import type { Role } from '@/types/role';
 import { PersonalGoalCard } from '@/components/dashboard/personal-goal-card';
+import type { PersonalGoal } from '@/types/personal-goal';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -1024,6 +1025,64 @@ function WidgetList({
   );
 }
 
+function PersonalGoalsList({ user }: { user: Member | null }) {
+  const firestore = useFirestore();
+  const personalGoalsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'users', user.uid, 'personalGoals'));
+  }, [firestore, user]);
+
+  const { data: goals, isLoading } = useCollection<PersonalGoal>(personalGoalsQuery);
+
+  const { ongoing, completed, failed } = useMemo(() => {
+    if (!goals) return { ongoing: [], completed: [], failed: [] };
+    return {
+      ongoing: goals.filter(g => g.status === '進行中'),
+      completed: goals.filter(g => g.status === '達成済'),
+      failed: goals.filter(g => g.status === '未達成'),
+    };
+  }, [goals]);
+
+  if (isLoading) {
+    return <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>;
+  }
+  
+  if (!goals || goals.length === 0) {
+    return (
+        <div className="text-center py-10 text-muted-foreground">
+            <p>まだ個人目標が設定されていません。</p>
+            <p className="text-sm mt-2">新しい目標を設定して、進捗の管理を始めましょう。</p>
+        </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
+        {ongoing.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {ongoing.map(goal => <PersonalGoalCard key={goal.id} goal={goal} />)}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">現在進行中の目標はありません。</p>
+        )}
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold mb-4">過去の目標</h3>
+        {completed.length > 0 || failed.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {completed.map(goal => <PersonalGoalCard key={goal.id} goal={goal} />)}
+            {failed.map(goal => <PersonalGoalCard key={goal.id} goal={goal} />)}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">完了した目標はまだありません。</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardSettingsPage() {
     const { toast } = useToast();
     const firestore = useFirestore();
@@ -1356,29 +1415,7 @@ export default function DashboardSettingsPage() {
             </TabsContent>
             <TabsContent value="personal">
                  {canManageOrgPersonalGoals ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <PersonalGoalCard 
-                           title="新規資格を1つ取得する"
-                           status="進行中"
-                           progress={65}
-                           startDate="2024/08/01"
-                           endDate="2025/01/31"
-                        />
-                        <PersonalGoalCard 
-                           title="顧客満足度調査で85点以上を獲得"
-                           status="達成済"
-                           progress={100}
-                           startDate="2024/04/01"
-                           endDate="2024/06/30"
-                        />
-                        <PersonalGoalCard 
-                           title="新規プロジェクト提案を3件行う"
-                           status="未達成"
-                           progress={33}
-                           startDate="2024/05/01"
-                           endDate="2024/07/31"
-                        />
-                    </div>
+                    <PersonalGoalsList user={currentUserData} />
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">
                     <p>個人単位の目標を管理する権限がありません。</p>

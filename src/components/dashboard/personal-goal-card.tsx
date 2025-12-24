@@ -8,19 +8,17 @@ import { MoreVertical, Edit, Share2, Trash2, Calendar as CalendarIcon, Flag, Rep
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-
-type GoalStatus = "進行中" | "達成済" | "未達成";
+import type { PersonalGoal } from '@/types/personal-goal';
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
 
 interface PersonalGoalCardProps {
-    title: string;
-    startDate: string;
-    endDate: string;
-    progress: number;
-    status: GoalStatus;
+    goal: PersonalGoal;
 }
 
-export function PersonalGoalCard({ title, startDate, endDate, progress, status }: PersonalGoalCardProps) {
-  
+export function PersonalGoalCard({ goal }: PersonalGoalCardProps) {
+  const { title, startDate, endDate, progress, status } = goal;
+
   const getStatusColor = () => {
     switch (status) {
       case '達成済':
@@ -44,6 +42,9 @@ export function PersonalGoalCard({ title, startDate, endDate, progress, status }
 
   const statusColor = getStatusColor();
   const StatusIcon = status === '達成済' ? CheckCircle2 : status === '未達成' ? XCircle : null;
+  
+  const formattedStartDate = startDate ? format(startDate.toDate(), 'yyyy/MM/dd', { locale: ja }) : 'N/A';
+  const formattedEndDate = endDate ? format(endDate.toDate(), 'yyyy/MM/dd', { locale: ja }) : 'N/A';
 
 
   return (
@@ -117,7 +118,7 @@ export function PersonalGoalCard({ title, startDate, endDate, progress, status }
         <div className="space-y-3 text-sm text-muted-foreground">
           <div className="flex items-center gap-3">
             <CalendarIcon className="h-4 w-4" />
-            <span>期間: {startDate} ~ {endDate}</span>
+            <span>期間: {formattedStartDate} ~ {formattedEndDate}</span>
           </div>
           <div className="flex items-center gap-3">
             <Flag className="h-4 w-4" />
