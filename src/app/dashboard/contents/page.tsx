@@ -266,24 +266,21 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
 function MessagesTable({ 
   selected, 
   onSelectedChange,
+  messages,
+  isLoading,
   onAddComment,
   onDeleteComment
 }: { 
   selected: string[], 
   onSelectedChange: (ids: string[]) => void,
+  messages: ExecutiveMessage[] | null,
+  isLoading: boolean,
   onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>,
   onDeleteComment: (contentId: string, commentId: string) => Promise<void>
 }) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const messagesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'executiveMessages'), orderBy('createdAt', 'desc'));
-  }, [firestore]);
-
-  const { data: messages, isLoading } = useCollection<ExecutiveMessage>(messagesQuery);
-  
   const handleDelete = async (id: string) => {
     if (!firestore) return;
     try {
@@ -849,15 +846,22 @@ export default function ContentsPage() {
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
 
   const videosQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || isUserLoading) return null;
     return query(collection(firestore, 'videos'), orderBy('uploadedAt', 'desc'));
-  }, [firestore]);
+  }, [firestore, isUserLoading]);
 
   const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
+  
+  const messagesQuery = useMemoFirebase(() => {
+    if (!firestore || isUserLoading) return null;
+    return query(collection(firestore, 'executiveMessages'), orderBy('createdAt', 'desc'));
+  }, [firestore, isUserLoading]);
+
+  const { data: messages, isLoading: messagesLoading } = useCollection<ExecutiveMessage>(messagesQuery);
 
 
   const handleAddVideo = async (videoData: Partial<VideoType>) => {
@@ -1060,6 +1064,8 @@ export default function ContentsPage() {
               <MessagesTable 
                 selected={selectedMessages} 
                 onSelectedChange={setSelectedMessages}
+                messages={messages}
+                isLoading={messagesLoading}
                 onAddComment={(contentId, commentData) => handleAddComment('executiveMessages', contentId, commentData)}
                 onDeleteComment={(contentId, commentId) => handleDeleteComment('executiveMessages', contentId, commentId)}
               />
@@ -1070,5 +1076,3 @@ export default function ContentsPage() {
     </div>
   );
 }
-
-    
