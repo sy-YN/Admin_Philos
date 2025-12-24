@@ -1046,12 +1046,14 @@ function PersonalGoalsList({
   const [selectedGoal, setSelectedGoal] = useState<PersonalGoal | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  const { isUserLoading } = useUser();
+
   const personalGoalsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'users', user.uid, 'personalGoals'));
   }, [firestore, user]);
 
-  const { data: goals, isLoading } = useCollection<PersonalGoal>(personalGoalsQuery);
+  const { data: goals, isLoading: areGoalsLoading } = useCollection<PersonalGoal>(personalGoalsQuery);
 
   const { ongoing, completed, failed } = useMemo(() => {
     if (!goals) return { ongoing: [], completed: [], failed: [] };
@@ -1075,6 +1077,8 @@ function PersonalGoalsList({
   const handleDelete = (id: string) => {
     onDelete(id);
   };
+
+  const isLoading = isUserLoading || areGoalsLoading;
 
   if (isLoading) {
     return <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>;
@@ -1620,11 +1624,15 @@ export default function DashboardSettingsPage() {
             </TabsContent>
             <TabsContent value="personal">
                  {canManageOrgPersonalGoals ? (
-                    <PersonalGoalsList
-                      user={currentUserData}
-                      onSave={handleSavePersonalGoal}
-                      onDelete={handleDeletePersonalGoal}
-                    />
+                    isAuthUserLoading || isCurrentUserLoading ? (
+                      <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                    ) : (
+                      <PersonalGoalsList
+                        user={currentUserData}
+                        onSave={handleSavePersonalGoal}
+                        onDelete={handleDeletePersonalGoal}
+                      />
+                    )
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">
                     <p>個人単位の目標を管理する権限がありません。</p>
@@ -1636,3 +1644,4 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
