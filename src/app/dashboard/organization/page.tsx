@@ -5,7 +5,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, writeBatch, where, orderBy } from 'firebase/firestore';
 import type { Organization, OrganizationType } from '@/types/organization';
 import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, Building, Building2, Landmark, Users } from 'lucide-react';
@@ -274,13 +274,14 @@ function OrganizationNode({
 export default function OrganizationPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { isUserLoading } = useUser();
 
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const organizationsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || isUserLoading) return null;
     return query(collection(firestore, 'organizations'), orderBy('order'));
-  }, [firestore]);
+  }, [firestore, isUserLoading]);
 
   const { data: organizations, isLoading } = useCollection<Organization>(organizationsQuery);
 
@@ -489,6 +490,8 @@ export default function OrganizationPage() {
 
   const activeOrg = useMemo(() => organizations?.find(o => o.id === activeId), [activeId, organizations]);
 
+  const pageIsLoading = isLoading || isUserLoading;
+
   return (
     <div className="w-full space-y-6">
       <div className="flex items-center">
@@ -514,7 +517,7 @@ export default function OrganizationPage() {
               modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
             >
               <SortableContext items={organizationTree.map(o => o.id)} strategy={verticalListSortingStrategy}>
-                  {isLoading ? (
+                  {pageIsLoading ? (
                     <div className="flex justify-center items-center h-32">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
