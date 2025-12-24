@@ -16,15 +16,15 @@ import { ImportMembersDialog } from '@/components/members/import-members-dialog'
 
 export default function MembersPage() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
   
   const membersQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || isUserLoading) return null;
     return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
-  }, [firestore, user]);
+  }, [firestore, isUserLoading]);
 
   const organizationsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
