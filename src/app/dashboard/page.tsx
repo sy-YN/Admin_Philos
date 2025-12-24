@@ -1,14 +1,87 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser, useFirestore } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
+import type { Member } from '@/types/member';
+import type { Role } from '@/types/role';
 
-export default function DashboardPage() {
+// This list should be kept in sync with the one in layout.tsx
+const allNavItems = [
+  { href: '/dashboard/members', id: 'members' },
+  { href: '/dashboard/organization', id: 'organization' },
+  { href: '/dashboard/permissions', id: 'permissions' },
+  { href: '/dashboard/contents', id: 'contents', requiredPermissions: ['video_management', 'message_management'] },
+  { href: '/dashboard/philosophy', id: 'philosophy' },
+  { href: '/dashboard/calendar', id: 'calendar' },
+  { href: '/dashboard/dashboard', id: 'dashboard', requiredPermissions: ['company_goal_setting', 'org_personal_goal_setting'] },
+  { href: '/dashboard/ranking', id: 'ranking' },
+];
+
+
+export default function DashboardRedirectPage() {
   const router = useRouter();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+
+  const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
+    if (!firestore) return [];
+    try {
+      const userDocRef = doc(firestore, 'users', userUid);
+      const userDoc = await getDoc(userDocRef);
+      if (!userDoc.exists()) return [];
+      
+      const userData = userDoc.data() as Member;
+      const roleDocRef = doc(firestore, 'roles', userData.role);
+      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
+
+      const [roleDoc, userPermsDoc] = await Promise.all([
+        getDoc(roleDocRef),
+        getDoc(userPermsDocRef),
+      ]);
+      
+      const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
+      const individualPermissions = userPermsDoc.exists() ? userPermsDoc.data().permissions : [];
+      
+      return [...new Set([...rolePermissions, ...individualPermissions])];
+    } catch (error) {
+      console.error("Error fetching permissions for redirect:", error);
+      return [];
+    }
+  }, [firestore]);
 
   useEffect(() => {
-    router.replace('/dashboard/members');
-  }, [router]);
+    if (isUserLoading) {
+      return;
+    }
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
 
-  return null;
+    fetchUserPermissions(user.uid).then(permissions => {
+      const firstAllowedPage = allNavItems.find(item => {
+         if(!item.requiredPermissions) {
+          return permissions.includes(item.id);
+        }
+        return item.requiredPermissions?.some(p => permissions.includes(p))
+      });
+
+      if (firstAllowedPage) {
+        router.replace(firstAllowedPage.href);
+      } else {
+        // If user has no accessible pages, maybe redirect to a specific page or show an error
+        // For now, let's keep them on a safe page, or redirect to login.
+        router.replace('/login'); 
+      }
+    });
+  }, [user, isUserLoading, router, fetchUserPermissions]);
+
+  return (
+    <div className="flex h-screen w-full items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
 }
