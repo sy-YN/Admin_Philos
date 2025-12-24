@@ -176,7 +176,10 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
         baseData.startDate = Timestamp.fromDate(dateRange.from);
         baseData.endDate = Timestamp.fromDate(dateRange.to);
         baseData.targetValue = targetValue;
-        baseData.currentValue = currentValue;
+        
+        // When creating a new goal, currentValue is 0. When editing, keep the existing one unless changed via data entry dialog.
+        baseData.currentValue = widget?.currentValue ?? 0;
+        
         baseData.unit = unit;
     }
 
@@ -199,7 +202,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
       } else if (initialScope === 'team') {
         setDateRange({ from: widget?.startDate?.toDate(), to: widget?.endDate?.toDate() });
         setTargetValue(widget?.targetValue || 100);
-        setCurrentValue(widget?.currentValue || 0);
+        setCurrentValue(widget?.currentValue || 0); // Still needed for internal state if any UI depends on it
         setUnit(widget?.unit || '%');
         setTeamScopeId(widget?.scopeId || '');
       }
@@ -305,10 +308,6 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                           <Input value={unit} onChange={e => setUnit(e.target.value)} />
                       </div>
                   </div>
-                   <div className="grid gap-2">
-                       <Label>現在の進捗</Label>
-                       <Input type="number" value={currentValue} onChange={e => setCurrentValue(Number(e.target.value))} />
-                   </div>
                 </>
             )}
 
@@ -1263,14 +1262,14 @@ function PersonalGoalsList({
         </div>
 
         {!hasOngoingGoal && (
-          <div className="flex flex-col items-center gap-4 text-center my-8">
-            <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg max-w-md">
-              <Info className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="my-8 flex flex-col items-center justify-center gap-4 text-center">
+            <div className="flex max-w-md items-start gap-2 rounded-lg bg-muted/50 p-2 text-xs text-muted-foreground">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
                 新しい目標を作成しましょう。メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
               </p>
             </div>
-            <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
+            <Button onClick={handleCreate} className="bg-green-600 text-white hover:bg-green-700">
               目標を保存してメッセージを生成！
             </Button>
           </div>
