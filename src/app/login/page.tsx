@@ -103,7 +103,6 @@ export default function LoginPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       
-      // Temporarily disabled permission check.
       // The useEffect will handle the redirection.
       toast({
         title: 'ログイン成功',

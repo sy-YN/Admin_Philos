@@ -88,29 +88,23 @@ export default function DashboardLayout({
       return;
     }
     
-    setIsCheckingPermissions(true);
-    fetchUserPermissions(user.uid).then(permissions => {
-      setUserPermissions(permissions);
-      if (permissions.length === 0) {
-        // If user has no permissions at all, sign them out.
-        auth?.signOut().then(() => {
-          router.replace('/login');
-        });
-      } else {
-        setIsCheckingPermissions(false);
-      }
-    });
+    // Temporarily disable permission check
+    setIsCheckingPermissions(false);
 
   }, [user, isUserLoading, router, auth, fetchUserPermissions]);
   
   const navItems = useMemo(() => {
+    // Temporarily show all items if permission check is disabled
+    if(!isCheckingPermissions && userPermissions.length === 0) {
+      return allNavItems;
+    }
     return allNavItems.filter(item => {
       if(item.id === 'contents' || item.id === 'dashboard') {
         return item.requiredPermissions?.some(p => userPermissions.includes(p))
       }
       return userPermissions.includes(item.id);
     });
-  }, [userPermissions]);
+  }, [userPermissions, isCheckingPermissions]);
 
 
   const handleLogout = async () => {
