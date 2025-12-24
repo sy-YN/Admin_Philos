@@ -32,6 +32,7 @@ import type { CustomerRecord } from '@/types/customer-record';
 import type { ProjectComplianceRecord } from '@/types/project-compliance-record';
 import type { Member } from '@/types/member';
 import { useSubCollection } from '@/firebase/firestore/use-sub-collection';
+import type { Role } from '@/types/role';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -790,7 +791,8 @@ function WidgetCard({
   onSaveProfitRecords,
   onSaveCustomerRecords,
   onSaveProjectComplianceRecords,
-  currentUser
+  currentUser,
+  canEdit,
 }: {
   widget: Goal;
   onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
@@ -801,6 +803,7 @@ function WidgetCard({
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   currentUser: Member | null;
+  canEdit: boolean;
 }) {
   const { data: salesData } = useSubCollection<SalesRecord>('goals', widget.id, 'salesRecords');
   const { data: profitData } = useSubCollection<ProfitRecord>('goals', widget.id, 'profitRecords');
@@ -857,8 +860,6 @@ function WidgetCard({
     }).sort((a, b) => a.month.localeCompare(b.month));
 
   }, [salesData, profitData, customerData, projectComplianceData, widget]);
-
-  const canEdit = currentUser?.role === 'executive';
 
   const kpiLabel = kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A';
 
@@ -979,7 +980,8 @@ function WidgetList({
   onSaveProfitRecords,
   onSaveCustomerRecords,
   onSaveProjectComplianceRecords,
-  currentUser
+  currentUser,
+  canEdit
 }: {
   widgets: Goal[];
   onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
@@ -990,6 +992,7 @@ function WidgetList({
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   currentUser: Member | null;
+  canEdit: boolean;
 }) {
   if (widgets.length === 0) {
     return (
@@ -1013,6 +1016,7 @@ function WidgetList({
           onSaveCustomerRecords={onSaveCustomerRecords}
           onSaveProjectComplianceRecords={onSaveProjectComplianceRecords}
           currentUser={currentUser}
+          canEdit={canEdit}
         />
       ))}
     </div>
@@ -1025,43 +1029,75 @@ export default function DashboardSettingsPage() {
     const { user: authUser, isUserLoading: isAuthUserLoading } = useUser();
     
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
+    const [userPermissions, setUserPermissions] = useState<string[]>([]);
     const [isCurrentUserLoading, setIsCurrentUserLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<WidgetScope>('company');
     
+    const fetchUserWithPermissions = useCallback(async (uid: string) => {
+      if (!firestore) return { user: null, permissions: [] };
+
+      const userDocRef = doc(firestore, 'users', uid);
+      const userDoc = await getDoc(userDocRef);
+      if (!userDoc.exists()) return { user: null, permissions: [] };
+
+      const userData = { id: userDoc.id, ...userDoc.data() } as Member;
+      
+      const roleDocRef = doc(firestore, 'roles', userData.role);
+      const userPermsDocRef = doc(firestore, 'user_permissions', uid);
+
+      const [roleDoc, userPermsDoc] = await Promise.all([
+        getDoc(roleDocRef),
+        getDoc(userPermsDoc),
+      ]);
+
+      const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
+      const individualPermissions = userPermsDoc.exists() ? userPermsDoc.data().permissions : [];
+      
+      const allPermissions = [...new Set([...rolePermissions, ...individualPermissions])];
+      
+      return { user: userData, permissions: allPermissions };
+    }, [firestore]);
+
+
     useEffect(() => {
-        if (isAuthUserLoading) return;
-        
-        if (authUser && firestore) {
-            if (currentUserData) {
+        if (isAuthUserLoading || !authUser) {
+            if (!isAuthUserLoading) {
                 setIsCurrentUserLoading(false);
-                return;
             }
-            setIsCurrentUserLoading(true);
-            getDocs(query(collection(firestore, 'users'), where('uid', '==', authUser.uid), limit(1))).then(snapshot => {
-                if (!snapshot.empty) {
-                    const userData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Member;
-                    setCurrentUserData(userData);
-                }
-                setIsCurrentUserLoading(false);
-            }).catch(() => {
-                setIsCurrentUserLoading(false);
-            });
-        } else {
-          setIsCurrentUserLoading(false);
+            return;
         }
-    }, [authUser, firestore, isAuthUserLoading, currentUserData]);
+        
+        setIsCurrentUserLoading(true);
+        fetchUserWithPermissions(authUser.uid).then(({ user, permissions }) => {
+            setCurrentUserData(user);
+            setUserPermissions(permissions);
+            if (!permissions.includes('company_goal_setting') && permissions.includes('org_personal_goal_setting')) {
+              setActiveTab('team');
+            } else {
+              setActiveTab('company');
+            }
+            setIsCurrentUserLoading(false);
+        });
+    }, [authUser, isAuthUserLoading, fetchUserWithPermissions]);
     
     const goalsQuery = useMemoFirebase(() => {
         if (!firestore || isCurrentUserLoading || !currentUserData) return null;
-        if (activeTab !== 'company') return null;
-        if (currentUserData.role !== 'admin' && currentUserData.role !== 'executive') return null;
-        if (!currentUserData.company) return null;
         
-        return query(
-            collection(firestore, 'goals'), 
-            where('scope', '==', 'company'),
-            where('scopeId', '==', currentUserData.company)
-        );
+        let queryConstraints = [where('scope', '==', activeTab)];
+        
+        if (activeTab === 'company' && currentUserData.company) {
+          queryConstraints.push(where('scopeId', '==', currentUserData.company));
+        } else if (activeTab === 'team' && currentUserData.department) {
+           queryConstraints.push(where('scopeId', '==', currentUserData.department));
+        } else if (activeTab === 'personal') {
+           queryConstraints.push(where('scopeId', '==', currentUserData.uid));
+        } else {
+          // If scopeId is missing, return null to prevent query
+          return null;
+        }
+
+        return query(collection(firestore, 'goals'), ...queryConstraints);
+
     }, [firestore, currentUserData, activeTab, isCurrentUserLoading]);
 
     const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
@@ -1105,8 +1141,6 @@ export default function DashboardSettingsPage() {
         const goalRef = doc(firestore, 'goals', id);
         const subcollectionNames = ['salesRecords', 'profitRecords', 'customerRecords', 'projectComplianceRecords'];
         
-        // Firestore doesn't support deleting subcollections directly from the client.
-        // We need to delete all documents within each subcollection first.
         for (const subcollectionName of subcollectionNames) {
             const subcollectionRef = collection(goalRef, subcollectionName);
             const subcollectionSnapshot = await getDocs(subcollectionRef);
@@ -1119,7 +1153,6 @@ export default function DashboardSettingsPage() {
             }
         }
 
-        // After all subcollections are cleared, delete the main goal document.
         await deleteDoc(goalRef);
         
         toast({ title: "成功", description: "ウィジェットと関連データを削除しました。" });
@@ -1243,6 +1276,9 @@ export default function DashboardSettingsPage() {
 
   const isLoading = isAuthUserLoading || isCurrentUserLoading || (!!currentUserData && isLoadingWidgets);
 
+  const canManageCompanyGoals = userPermissions.includes('company_goal_setting');
+  const canManageOrgPersonalGoals = userPermissions.includes('org_personal_goal_setting');
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -1251,8 +1287,6 @@ export default function DashboardSettingsPage() {
     );
   }
   
-  const canManageCompanyGoals = currentUserData?.role === 'admin' || currentUserData?.role === 'executive';
-
   return (
     <div className="w-full space-y-8">
       <div>
@@ -1262,7 +1296,7 @@ export default function DashboardSettingsPage() {
               <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
             </div>
 
-            {currentUserData?.role === 'executive' && (
+            {((activeTab === 'company' && canManageCompanyGoals) || (activeTab !== 'company' && canManageOrgPersonalGoals)) && (
               <div className='flex items-center gap-4'>
                   <div className='flex items-center gap-2'>
                     <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab} currentUser={currentUserData}>
@@ -1277,10 +1311,14 @@ export default function DashboardSettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="company">会社単位</TabsTrigger>
-              <TabsTrigger value="team" disabled>組織単位</TabsTrigger>
-              <TabsTrigger value="personal" disabled>個人単位</TabsTrigger>
+            <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : "grid-cols-2")}>
+              {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
+              {canManageOrgPersonalGoals && (
+                <>
+                  <TabsTrigger value="team" disabled>組織単位</TabsTrigger>
+                  <TabsTrigger value="personal" disabled>個人単位</TabsTrigger>
+                </>
+              )}
             </TabsList>
             <TabsContent value="company">
                 {canManageCompanyGoals ? (
@@ -1294,6 +1332,7 @@ export default function DashboardSettingsPage() {
                       onSaveCustomerRecords={handleSaveCustomerRecords}
                       onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
                       currentUser={currentUserData}
+                      canEdit={canManageCompanyGoals}
                   />
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">
@@ -1302,17 +1341,32 @@ export default function DashboardSettingsPage() {
                 )}
             </TabsContent>
             <TabsContent value="team">
-                <div className="text-center py-10 text-muted-foreground">
-                    <p>この機能は現在準備中です。</p>
-                </div>
+                {canManageOrgPersonalGoals ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                      <p>この機能は現在準備中です。</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <p>組織単位の目標を管理する権限がありません。</p>
+                  </div>
+                )}
             </TabsContent>
             <TabsContent value="personal">
-                 <div className="text-center py-10 text-muted-foreground">
-                    <p>この機能は現在準備中です。</p>
-                </div>
+                 {canManageOrgPersonalGoals ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                      <p>この機能は現在準備中です。</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <p>個人単位の目標を管理する権限がありません。</p>
+                  </div>
+                )}
             </TabsContent>
         </Tabs>
       </div>
     </div>
   );
 }
+
+
+    
