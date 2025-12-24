@@ -1093,7 +1093,7 @@ function WidgetList({
   if (widgets.length === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground">
-        <p>この単位のウィジェットはまだありません。</p>
+        {scope !== 'company' && scope !== 'team' ? <p>この単位のウィジェットはまだありません。</p> : null}
       </div>
     );
   }
@@ -1136,7 +1136,7 @@ function PersonalGoalsList({
   const personalGoalsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'users', user.uid, 'personalGoals'));
-  }, [firestore, user.uid]);
+  }, [firestore, user]);
 
   const { data: goals, isLoading: areGoalsLoading } = useCollection<PersonalGoal>(personalGoalsQuery);
 
@@ -1180,30 +1180,30 @@ function PersonalGoalsList({
       />
       <div className="space-y-8">
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">進行中の目標</h3>
-             {!hasOngoingGoal && (
-                <div className="flex flex-col items-center gap-4 text-center">
-                    <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg max-w-md">
-                        <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                        <p>
-                        新しい目標を作成しましょう。メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
-                        </p>
-                    </div>
-                    <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
-                        目標を保存してメッセージを生成！
-                    </Button>
-                </div>
-            )}
-          </div>
-           {hasOngoingGoal && (
+          <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
+           {hasOngoingGoal ? (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {ongoing.map(goal => (
                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
               ))}
             </div>
-           )}
+           ) : null}
         </div>
+
+        {!hasOngoingGoal && (
+          <div className="flex flex-col items-center gap-4 text-center my-8">
+            <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg max-w-md">
+              <Info className="h-4 w-4 shrink-0 mt-0.5" />
+              <p>
+                新しい目標を作成しましょう。メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
+              </p>
+            </div>
+            <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
+              目標を保存してメッセージを生成！
+            </Button>
+          </div>
+        )}
+
         <div>
           <h3 className="text-lg font-semibold mb-4">過去の目標</h3>
           {completed.length > 0 || failed.length > 0 ? (
@@ -1336,7 +1336,7 @@ function PersonalGoalDialog({
           </div>
           <div className="flex items-center space-x-2">
             <Switch id="is-public-switch" checked={isPublic} onCheckedChange={setIsPublic} />
-            <Label htmlFor="is-public-switch">他のメンバーに共有する</Label>
+            <Label htmlFor="is-public-switch" className="font-normal">他のメンバーに共有する</Label>
           </div>
         </div>
         <DialogFooter>
@@ -1426,18 +1426,17 @@ export default function DashboardSettingsPage() {
     }, [authUser, isAuthUserLoading, fetchUserWithPermissions, allOrganizations, isLoadingOrgs]);
     
     const goalsQuery = useMemoFirebase(() => {
-        if (!firestore || !currentUserData || isAuthUserLoading || isCurrentUserLoading) return null;
+        if (!firestore || isAuthUserLoading || isCurrentUserLoading) return null;
+        if (activeTab === 'personal') return null; // Personal goals are fetched separately
         
         let queryConstraints = [where('scope', '==', activeTab)];
 
         if (activeTab === 'company') {
-          if (!currentUserData.company) return null;
+          if (!currentUserData?.company) return null;
           queryConstraints.push(where('scopeId', '==', currentUserData.company));
         } else if (activeTab === 'team') {
           if (!selectedOrgId) return null;
           queryConstraints.push(where('scopeId', '==', selectedOrgId));
-        } else if (activeTab === 'personal') {
-          return null;
         }
 
         return query(collection(firestore, 'goals'), ...queryConstraints);
