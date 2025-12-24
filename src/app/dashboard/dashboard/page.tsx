@@ -24,7 +24,7 @@ import {
 } from '@/lib/fiscal-year';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs, Query, limit } from 'firebase/firestore';
+import { collection, query, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, getDocs, Query, limit, getDoc } from 'firebase/firestore';
 import type { Goal } from '@/types/goal';
 import type { SalesRecord } from '@/types/sales-record';
 import type { ProfitRecord } from '@/types/profit-record';
@@ -1047,7 +1047,7 @@ export default function DashboardSettingsPage() {
 
       const [roleDoc, userPermsDoc] = await Promise.all([
         getDoc(roleDocRef),
-        getDoc(userPermsDoc),
+        getDoc(userPermsDocRef),
       ]);
 
       const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
@@ -1311,7 +1311,7 @@ export default function DashboardSettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
-            <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : "grid-cols-2")}>
+            <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageCompanyGoals || canManageOrgPersonalGoals) ? "grid-cols-2" : "grid-cols-1")}>
               {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
               {canManageOrgPersonalGoals && (
                 <>
