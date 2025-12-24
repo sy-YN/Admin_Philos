@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type Goal = {
@@ -6,12 +5,22 @@ export type Goal = {
   title: string;
   scope: 'company' | 'team' | 'personal';
   scopeId: string;
-  kpi: string;
-  chartType: 'composed' | 'bar' | 'pie' | 'donut' | 'line';
+  authorId: string;
   status: 'active' | 'inactive';
+  chartType: 'composed' | 'bar' | 'pie' | 'donut' | 'line';
+  
+  // Company-specific fields
+  kpi?: string;
   fiscalYear?: number;
   fiscalYearStartMonth?: number;
-  authorId: string;
+  
+  // Team-specific fields
+  startDate?: Timestamp;
+  endDate?: Timestamp;
+  targetValue?: number;
+  currentValue?: number;
+  unit?: string;
+
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };

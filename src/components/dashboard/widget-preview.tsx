@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
@@ -17,10 +16,8 @@ import {
 import * as RechartsPrimitive from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Goal } from '@/types/goal';
-import type { SalesRecord } from '@/types/sales-record';
-import type { ProfitRecord } from '@/types/profit-record';
-import type { CustomerRecord } from '@/types/customer-record';
-import type { ProjectComplianceRecord } from '@/types/project-compliance-record';
+import { cn } from '@/lib/utils';
+
 
 export type ChartData = {
     month: string;
@@ -504,6 +501,52 @@ function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
   );
 }
 
+function DonutChartWidget({ widget }: { widget: Goal }) {
+  const { targetValue = 100, currentValue = 0, unit = '%' } = widget;
+  const progress = targetValue > 0 ? Math.min(Math.round((currentValue / targetValue) * 100), 100) : 0;
+  
+  const chartData = [
+    { name: 'Progress', value: progress, fill: 'hsl(var(--primary))' },
+    { name: 'Remaining', value: 100 - progress, fill: 'hsl(var(--muted))' },
+  ];
+
+  const chartConfig = {
+    progress: { label: '進捗', color: 'hsl(var(--primary))' },
+    remaining: { label: '残り', color: 'hsl(var(--muted))' },
+  };
+
+  return (
+    <div className="w-full h-full flex items-center justify-center">
+       <ChartContainer config={chartConfig} className="mx-auto aspect-square h-full">
+         <RechartsPrimitive.PieChart>
+          <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+          <Pie
+            data={chartData}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            innerRadius="60%"
+            outerRadius="80%"
+            startAngle={90}
+            endAngle={450}
+          >
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.fill} />
+            ))}
+          </Pie>
+          <foreignObject x="15%" y="35%" width="70%" height="30%">
+            <div className="flex flex-col items-center justify-center text-center h-full">
+              <p className="text-2xl font-bold text-foreground">{progress}<span className="text-base font-normal">%</span></p>
+              <p className="text-xs text-muted-foreground">{currentValue}{unit} / {targetValue}{unit}</p>
+            </div>
+          </foreignObject>
+        </RechartsPrimitive.PieChart>
+       </ChartContainer>
+    </div>
+  );
+}
+
 
 interface WidgetPreviewProps {
     widget: Goal;
@@ -512,53 +555,44 @@ interface WidgetPreviewProps {
 
 export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps) {
 
-    if (widget.kpi === 'sales_revenue') {
-        switch (widget.chartType) {
-            case 'composed':
-                return <ActualSalesComposedChart chartData={chartData} />;
-            case 'bar':
-                return <ActualSalesBarChart chartData={chartData} />;
-            case 'line':
-                return <TargetAndActualLineChart chartData={chartData} />;
-        }
-    }
-    
-    if (widget.kpi === 'profit_margin') {
-        switch (widget.chartType) {
-            case 'line':
-                return <ProfitMarginLineChart chartData={chartData} />;
+    if (widget.scope === 'team') {
+        switch(widget.chartType) {
+            case 'donut':
+                return <DonutChartWidget widget={widget} />;
+            // Add other team chart types here
         }
     }
 
-    if (widget.kpi === 'new_customers') {
-        switch (widget.chartType) {
-            case 'bar':
-                return <CustomerBarChart chartData={chartData} />;
+    if (widget.scope === 'company') {
+        if (widget.kpi === 'sales_revenue') {
+            switch (widget.chartType) {
+                case 'composed': return <ActualSalesComposedChart chartData={chartData} />;
+                case 'bar': return <ActualSalesBarChart chartData={chartData} />;
+                case 'line': return <TargetAndActualLineChart chartData={chartData} />;
+            }
+        }
+        if (widget.kpi === 'profit_margin') {
+            if (widget.chartType === 'line') return <ProfitMarginLineChart chartData={chartData} />;
+        }
+        if (widget.kpi === 'new_customers') {
+            if (widget.chartType === 'bar') return <CustomerBarChart chartData={chartData} />;
+        }
+        if (widget.kpi === 'project_delivery_compliance') {
+            switch (widget.chartType) {
+                case 'bar': return <ProjectComplianceBarChart chartData={chartData} />;
+                case 'pie': return <ProjectCompliancePieChart chartData={chartData} />;
+            }
         }
     }
 
-    if (widget.kpi === 'project_delivery_compliance') {
-        switch (widget.chartType) {
-            case 'bar':
-                return <ProjectComplianceBarChart chartData={chartData} />;
-            case 'pie':
-                return <ProjectCompliancePieChart chartData={chartData} />;
-        }
-    }
 
     // Fallback for other KPIs or chart types
     switch (widget.chartType) {
-        case 'bar':
-          return <BarChartPreview />;
-        case 'line':
-          return <LineChartPreview />;
-        case 'pie':
-          return <PieChartPreview />;
-        case 'donut':
-          return <PieChartPreview isDonut />;
-        case 'composed':
-           return <ActualSalesComposedChart chartData={chartData} />;
-        default:
-          return <BarChartPreview />;
+        case 'bar': return <BarChartPreview />;
+        case 'line': return <LineChartPreview />;
+        case 'pie': return <PieChartPreview />;
+        case 'donut': return <PieChartPreview isDonut />;
+        case 'composed': return <ActualSalesComposedChart chartData={chartData} />;
+        default: return <BarChartPreview />;
       }
 }

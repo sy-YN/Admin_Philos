@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -43,6 +42,8 @@ import { ja } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import type { Organization } from '@/types/organization';
+import { OrganizationPicker } from '@/components/organization/organization-picker';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -84,10 +85,9 @@ export const kpiToChartMapping: Record<string, string[]> = {
   profit_margin: ['line'],
   new_customers: ['bar'],
   project_delivery_compliance: ['pie', 'bar'],
-  // Team
-  task_completion_rate: ['pie', 'donut'],
+  // Team & Personal
+  task_completion_rate: ['donut', 'pie', 'bar'],
   project_progress: ['donut'],
-  // Personal
   personal_sales_achievement: ['donut', 'bar'],
   task_achievement_rate: ['donut'],
   self_learning_time: ['line', 'bar'],
@@ -108,7 +108,7 @@ const calculateProfitMargin = (profit: number, revenue: number) => {
 };
 
 
-function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: { widget?: Goal | null, onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>) => void, children: React.ReactNode, defaultScope: WidgetScope, currentUser: Member | null }) {
+function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, organizations }: { widget?: Goal | null, onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>) => void, children: React.ReactNode, defaultScope: WidgetScope, currentUser: Member | null, organizations: Organization[] }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [scope, setScope] = useState<WidgetScope>(defaultScope);
@@ -116,28 +116,36 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
   const [chartType, setChartType] = useState('');
   const [fiscalYear, setFiscalYear] = useState<number>(getCurrentFiscalYear());
   const [fiscalYearStartMonth, setFiscalYearStartMonth] = useState<number>(8);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [targetValue, setTargetValue] = useState(100);
+  const [currentValue, setCurrentValue] = useState(0);
+  const [unit, setUnit] = useState('%');
+  const [teamScopeId, setTeamScopeId] = useState('');
 
   const availableChartOptions = useMemo(() => {
     if (!kpi) return [];
-    const allowedChartTypes = kpiToChartMapping[kpi] || [];
+    let allowedChartTypes = kpiToChartMapping[kpi] || [];
+    if(scope === 'team') {
+       allowedChartTypes = ['donut', 'bar', 'line', 'composed'];
+    }
     return chartOptions.filter(option => allowedChartTypes.includes(option.value));
-  }, [kpi]);
+  }, [kpi, scope]);
 
   const handleKpiChange = (newKpi: string) => {
     setKpi(newKpi);
-    const allowedCharts = kpiToChartMapping[newKpi] || [];
+    const allowedCharts = kpiToChartMapping[newKpi] || (scope === 'team' ? ['donut', 'bar', 'line', 'composed'] : []);
     if (!allowedCharts.includes(chartType)) {
       setChartType(allowedCharts[0] || '');
     }
   };
-
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
     
     let scopeId = '';
     if (scope === 'company') scopeId = currentUser.company || '';
-    if (scope === 'team') scopeId = currentUser.department || '';
+    if (scope === 'team') scopeId = teamScopeId;
     if (scope === 'personal') scopeId = currentUser.uid;
 
     if (!scopeId) {
@@ -153,11 +161,22 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
       chartType,
     };
     
-    const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers' || kpi === 'project_delivery_compliance';
-    
-    if (needsFiscalYear) {
-      baseData.fiscalYear = fiscalYear;
-      baseData.fiscalYearStartMonth = fiscalYearStartMonth;
+    if (scope === 'company') {
+      const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers' || kpi === 'project_delivery_compliance';
+      if (needsFiscalYear) {
+        baseData.fiscalYear = fiscalYear;
+        baseData.fiscalYearStartMonth = fiscalYearStartMonth;
+      }
+    } else if (scope === 'team') {
+        if(!dateRange?.from || !dateRange?.to) {
+            alert('期間を選択してください。');
+            return;
+        }
+        baseData.startDate = Timestamp.fromDate(dateRange.from);
+        baseData.endDate = Timestamp.fromDate(dateRange.to);
+        baseData.targetValue = targetValue;
+        baseData.currentValue = currentValue;
+        baseData.unit = unit;
     }
 
     onSave(baseData);
@@ -167,13 +186,22 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
   useEffect(() => {
     if (open) {
       const initialScope = widget?.scope || defaultScope;
-      const startMonth = widget?.fiscalYearStartMonth || 8;
       setTitle(widget?.title || '');
       setScope(initialScope);
       setKpi(widget?.kpi || '');
       setChartType(widget?.chartType || '');
-      setFiscalYear(widget?.fiscalYear || getCurrentFiscalYear(startMonth));
-      setFiscalYearStartMonth(startMonth);
+
+      if (initialScope === 'company') {
+        const startMonth = widget?.fiscalYearStartMonth || 8;
+        setFiscalYear(widget?.fiscalYear || getCurrentFiscalYear(startMonth));
+        setFiscalYearStartMonth(startMonth);
+      } else if (initialScope === 'team') {
+        setDateRange({ from: widget?.startDate?.toDate(), to: widget?.endDate?.toDate() });
+        setTargetValue(widget?.targetValue || 100);
+        setCurrentValue(widget?.currentValue || 0);
+        setUnit(widget?.unit || '%');
+        setTeamScopeId(widget?.scopeId || '');
+      }
     } else {
       // Reset form on close
       setTitle('');
@@ -182,12 +210,18 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
       setChartType('');
       setFiscalYear(getCurrentFiscalYear());
       setFiscalYearStartMonth(8);
+      setDateRange(undefined);
+      setTargetValue(100);
+      setCurrentValue(0);
+      setUnit('%');
+      setTeamScopeId('');
     }
   }, [widget, open, defaultScope]);
 
-  const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers' || kpi === 'project_delivery_compliance';
+  const needsFiscalYear = scope === 'company' && (kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers' || kpi === 'project_delivery_compliance');
+  const needsTeamFields = scope === 'team';
   const isCompanyScopeOnly = scope === 'company' && (currentUser?.role !== 'admin' && currentUser?.role !== 'executive');
-
+  
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -202,6 +236,19 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
               <Label htmlFor="widget-title">ウィジェットタイトル</Label>
               <Input id="widget-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="例: 全社の売上推移" required />
             </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="widget-scope">対象単位</Label>
+              <Select value={scope} onValueChange={(v: any) => { setScope(v); setKpi(''); setChartType(''); }} disabled={isCompanyScopeOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="company">会社単位</SelectItem>
+                  <SelectItem value="team">組織単位</SelectItem>
+                  <SelectItem value="personal">個人単位</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
             {needsFiscalYear && (
               <div className="grid grid-cols-2 gap-4">
                  <div className="grid gap-2">
@@ -228,17 +275,42 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser }: {
                  </div>
               </div>
             )}
-            <div className="grid gap-2">
-              <Label htmlFor="widget-scope">対象単位</Label>
-              <Select value={scope} onValueChange={(v: any) => { setScope(v); setKpi(''); setChartType(''); }} disabled={isCompanyScopeOnly}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="company">会社単位</SelectItem>
-                  <SelectItem value="team">組織単位</SelectItem>
-                  <SelectItem value="personal">個人単位</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            
+            {needsTeamFields && (
+                <>
+                 <div className="grid gap-2">
+                    <Label htmlFor="team-org-picker">対象組織</Label>
+                    <OrganizationPicker organizations={organizations} value={teamScopeId} onChange={setTeamScopeId} />
+                 </div>
+                  <div className="grid gap-2">
+                     <Label>期間</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                            <Button id="date" variant="outline" className={cn('w-full justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'PPP', { locale: ja })} - {format(dateRange.to, 'PPP', { locale: ja })}</>) : (format(dateRange.from, 'PPP', { locale: ja }))) : (<span>日付を選択</span>)}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus locale={ja} /></PopoverContent>
+                      </Popover>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                          <Label>目標値</Label>
+                          <Input type="number" value={targetValue} onChange={e => setTargetValue(Number(e.target.value))} />
+                      </div>
+                      <div className="grid gap-2">
+                          <Label>単位</Label>
+                          <Input value={unit} onChange={e => setUnit(e.target.value)} />
+                      </div>
+                  </div>
+                   <div className="grid gap-2">
+                       <Label>現在の進捗</Label>
+                       <Input type="number" value={currentValue} onChange={e => setCurrentValue(Number(e.target.value))} />
+                   </div>
+                </>
+            )}
+
             <div className="grid gap-2">
               <Label htmlFor="widget-kpi">KPI項目</Label>
               <Select value={kpi} onValueChange={handleKpiChange} required>
@@ -803,6 +875,7 @@ function WidgetCard({
   onSaveProjectComplianceRecords,
   currentUser,
   canEdit,
+  organizations,
 }: {
   widget: Goal;
   onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
@@ -814,6 +887,7 @@ function WidgetCard({
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   currentUser: Member | null;
   canEdit: boolean;
+  organizations: Organization[];
 }) {
   const { data: salesData } = useSubCollection<SalesRecord>('goals', widget.id, 'salesRecords');
   const { data: profitData } = useSubCollection<ProfitRecord>('goals', widget.id, 'profitRecords');
@@ -821,57 +895,59 @@ function WidgetCard({
   const { data: projectComplianceData } = useSubCollection<ProjectComplianceRecord>('goals', widget.id, 'projectComplianceRecords');
 
   const getChartDataForWidget = useCallback((): ChartData[] => {
-    if (!widget.fiscalYear) return [];
-
-    const startMonth = widget.fiscalYearStartMonth || 8;
-    const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
-    
-    return fiscalYearMonths.map(({ year, month }) => {
-        let chartEntry: ChartData = {
-            month: `${year}-${String(month).padStart(2, '0')}`,
-            salesActual: 0, salesTarget: 0, achievementRate: 0,
-            profitMargin: 0,
-            totalCustomers: 0,
-            projectCompliant: 0,
-            projectMinorDelay: 0,
-            projectDelayed: 0,
-        };
-
-        if (widget.kpi === 'sales_revenue' && salesData) {
-            const record = salesData.find(r => r.year === year && r.month === month);
-            if (record) {
-                chartEntry.salesActual = record.salesActual;
-                chartEntry.salesTarget = record.salesTarget;
-                chartEntry.achievementRate = record.achievementRate;
+    if (widget.scope === 'company') {
+        if (!widget.fiscalYear) return [];
+        const startMonth = widget.fiscalYearStartMonth || 8;
+        const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
+        
+        return fiscalYearMonths.map(({ year, month }) => {
+            let chartEntry: ChartData = {
+                month: `${year}-${String(month).padStart(2, '0')}`,
+                salesActual: 0, salesTarget: 0, achievementRate: 0,
+                profitMargin: 0,
+                totalCustomers: 0,
+                projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
+            };
+            if (widget.kpi === 'sales_revenue' && salesData) {
+                const record = salesData.find(r => r.year === year && r.month === month);
+                if (record) {
+                    chartEntry.salesActual = record.salesActual;
+                    chartEntry.salesTarget = record.salesTarget;
+                    chartEntry.achievementRate = record.achievementRate;
+                }
             }
-        }
-        if (widget.kpi === 'profit_margin' && profitData) {
-            const record = profitData.find(r => r.year === year && r.month === month);
-            if (record) {
-                chartEntry.profitMargin = record.profitMargin;
+            if (widget.kpi === 'profit_margin' && profitData) {
+                const record = profitData.find(r => r.year === year && r.month === month);
+                if (record) {
+                    chartEntry.profitMargin = record.profitMargin;
+                }
             }
-        }
-        if (widget.kpi === 'new_customers' && customerData) {
-          const record = customerData.find(r => r.year === year && r.month === month);
-          if (record) {
-            chartEntry.totalCustomers = record.totalCustomers;
-          }
-        }
-        if (widget.kpi === 'project_delivery_compliance' && projectComplianceData) {
-          const record = projectComplianceData.find(r => r.year === year && r.month === month);
-          if (record) {
-              chartEntry.projectCompliant = record.counts.compliant;
-              chartEntry.projectMinorDelay = record.counts.minor_delay;
-              chartEntry.projectDelayed = record.counts.delayed;
-          }
-        }
-
-        return chartEntry;
-    }).sort((a, b) => a.month.localeCompare(b.month));
-
+            if (widget.kpi === 'new_customers' && customerData) {
+              const record = customerData.find(r => r.year === year && r.month === month);
+              if (record) {
+                chartEntry.totalCustomers = record.totalCustomers;
+              }
+            }
+            if (widget.kpi === 'project_delivery_compliance' && projectComplianceData) {
+              const record = projectComplianceData.find(r => r.year === year && r.month === month);
+              if (record) {
+                  chartEntry.projectCompliant = record.counts.compliant;
+                  chartEntry.projectMinorDelay = record.counts.minor_delay;
+                  chartEntry.projectDelayed = record.counts.delayed;
+              }
+            }
+            return chartEntry;
+        }).sort((a, b) => a.month.localeCompare(b.month));
+    }
+    return []; // Team and personal charts might not use this format
   }, [salesData, profitData, customerData, projectComplianceData, widget]);
 
-  const kpiLabel = kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A';
+  let kpiLabel = 'N/A';
+  if(widget.scope === 'company' || widget.scope === 'personal') {
+    kpiLabel = kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A';
+  } else if (widget.scope === 'team') {
+    kpiLabel = widget.title; // For team goals, the title is the main label
+  }
 
   return (
     <Card key={widget.id} className={cn(
@@ -896,19 +972,19 @@ function WidgetCard({
                   <Star className="mr-2 h-4 w-4"/>アプリで表示
                 </DropdownMenuItem>
               )}
-              <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope} currentUser={currentUser}>
+              <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope} currentUser={currentUser} organizations={organizations}>
                 <DropdownMenuItem onSelect={e => e.preventDefault()}>
                     <Edit className="mr-2 h-4 w-4"/>編集
                 </DropdownMenuItem>
               </WidgetDialog>
-               {widget.kpi === 'sales_revenue' && (
+               {widget.scope === 'company' && widget.kpi === 'sales_revenue' && (
                   <SalesDataManagementDialog widget={widget} onSave={(records) => onSaveSalesRecords(widget.id, records)}>
                       <DropdownMenuItem onSelect={e => e.preventDefault()}>
                           <Database className="mr-2 h-4 w-4"/>データ編集
                       </DropdownMenuItem>
                   </SalesDataManagementDialog>
               )}
-              {widget.kpi === 'profit_margin' && (
+              {widget.scope === 'company' && widget.kpi === 'profit_margin' && (
                 <ProfitDataManagementDialog widget={widget} onSave={(records) => onSaveProfitRecords(widget.id, records)}>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <Database className="mr-2 h-4 w-4" />
@@ -916,7 +992,7 @@ function WidgetCard({
                   </DropdownMenuItem>
                 </ProfitDataManagementDialog>
               )}
-              {widget.kpi === 'new_customers' && (
+              {widget.scope === 'company' && widget.kpi === 'new_customers' && (
                 <CustomerDataManagementDialog
                   widget={widget}
                   onSave={(records) => onSaveCustomerRecords(widget.id, records)}
@@ -927,7 +1003,7 @@ function WidgetCard({
                   </DropdownMenuItem>
                 </CustomerDataManagementDialog>
               )}
-              {widget.kpi === 'project_delivery_compliance' && (
+              {widget.scope === 'company' && widget.kpi === 'project_delivery_compliance' && (
                 <ProjectComplianceDataManagementDialog widget={widget} onSave={(records) => onSaveProjectComplianceRecords(widget.id, records)}>
                     <DropdownMenuItem onSelect={e => e.preventDefault()}>
                         <Database className="mr-2 h-4 w-4"/>データ編集
@@ -960,17 +1036,22 @@ function WidgetCard({
       </CardHeader>
       <CardContent className="h-60 w-full flex-grow">
          <WidgetPreview 
-           widget={widget as any}
+           widget={widget}
            chartData={getChartDataForWidget()}
          />
       </CardContent>
       <CardFooter className='flex justify-between items-end text-xs text-muted-foreground pt-2'>
         <div>
-          {widget.fiscalYear && (
+          {widget.scope === 'company' && widget.fiscalYear && (
             <div className="text-xs">
               {widget.fiscalYear}年度 ({widget.fiscalYearStartMonth || 'N/A'}月始まり)
             </div>
           )}
+           {widget.scope === 'team' && widget.startDate && widget.endDate && (
+             <div className="text-xs">
+               {format(widget.startDate.toDate(), 'yyyy/MM/dd')} - {format(widget.endDate.toDate(), 'yyyy/MM/dd')}
+             </div>
+           )}
           <div className="font-semibold text-foreground">{kpiLabel}</div>
         </div>
          <span>
@@ -991,23 +1072,35 @@ function WidgetList({
   onSaveCustomerRecords,
   onSaveProjectComplianceRecords,
   currentUser,
-  canEdit
+  canEdit,
+  organizations,
+  scope
 }: {
   widgets: Goal[];
   onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
   onDelete: (id: string) => void;
-  onSetActive: (id: string) => void;
+  onSetActive: (id: string, scopeId: string) => void;
   onSaveSalesRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
   onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   currentUser: Member | null;
   canEdit: boolean;
+  organizations: Organization[];
+  scope: WidgetScope;
 }) {
   if (widgets.length === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground">
         <p>この単位のウィジェットはまだありません。</p>
+         {canEdit && (
+            <WidgetDialog onSave={onSave} defaultScope={scope} currentUser={currentUser} organizations={organizations}>
+                <Button className="mt-4">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    最初のウィジェットを追加
+                </Button>
+            </WidgetDialog>
+         )}
       </div>
     );
   }
@@ -1020,13 +1113,14 @@ function WidgetList({
           widget={widget}
           onSave={onSave}
           onDelete={onDelete}
-          onSetActive={onSetActive}
+          onSetActive={() => onSetActive(widget.id, widget.scopeId)}
           onSaveSalesRecords={onSaveSalesRecords}
           onSaveProfitRecords={onSaveProfitRecords}
           onSaveCustomerRecords={onSaveCustomerRecords}
           onSaveProjectComplianceRecords={onSaveProjectComplianceRecords}
           currentUser={currentUser}
           canEdit={canEdit}
+          organizations={organizations}
         />
       ))}
     </div>
@@ -1047,7 +1141,7 @@ function PersonalGoalsList({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const personalGoalsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'users', user.uid, 'personalGoals'));
   }, [firestore, user.uid]);
 
@@ -1093,12 +1187,16 @@ function PersonalGoalsList({
       />
       <div className="space-y-8">
         <div>
-          <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
-           {!hasOngoingGoal ? (
-            <div className="flex flex-col items-center gap-4">
-               <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">進行中の目標</h3>
+             {!hasOngoingGoal && (
+                <Button onClick={handleCreate} className="bg-green-600 hover:bg-green-700 text-white">
                  目標を保存してメッセージを生成！
                </Button>
+            )}
+          </div>
+           {!hasOngoingGoal ? (
+            <div className="flex flex-col items-center gap-4 text-center">
                <div className="flex items-start gap-2 text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg max-w-md">
                  <Info className="h-4 w-4 shrink-0 mt-0.5" />
                  <p>
@@ -1269,6 +1367,10 @@ export default function DashboardSettingsPage() {
     const [isCurrentUserLoading, setIsCurrentUserLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<WidgetScope>('company');
     
+    const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+    const [editableOrgs, setEditableOrgs] = useState<Organization[]>([]);
+    const { data: allOrganizations, isLoading: isLoadingOrgs } = useCollection<Organization>(useMemoFirebase(() => firestore ? query(collection(firestore, 'organizations')) : null, [firestore]));
+
     const fetchUserWithPermissions = useCallback(async (uid: string) => {
       if (!firestore) return { user: null, permissions: [] };
 
@@ -1296,13 +1398,29 @@ export default function DashboardSettingsPage() {
 
 
     useEffect(() => {
-        if (isAuthUserLoading) return;
+        if (isAuthUserLoading || isLoadingOrgs) return;
         
-        if (authUser) {
+        if (authUser && allOrganizations) {
             setIsCurrentUserLoading(true);
             fetchUserWithPermissions(authUser.uid).then(({ user, permissions }) => {
                 setCurrentUserData(user);
                 setUserPermissions(permissions);
+
+                const getSubTreeIds = (orgId: string, orgs: Organization[]): string[] => {
+                    let children = orgs.filter(o => o.parentId === orgId);
+                    let subTreeIds: string[] = [orgId];
+                    children.forEach(child => {
+                        subTreeIds = subTreeIds.concat(getSubTreeIds(child.id, orgs));
+                    });
+                    return subTreeIds;
+                };
+
+                if (user?.organizationId && permissions.includes('org_personal_goal_setting')) {
+                    const userOrgTreeIds = getSubTreeIds(user.organizationId, allOrganizations);
+                    setEditableOrgs(allOrganizations.filter(org => userOrgTreeIds.includes(org.id)));
+                    setSelectedOrgId(user.organizationId);
+                }
+                
                 if (!permissions.includes('company_goal_setting') && permissions.includes('org_personal_goal_setting')) {
                   setActiveTab('team');
                 } else {
@@ -1313,10 +1431,10 @@ export default function DashboardSettingsPage() {
         } else {
             setIsCurrentUserLoading(false);
         }
-    }, [authUser, isAuthUserLoading, fetchUserWithPermissions]);
+    }, [authUser, isAuthUserLoading, fetchUserWithPermissions, allOrganizations, isLoadingOrgs]);
     
     const goalsQuery = useMemoFirebase(() => {
-        if (!firestore || isAuthUserLoading || isCurrentUserLoading || !currentUserData) return null;
+        if (isAuthUserLoading || isCurrentUserLoading || !currentUserData || !firestore) return null;
         
         let queryConstraints = [where('scope', '==', activeTab)];
 
@@ -1324,39 +1442,30 @@ export default function DashboardSettingsPage() {
           if (!currentUserData.company) return null;
           queryConstraints.push(where('scopeId', '==', currentUserData.company));
         } else if (activeTab === 'team') {
-          if (!currentUserData.department) return null;
-          queryConstraints.push(where('scopeId', '==', currentUserData.department));
+          if (!selectedOrgId) return null;
+          queryConstraints.push(where('scopeId', '==', selectedOrgId));
         } else if (activeTab === 'personal') {
-          // Note: Personal goals are handled in PersonalGoalsList via subcollection
           return null;
         }
 
         return query(collection(firestore, 'goals'), ...queryConstraints);
 
-    }, [firestore, currentUserData, activeTab, isAuthUserLoading, isCurrentUserLoading]);
+    }, [firestore, currentUserData, activeTab, isAuthUserLoading, isCurrentUserLoading, selectedOrgId]);
 
     const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
 
     const handleSaveWidget = async (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => {
-        if (!firestore || !authUser) return;
+        if (!firestore || !authUser || !widgets) return;
         
-        const saveData: Partial<Goal> = { ...data };
-        if (saveData.fiscalYear === undefined) {
-            delete saveData.fiscalYear;
-        }
-        if (saveData.fiscalYearStartMonth === undefined) {
-            delete saveData.fiscalYearStartMonth;
-        }
-
         try {
             if (id) {
                 const widgetRef = doc(firestore, 'goals', id);
-                await updateDoc(widgetRef, { ...saveData, updatedAt: serverTimestamp() });
+                await updateDoc(widgetRef, { ...data, updatedAt: serverTimestamp() });
                 toast({ title: "成功", description: "ウィジェットを更新しました。" });
             } else {
-                const currentActive = widgets?.find(w => w.scope === saveData.scope && w.status === 'active');
+                const currentActive = widgets.find(w => w.scope === data.scope && w.scopeId === data.scopeId && w.status === 'active');
                 await addDoc(collection(firestore, 'goals'), {
-                    ...saveData,
+                    ...data,
                     authorId: authUser.uid,
                     status: currentActive ? 'inactive' : 'active',
                     createdAt: serverTimestamp(),
@@ -1398,15 +1507,12 @@ export default function DashboardSettingsPage() {
       }
     };
 
-    const handleSetActiveWidget = async (id: string) => {
+    const handleSetActiveWidget = async (id: string, scopeId: string) => {
       if (!firestore || !widgets) return;
-      
-      const widgetToActivate = widgets.find(w => w.id === id);
-      if (!widgetToActivate) return;
       
       const batch = writeBatch(firestore);
       widgets.forEach(w => {
-          if (w.scope === widgetToActivate.scope) {
+          if (w.scopeId === scopeId) {
               const widgetRef = doc(firestore, 'goals', w.id);
               batch.update(widgetRef, { status: w.id === id ? 'active' : 'inactive' });
           }
@@ -1536,11 +1642,19 @@ export default function DashboardSettingsPage() {
       return [...widgets].sort((a, b) => {
         if (a.status === 'active' && b.status !== 'active') return -1;
         if (b.status === 'active' && a.status !== 'active') return 1;
-        return (b.fiscalYear ?? 0) - (a.fiscalYear ?? 0) || a.title.localeCompare(b.title);
+        if (a.scope === 'company') {
+           return (b.fiscalYear ?? 0) - (a.fiscalYear ?? 0) || a.title.localeCompare(b.title);
+        }
+        if (a.scope === 'team') {
+            const dateA = a.startDate?.toDate() ?? new Date(0);
+            const dateB = b.startDate?.toDate() ?? new Date(0);
+            return dateB.getTime() - dateA.getTime();
+        }
+        return a.title.localeCompare(b.title);
       });
     }, [widgets]);
 
-  const isLoading = isAuthUserLoading || isCurrentUserLoading;
+  const isLoading = isAuthUserLoading || isCurrentUserLoading || isLoadingOrgs;
 
   const canManageCompanyGoals = userPermissions.includes('company_goal_setting');
   const canManageOrgPersonalGoals = userPermissions.includes('org_personal_goal_setting');
@@ -1561,17 +1675,17 @@ export default function DashboardSettingsPage() {
               <h1 className="text-lg font-semibold md:text-2xl">目標設定</h1>
               <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
             </div>
-
-            {(activeTab === 'company' && canManageCompanyGoals) && (
+            {(activeTab !== 'personal' && (
+              (activeTab === 'company' && canManageCompanyGoals) ||
+              (activeTab === 'team' && canManageOrgPersonalGoals)
+            )) && (
               <div className='flex items-center gap-4'>
-                  <div className='flex items-center gap-2'>
-                    <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab} currentUser={currentUserData}>
-                        <Button>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            新規ウィジェット追加
-                        </Button>
-                    </WidgetDialog>
-                  </div>
+                  <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab} currentUser={currentUserData} organizations={editableOrgs}>
+                      <Button>
+                          <PlusCircle className="mr-2 h-4 w-4" />
+                          新規ウィジェット追加
+                      </Button>
+                  </WidgetDialog>
               </div>
             )}
         </div>
@@ -1600,6 +1714,8 @@ export default function DashboardSettingsPage() {
                       onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
                       currentUser={currentUserData}
                       canEdit={canManageCompanyGoals}
+                      organizations={allOrganizations || []}
+                      scope="company"
                   />
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">
@@ -1609,9 +1725,30 @@ export default function DashboardSettingsPage() {
             </TabsContent>
             <TabsContent value="team">
                 {canManageOrgPersonalGoals ? (
-                  <div className="text-center py-10 text-muted-foreground">
-                      <p>この機能は現在準備中です。</p>
-                  </div>
+                    <>
+                    <div className="max-w-xs mb-6">
+                        <OrganizationPicker
+                          organizations={editableOrgs}
+                          value={selectedOrgId}
+                          onChange={setSelectedOrgId}
+                        />
+                    </div>
+                     {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
+                      <WidgetList 
+                          widgets={widgetsForTab} 
+                          onSave={handleSaveWidget} 
+                          onDelete={handleDeleteWidget}
+                          onSetActive={handleSetActiveWidget}
+                          onSaveSalesRecords={handleSaveSalesRecords}
+                          onSaveProfitRecords={handleSaveProfitRecords}
+                          onSaveCustomerRecords={handleSaveCustomerRecords}
+                          onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
+                          currentUser={currentUserData}
+                          canEdit={canManageOrgPersonalGoals}
+                          organizations={allOrganizations || []}
+                          scope="team"
+                      />}
+                    </>
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">
                     <p>組織単位の目標を管理する権限がありません。</p>
@@ -1640,4 +1777,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-
