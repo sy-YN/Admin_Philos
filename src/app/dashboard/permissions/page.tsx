@@ -58,11 +58,11 @@ const roleDefinitions: Omit<Role, 'id'>[] = [
 export default function PermissionsPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user: currentUser } = useUser();
+  const { user: currentUser, isUserLoading } = useUser();
   
-  const rolesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'roles')) : null, [firestore]);
-  const userPermsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'user_permissions')) : null, [firestore]);
-  const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+  const rolesQuery = useMemoFirebase(() => !firestore || isUserLoading ? null : query(collection(firestore, 'roles')), [firestore, isUserLoading]);
+  const userPermsQuery = useMemoFirebase(() => !firestore || isUserLoading ? null : query(collection(firestore, 'user_permissions')), [firestore, isUserLoading]);
+  const usersQuery = useMemoFirebase(() => !firestore || isUserLoading ? null : query(collection(firestore, 'users')), [firestore, isUserLoading]);
 
   const { data: rolesData, isLoading: isLoadingRoles } = useCollection<Role>(rolesQuery);
   const { data: userPermsData, isLoading: isLoadingUserPerms } = useCollection<UserPermission>(userPermsQuery);
@@ -163,7 +163,7 @@ export default function PermissionsPage() {
     }
   };
 
-  const isLoading = isLoadingRoles || isLoadingUserPerms || isLoadingUsers;
+  const isLoading = isUserLoading || isLoadingRoles || isLoadingUserPerms || isLoadingUsers;
 
   return (
     <div className="w-full space-y-6">
