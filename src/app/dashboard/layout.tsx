@@ -63,7 +63,7 @@ export default function DashboardLayout({
 
       const [roleDoc, userPermsDoc] = await Promise.all([
         getDoc(roleDocRef),
-        getDoc(userPermsDoc),
+        getDoc(userPermsDocRef),
       ]);
       
       const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
@@ -105,8 +105,8 @@ export default function DashboardLayout({
   
   const navItems = useMemo(() => {
     return allNavItems.filter(item => {
-      if (item.requiredPermissions) {
-        return item.requiredPermissions.some(p => userPermissions.includes(p));
+      if(item.id === 'contents' || item.id === 'dashboard') {
+        return item.requiredPermissions?.some(p => userPermissions.includes(p))
       }
       return userPermissions.includes(item.id);
     });
