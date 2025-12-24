@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2 } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -1038,7 +1038,7 @@ function PersonalGoalsList({
   onSave,
   onDelete,
 }: {
-  user: Member | null;
+  user: Member;
   onSave: (goal: Partial<PersonalGoal>, id?: string) => void;
   onDelete: (id: string) => void;
 }) {
@@ -1046,12 +1046,10 @@ function PersonalGoalsList({
   const [selectedGoal, setSelectedGoal] = useState<PersonalGoal | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const { isUserLoading } = useUser();
-
   const personalGoalsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(collection(firestore, 'users', user.uid, 'personalGoals'));
-  }, [firestore, user]);
+  }, [firestore, user.uid]);
 
   const { data: goals, isLoading: areGoalsLoading } = useCollection<PersonalGoal>(personalGoalsQuery);
 
@@ -1078,9 +1076,7 @@ function PersonalGoalsList({
     onDelete(id);
   };
 
-  const isLoading = isUserLoading || areGoalsLoading;
-
-  if (isLoading) {
+  if (areGoalsLoading) {
     return <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>;
   }
   
@@ -1320,7 +1316,7 @@ export default function DashboardSettingsPage() {
     }, [authUser, isAuthUserLoading, fetchUserWithPermissions]);
     
     const goalsQuery = useMemoFirebase(() => {
-        if (!firestore || isCurrentUserLoading || !currentUserData) return null;
+        if (!firestore || isAuthUserLoading || isCurrentUserLoading || !currentUserData) return null;
         
         let queryConstraints = [where('scope', '==', activeTab)];
 
@@ -1337,7 +1333,7 @@ export default function DashboardSettingsPage() {
 
         return query(collection(firestore, 'goals'), ...queryConstraints);
 
-    }, [firestore, currentUserData, activeTab, isCurrentUserLoading]);
+    }, [firestore, currentUserData, activeTab, isAuthUserLoading, isCurrentUserLoading]);
 
     const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
 
@@ -1624,7 +1620,7 @@ export default function DashboardSettingsPage() {
             </TabsContent>
             <TabsContent value="personal">
                  {canManageOrgPersonalGoals ? (
-                    isAuthUserLoading || isCurrentUserLoading ? (
+                    isAuthUserLoading || isCurrentUserLoading || !currentUserData ? (
                       <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>
                     ) : (
                       <PersonalGoalsList
