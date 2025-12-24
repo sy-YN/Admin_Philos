@@ -21,8 +21,6 @@ import type { Member } from '@/types/member';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { OrganizationPicker } from '../organization/organization-picker';
 import type { NewUserPayload } from '@/types/functions';
-import { Checkbox } from '../ui/checkbox';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import type { Organization } from '@/types/organization';
 
 interface AddMemberDialogProps {
@@ -45,7 +43,6 @@ export function AddMemberDialog({ organizationOptions = [], organizations = [] }
   const [employeeId, setEmployeeId] = useState('');
   const [organizationId, setOrganizationId] = useState('');
   const [role, setRole] = useState<Member['role'] | ''>('');
-  const [isGoalManager, setIsGoalManager] = useState(false);
   
   const isFirstAdmin = !user;
   
@@ -56,7 +53,6 @@ export function AddMemberDialog({ organizationOptions = [], organizations = [] }
       setEmployeeId('');
       setOrganizationId('');
       setRole('');
-      setIsGoalManager(false);
   }
 
   const handleAddMember = async (e: React.FormEvent) => {
@@ -107,17 +103,6 @@ export function AddMemberDialog({ organizationOptions = [], organizations = [] }
 
       if (!response.ok || result.errorCount > 0) {
         throw new Error(result.results[0]?.error || '不明なサーバーエラーが発生しました。');
-      }
-
-      // Check if the new user needs to be a goal manager
-      if (isGoalManager && organizationId) {
-        const createdUserUid = result.results[0]?.uid;
-        if (createdUserUid) {
-          const orgRef = doc(firestore, 'organizations', organizationId);
-          await updateDoc(orgRef, {
-            managerUids: arrayUnion(createdUserUid)
-          });
-        }
       }
 
       toast({
@@ -249,19 +234,6 @@ export function AddMemberDialog({ organizationOptions = [], organizations = [] }
                 </>
               )}
             </div>
-            {!isFirstAdmin && (
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isGoalManager"
-                  checked={isGoalManager}
-                  onCheckedChange={(checked) => setIsGoalManager(!!checked)}
-                  disabled={isLoading || !organizationId}
-                />
-                <Label htmlFor="isGoalManager" className="text-sm font-normal">
-                  所属組織の目標管理者に設定する
-                </Label>
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={isLoading}>
