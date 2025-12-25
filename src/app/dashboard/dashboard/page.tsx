@@ -46,6 +46,7 @@ import { Switch } from '@/components/ui/switch';
 import type { Organization } from '@/types/organization';
 import { OrganizationPicker } from '@/components/organization/organization-picker';
 import type { GoalRecord } from '@/types/goal-record';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
