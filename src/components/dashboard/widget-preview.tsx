@@ -608,7 +608,7 @@ function TeamGoalPeriodicBarChart({
           }
         />
         <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} payload={[{ value: '期間実績', type: 'rect', id: 'base', color: teamGoalChartConfig.periodActual.color }, { value: '超過達成', type: 'rect', id: 'over', color: teamGoalChartConfig.overAchievement.color }]}/>
-        <ReferenceLine y={widget.targetValue} label={{ value: "全体目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+        {(widget.targetValue || 0) > 0 && <ReferenceLine y={widget.targetValue} label={{ value: "全体目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />}
         <Bar dataKey="base" name="期間実績" fill="var(--color-periodActual)" stackId="a" />
         <Bar dataKey="over" name="超過達成" fill="var(--color-overAchievement)" stackId="a" />
       </ComposedChart>
@@ -641,17 +641,17 @@ function TeamGoalCumulativeChart({
                 <ChartTooltipContent
                   labelFormatter={(label) => { try { return format(new Date(label), 'yyyy年M月d日'); } catch { return label; } }}
                   formatter={(value, name, item) => {
-                    if (name === '期間実績') return [`${item.payload.periodActual} ${displayUnit}`, '期間実績'];
+                    if (name === '累計実績') return [`${item.payload.cumulativeActual} ${displayUnit}`, '累計実績'];
                     if (name === '累計達成率') return [`${value}%`, '累計達成率'];
                     return null;
                   }}
                 />
               }
             />
-            <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} payload={[{ value: '期間実績', type: 'rect', id: 'periodActual', color: teamGoalChartConfig.periodActual.color }, { value: '累計達成率', type: 'line', id: 'cumulativeAchievementRate', color: teamGoalChartConfig.cumulativeAchievementRate.color }]} />
-            <Bar dataKey="periodActual" name="期間実績" fill="var(--color-periodActual)" yAxisId="left" />
+            <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} payload={[{ value: '累計実績', type: 'rect', id: 'cumulativeActual', color: teamGoalChartConfig.cumulativeActual.color }, { value: '累計達成率', type: 'line', id: 'cumulativeAchievementRate', color: teamGoalChartConfig.cumulativeAchievementRate.color }]} />
+            <Bar dataKey="cumulativeActual" name="累計実績" fill="var(--color-cumulativeActual)" yAxisId="left" />
             <Line dataKey="cumulativeAchievementRate" name="累計達成率" stroke="var(--color-cumulativeAchievementRate)" yAxisId="right" dot={false} />
-            <ReferenceLine y={widget.targetValue} yAxisId="left" label={{ value: "全体目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+            {(widget.targetValue || 0) > 0 && <ReferenceLine y={widget.targetValue} yAxisId="left" label={{ value: "全体目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />}
           </ComposedChart>
         );
       case 'bar':
@@ -663,7 +663,7 @@ function TeamGoalCumulativeChart({
             <Tooltip content={<ChartTooltipContent labelFormatter={(label) => { try { return format(new Date(label), 'yyyy年M月d日'); } catch { return label; } }} formatter={(value) => [`${value} ${displayUnit}`, '累計実績']} />} />
             <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
             <Bar dataKey="cumulativeActual" name="累計実績" fill="var(--color-cumulativeActual)" />
-            <ReferenceLine y={widget.targetValue} label={{ value: "全体目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+            {(widget.targetValue || 0) > 0 && <ReferenceLine y={widget.targetValue} label={{ value: "全体目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />}
           </ComposedChart>
         );
       case 'line':
@@ -675,7 +675,7 @@ function TeamGoalCumulativeChart({
             <Tooltip content={<ChartTooltipContent labelFormatter={(label) => { try { return format(new Date(label), 'yyyy年M月d日'); } catch { return label; } }} formatter={(value) => [`${value} ${displayUnit}`, '累計実績']} />} />
             <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
             <Line type="monotone" dataKey="cumulativeActual" name="累計実績" stroke="var(--color-cumulativeActual)" dot={false} />
-            <ReferenceLine y={widget.targetValue} label={{ value: "全体目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+            {(widget.targetValue || 0) > 0 && <ReferenceLine y={widget.targetValue} label={{ value: "全体目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />}
           </ComposedChart>
         );
       default:
