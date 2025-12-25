@@ -18,7 +18,8 @@ import * as RechartsPrimitive from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Goal } from '@/types/goal';
 import { cn } from '@/lib/utils';
-
+import { getWeek } from 'date-fns';
+import { ja } from 'date-fns/locale';
 
 export type ChartData = {
     month: string;
@@ -33,6 +34,8 @@ export type ChartData = {
     targetValue: number;
     actualValue: number;
 }
+
+export type ChartGranularity = 'daily' | 'weekly' | 'monthly';
 
 export const salesChartConfig = {
   salesActual: { label: '実績(達成)', color: 'hsl(var(--primary))' },
@@ -556,12 +559,18 @@ function DonutChartWidget({ widget }: { widget: Goal }) {
   );
 }
 
-function TeamGoalBarChart({ chartData, unit }: { chartData: ChartData[], unit?: string }) {
+function TeamGoalBarChart({ chartData, unit, granularity }: { chartData: ChartData[], unit?: string, granularity: ChartGranularity }) {
+  const formatXAxis = (value: string) => {
+    if (granularity === 'weekly') return value.replace(/.+-W/, 'W');
+    if (granularity === 'monthly') return `${new Date(value).getMonth() + 1}月`;
+    if (granularity === 'daily') return value.substring(5); // MM-DD
+    return value;
+  };
   return (
     <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
       <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
         <CartesianGrid vertical={false} />
-        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatXAxis} tick={{ fontSize: 10 }} />
         <YAxis tick={{ fontSize: 10 }} unit={unit} />
         <Tooltip content={<ChartTooltipContent />} />
         <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
@@ -572,12 +581,18 @@ function TeamGoalBarChart({ chartData, unit }: { chartData: ChartData[], unit?: 
   );
 }
 
-function TeamGoalLineChart({ chartData, unit }: { chartData: ChartData[], unit?: string }) {
+function TeamGoalLineChart({ chartData, unit, granularity }: { chartData: ChartData[], unit?: string, granularity: ChartGranularity }) {
+  const formatXAxis = (value: string) => {
+    if (granularity === 'weekly') return value.replace(/.+-W/, 'W');
+    if (granularity === 'monthly') return `${new Date(value).getMonth() + 1}月`;
+    if (granularity === 'daily') return value.substring(5); // MM-DD
+    return value;
+  };
   return (
     <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
       <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
         <CartesianGrid vertical={false} />
-        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatXAxis} tick={{ fontSize: 10 }} />
         <YAxis tick={{ fontSize: 10 }} unit={unit} />
         <Tooltip content={<ChartTooltipContent />} />
         <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
@@ -587,12 +602,18 @@ function TeamGoalLineChart({ chartData, unit }: { chartData: ChartData[], unit?:
   );
 }
 
-function TeamGoalComposedChart({ chartData, unit }: { chartData: ChartData[], unit?: string }) {
+function TeamGoalComposedChart({ chartData, unit, granularity }: { chartData: ChartData[], unit?: string, granularity: ChartGranularity }) {
+  const formatXAxis = (value: string) => {
+    if (granularity === 'weekly') return value.replace(/.+-W/, 'W');
+    if (granularity === 'monthly') return `${new Date(value).getMonth() + 1}月`;
+    if (granularity === 'daily') return value.substring(5);
+    return value;
+  };
   return (
     <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
       <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
         <CartesianGrid vertical={false} />
-        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatXAxis} tick={{ fontSize: 10 }} />
         <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit={unit} />
         <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} unit="%" />
         <Tooltip content={<ChartTooltipContent />} />
@@ -609,20 +630,21 @@ function TeamGoalComposedChart({ chartData, unit }: { chartData: ChartData[], un
 interface WidgetPreviewProps {
     widget: Goal;
     chartData: ChartData[];
+    granularity: ChartGranularity;
 }
 
-export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps) {
+export default function WidgetPreview({ widget, chartData, granularity }: WidgetPreviewProps) {
 
     if (widget.scope === 'team') {
         switch(widget.chartType) {
             case 'donut':
                 return <DonutChartWidget widget={widget} />;
             case 'bar':
-                return <TeamGoalBarChart chartData={chartData} unit={widget.unit} />;
+                return <TeamGoalBarChart chartData={chartData} unit={widget.unit} granularity={granularity} />;
             case 'line':
-                return <TeamGoalLineChart chartData={chartData} unit={widget.unit} />;
+                return <TeamGoalLineChart chartData={chartData} unit={widget.unit} granularity={granularity} />;
             case 'composed':
-                return <TeamGoalComposedChart chartData={chartData} unit={widget.unit} />;
+                return <TeamGoalComposedChart chartData={chartData} unit={widget.unit} granularity={granularity} />;
         }
     }
 

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle, CalendarClock } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -38,7 +38,7 @@ import type { PersonalGoal, GoalStatus } from '@/types/personal-goal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { format, startOfDay } from 'date-fns';
+import { format, startOfDay, getWeek, getMonth, getYear, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Slider } from '@/components/ui/slider';
@@ -97,6 +97,7 @@ export const kpiToChartMapping: Record<string, string[]> = {
 
 
 type WidgetScope = 'company' | 'team';
+type ChartGranularity = 'daily' | 'weekly' | 'monthly';
 
 const calculateAchievementRate = (actual: number, target: number) => {
   if (target === 0) return actual > 0 ? 100 : 0;
@@ -1124,6 +1125,7 @@ function WidgetCard({
   canEdit: boolean;
   organizations: Organization[];
 }) {
+  const [granularity, setGranularity] = useState<ChartGranularity>('monthly');
   const { data: salesData } = useSubCollection<SalesRecord>('goals', widget.id, 'salesRecords');
   const { data: profitData } = useSubCollection<ProfitRecord>('goals', widget.id, 'profitRecords');
   const { data: customerData } = useSubCollection<CustomerRecord>('goals', widget.id, 'customerRecords');
@@ -1183,160 +1185,192 @@ function WidgetCard({
       });
     }
 
-    if (widget.scope === 'team' && teamGoalRecords) {
-        const map = new Map<string, { actual: number; target: number }>();
-    
-        teamGoalRecords.forEach(r => {
-            const key = format(r.date.toDate(), 'yyyy-MM');
-            if (!map.has(key)) map.set(key, { actual: 0, target: 0 });
-            const m = map.get(key)!;
-            // For simplicity, let's assume we take the last entry for a given month if multiple exist
-            // A better approach would be to aggregate (e.g., sum or average)
-            m.actual = r.actualValue;
-            m.target = r.targetValue;
-        });
-    
-        return Array.from(map.entries())
-            .sort(([a], [b]) => a.localeCompare(b)) // Sort by month 'yyyy-MM'
-            .map(([month, v]) => ({
-            month,
-            actualValue: v.actual,
-            targetValue: v.target,
-            achievementRate: calculateAchievementRate(v.actual, v.target),
-            salesActual: 0,
-            salesTarget: 0,
-            profitMargin: 0,
-            totalCustomers: 0,
-            projectCompliant: 0,
-            projectMinorDelay: 0,
-            projectDelayed: 0,
-            }));
-      }
+    if (widget.scope === 'team' && teamGoalRecords && widget.startDate && widget.endDate) {
+      const recordsByDate = new Map<string, GoalRecord>();
+      teamGoalRecords.forEach(r => recordsByDate.set(format(r.date.toDate(), 'yyyy-MM-dd'), r));
+      
+      const interval = { start: widget.startDate.toDate(), end: widget.endDate.toDate() };
+      
+      let groupedData: { [key: string]: { targets: number[], actuals: number[] } } = {};
 
+      eachDayOfInterval(interval).forEach(day => {
+        const dayString = format(day, 'yyyy-MM-dd');
+        const record = recordsByDate.get(dayString);
+        let key = '';
+
+        if (granularity === 'monthly') {
+          key = format(day, 'yyyy-MM');
+        } else if (granularity === 'weekly') {
+          const week = getWeek(day, { locale: ja, weekStartsOn: 1 });
+          const year = getYear(day);
+          key = `${year}-W${String(week).padStart(2, '0')}`;
+        } else { // daily
+          key = dayString;
+        }
+
+        if (!groupedData[key]) {
+          groupedData[key] = { targets: [], actuals: [] };
+        }
+        groupedData[key].targets.push(record?.targetValue || 0);
+        groupedData[key].actuals.push(record?.actualValue || 0);
+      });
+      
+      return Object.entries(groupedData).map(([key, { targets, actuals }]) => {
+          const totalTarget = targets.reduce((sum, val) => sum + val, 0);
+          const totalActual = actuals.reduce((sum, val) => sum + val, 0);
+          return {
+            month: key, // Keep 'month' as key for chart compatibility
+            targetValue: totalTarget,
+            actualValue: totalActual,
+            achievementRate: calculateAchievementRate(totalActual, totalTarget),
+            salesActual: 0, salesTarget: 0, profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
+          };
+      }).sort((a, b) => a.month.localeCompare(b.month));
+    }
+    
     return [];
-  }, [widget, salesData, profitData, customerData, projectComplianceData, teamGoalRecords]);
+  }, [widget, salesData, profitData, customerData, projectComplianceData, teamGoalRecords, granularity]);
 
   return (
     <Card className={cn('flex flex-col', widget.status === 'active' && 'ring-2 ring-primary')}>
-      <CardHeader className="flex-row items-center justify-between pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
-          {widget.status === 'active' && <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />}
-          {widget.title}
-        </CardTitle>
+      <CardHeader className="flex-row items-start justify-between pb-2">
+         <div className="flex items-center gap-2">
+            {widget.status === 'active' && <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />}
+            <CardTitle className="text-base">
+            {widget.title}
+            </CardTitle>
+         </div>
 
-        {canEdit && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
+        <div className="flex items-center gap-1">
+          {widget.scope === 'team' && widget.chartType !== 'donut' && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8">
+                  <CalendarClock className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => setGranularity('monthly')}>月ごと</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setGranularity('weekly')}>週ごと</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setGranularity('daily')}>日ごと</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
-            <DropdownMenuContent align="end" forceMount>
-              {/* 表示設定 */}
-              {widget.status !== 'active' && (
-                <DropdownMenuItem onClick={() => onSetActive(widget.id)}>
-                  <Star className="mr-2 h-4 w-4" />
-                  アプリで表示
-                </DropdownMenuItem>
-              )}
+          {canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
 
-              {/* 編集 */}
-              <WidgetDialog
-                widget={widget}
-                onSave={(data) => onSave(data, widget.id)}
-                defaultScope={widget.scope as WidgetScope}
-                currentUser={currentUser}
-                organizations={organizations}
-              >
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  編集
-                </DropdownMenuItem>
-              </WidgetDialog>
-              
-              {/* --- データ入力メニュー --- */}
-               {widget.scope === 'team' && widget.chartType === 'donut' && (
-                <TeamGoalDataDialog
+              <DropdownMenuContent align="end" forceMount>
+                {/* 表示設定 */}
+                {widget.status !== 'active' && (
+                  <DropdownMenuItem onClick={() => onSetActive(widget.id)}>
+                    <Star className="mr-2 h-4 w-4" />
+                    アプリで表示
+                  </DropdownMenuItem>
+                )}
+
+                {/* 編集 */}
+                <WidgetDialog
                   widget={widget}
-                  onSave={(data) => onSaveTeamGoalData(widget.id, data)}
+                  onSave={(data) => onSave(data, widget.id)}
+                  defaultScope={widget.scope as WidgetScope}
+                  currentUser={currentUser}
+                  organizations={organizations}
                 >
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Database className="mr-2 h-4 w-4" />
-                    進捗入力
+                    <Edit className="mr-2 h-4 w-4" />
+                    編集
                   </DropdownMenuItem>
-                </TeamGoalDataDialog>
-              )}
-              {widget.scope === 'team' && widget.chartType !== 'donut' && (
-                <TeamGoalTimeSeriesDataDialog
-                  widget={widget}
-                  onSave={(records) => onSaveTeamGoalTimeSeriesData(widget.id, records)}
-                >
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Database className="mr-2 h-4 w-4" />
-                    データ入力
-                  </DropdownMenuItem>
-                </TeamGoalTimeSeriesDataDialog>
-              )}
-               {widget.scope === 'company' && widget.kpi === 'sales_revenue' && (
-                <SalesDataManagementDialog widget={widget} onSave={(records) => onSaveSalesRecords(widget.id, records)}>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Database className="mr-2 h-4 w-4" />データ編集
-                  </DropdownMenuItem>
-                </SalesDataManagementDialog>
-              )}
-               {widget.scope === 'company' && widget.kpi === 'profit_margin' && (
-                <ProfitDataManagementDialog widget={widget} onSave={(records) => onSaveProfitRecords(widget.id, records)}>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Database className="mr-2 h-4 w-4" />データ編集
-                  </DropdownMenuItem>
-                </ProfitDataManagementDialog>
-              )}
-              {widget.scope === 'company' && widget.kpi === 'new_customers' && (
-                <CustomerDataManagementDialog widget={widget} onSave={(records) => onSaveCustomerRecords(widget.id, records)}>
-                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Database className="mr-2 h-4 w-4" />データ編集
-                  </DropdownMenuItem>
-                </CustomerDataManagementDialog>
-              )}
-              {widget.scope === 'company' && widget.kpi === 'project_delivery_compliance' && (
-                <ProjectComplianceDataManagementDialog widget={widget} onSave={(records) => onSaveProjectComplianceRecords(widget.id, records)}>
-                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Database className="mr-2 h-4 w-4" />データ編集
-                  </DropdownMenuItem>
-                </ProjectComplianceDataManagementDialog>
-              )}
+                </WidgetDialog>
+                
+                {/* --- データ入力メニュー --- */}
+                {widget.scope === 'team' && widget.chartType === 'donut' && (
+                  <TeamGoalDataDialog
+                    widget={widget}
+                    onSave={(data) => onSaveTeamGoalData(widget.id, data)}
+                  >
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Database className="mr-2 h-4 w-4" />
+                      進捗入力
+                    </DropdownMenuItem>
+                  </TeamGoalDataDialog>
+                )}
+                {widget.scope === 'team' && widget.chartType !== 'donut' && (
+                  <TeamGoalTimeSeriesDataDialog
+                    widget={widget}
+                    onSave={(records) => onSaveTeamGoalTimeSeriesData(widget.id, records)}
+                  >
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Database className="mr-2 h-4 w-4" />
+                      データ入力
+                    </DropdownMenuItem>
+                  </TeamGoalTimeSeriesDataDialog>
+                )}
+                {widget.scope === 'company' && widget.kpi === 'sales_revenue' && (
+                  <SalesDataManagementDialog widget={widget} onSave={(records) => onSaveSalesRecords(widget.id, records)}>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Database className="mr-2 h-4 w-4" />データ編集
+                    </DropdownMenuItem>
+                  </SalesDataManagementDialog>
+                )}
+                {widget.scope === 'company' && widget.kpi === 'profit_margin' && (
+                  <ProfitDataManagementDialog widget={widget} onSave={(records) => onSaveProfitRecords(widget.id, records)}>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Database className="mr-2 h-4 w-4" />データ編集
+                    </DropdownMenuItem>
+                  </ProfitDataManagementDialog>
+                )}
+                {widget.scope === 'company' && widget.kpi === 'new_customers' && (
+                  <CustomerDataManagementDialog widget={widget} onSave={(records) => onSaveCustomerRecords(widget.id, records)}>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Database className="mr-2 h-4 w-4" />データ編集
+                    </DropdownMenuItem>
+                  </CustomerDataManagementDialog>
+                )}
+                {widget.scope === 'company' && widget.kpi === 'project_delivery_compliance' && (
+                  <ProjectComplianceDataManagementDialog widget={widget} onSave={(records) => onSaveProjectComplianceRecords(widget.id, records)}>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Database className="mr-2 h-4 w-4" />データ編集
+                    </DropdownMenuItem>
+                  </ProjectComplianceDataManagementDialog>
+                )}
 
-              <DropdownMenuSeparator />
+                <DropdownMenuSeparator />
 
-              {/* 削除 */}
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    削除
-                  </DropdownMenuItem>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>ウィジェットを削除しますか？</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      「{widget.title}」を削除します。この操作は元に戻せません。
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => onDelete(widget.id)}>削除</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                {/* 削除 */}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      削除
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>ウィジェットを削除しますか？</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        「{widget.title}」を削除します。この操作は元に戻せません。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => onDelete(widget.id)}>削除</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent className="h-60">
-        <WidgetPreview widget={widget} chartData={getChartDataForWidget()} />
+        <WidgetPreview widget={widget} chartData={getChartDataForWidget()} granularity={granularity} />
       </CardContent>
     </Card>
   );
