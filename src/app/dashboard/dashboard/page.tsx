@@ -959,9 +959,7 @@ function CustomerDataManagementDialog({
           </Table>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            キャンセル
-          </Button>
+          <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
           <Button onClick={handleSave}>一括保存</Button>
         </DialogFooter>
       </DialogContent>
@@ -1118,7 +1116,10 @@ function WidgetCard({
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
-  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => void;
+  onSaveTeamGoalTimeSeriesData: (
+    goalId: string,
+    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]
+  ) => void;
   currentUser: Member | null;
   canEdit: boolean;
   organizations: Organization[];
@@ -1126,142 +1127,103 @@ function WidgetCard({
   const { data: salesData } = useSubCollection<SalesRecord>('goals', widget.id, 'salesRecords');
   const { data: profitData } = useSubCollection<ProfitRecord>('goals', widget.id, 'profitRecords');
   const { data: customerData } = useSubCollection<CustomerRecord>('goals', widget.id, 'customerRecords');
-  const { data: projectComplianceData } = useSubCollection<ProjectComplianceRecord>('goals', widget.id, 'projectComplianceRecords');
+  const { data: projectComplianceData } = useSubCollection<ProjectComplianceRecord>(
+    'goals',
+    widget.id,
+    'projectComplianceRecords'
+  );
   const { data: teamGoalRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
 
   const getChartDataForWidget = useCallback((): ChartData[] => {
     if (widget.scope === 'company') {
-        if (!widget.fiscalYear) return [];
-        const startMonth = widget.fiscalYearStartMonth || 8;
-        const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
-        
-        return fiscalYearMonths.map(({ year, month }) => {
-            let chartEntry: ChartData = {
-                month: `${year}-${String(month).padStart(2, '0')}`,
-                salesActual: 0, salesTarget: 0, achievementRate: 0,
-                profitMargin: 0,
-                totalCustomers: 0,
-                projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
-                targetValue: 0, actualValue: 0,
-            };
-            if (widget.kpi === 'sales_revenue' && salesData) {
-                const record = salesData.find(r => r.year === year && r.month === month);
-                if (record) {
-                    chartEntry.salesActual = record.salesActual;
-                    chartEntry.salesTarget = record.salesTarget;
-                    chartEntry.achievementRate = record.achievementRate;
-                }
-            }
-            if (widget.kpi === 'profit_margin' && profitData) {
-                const record = profitData.find(r => r.year === year && r.month === month);
-                if (record) {
-                    chartEntry.profitMargin = record.profitMargin;
-                }
-            }
-            if (widget.kpi === 'new_customers' && customerData) {
-              const record = customerData.find(r => r.year === year && r.month === month);
-              if (record) {
-                chartEntry.totalCustomers = record.totalCustomers;
-              }
-            }
-            if (widget.kpi === 'project_delivery_compliance' && projectComplianceData) {
-              const record = projectComplianceData.find(r => r.year === year && r.month === month);
-              if (record) {
-                  chartEntry.projectCompliant = record.counts.compliant;
-                  chartEntry.projectMinorDelay = record.counts.minor_delay;
-                  chartEntry.projectDelayed = record.counts.delayed;
-              }
-            }
-            return chartEntry;
-        }).sort((a, b) => a.month.localeCompare(b.month));
-    } else if (widget.scope === 'team' && teamGoalRecords && widget.startDate && widget.endDate) {
-      // Logic to aggregate daily/weekly data into monthly for chart display
-      const monthlyData = new Map<string, { target: number, actual: number, count: number }>();
-      teamGoalRecords.forEach(rec => {
-        const monthKey = format(rec.date.toDate(), 'yyyy-MM');
-        if (!monthlyData.has(monthKey)) {
-          monthlyData.set(monthKey, { target: 0, actual: 0, count: 0 });
+      if (!widget.fiscalYear) return [];
+      const startMonth = widget.fiscalYearStartMonth || 8;
+      const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
+
+      return fiscalYearMonths.map(({ year, month }) => {
+        const entry: ChartData = {
+          month: `${year}-${String(month).padStart(2, '0')}`,
+          salesActual: 0,
+          salesTarget: 0,
+          achievementRate: 0,
+          profitMargin: 0,
+          totalCustomers: 0,
+          projectCompliant: 0,
+          projectMinorDelay: 0,
+          projectDelayed: 0,
+          targetValue: 0,
+          actualValue: 0,
+        };
+
+        if (widget.kpi === 'sales_revenue' && salesData) {
+          const r = salesData.find(d => d.year === year && d.month === month);
+          if (r) Object.assign(entry, r);
         }
-        const current = monthlyData.get(monthKey)!;
-        current.actual += rec.actualValue;
-        // Assuming target is cumulative or set per-entry. Let's sum it up for simplicity.
-        current.target += rec.targetValue;
-        current.count++;
+
+        if (widget.kpi === 'profit_margin' && profitData) {
+          const r = profitData.find(d => d.year === year && d.month === month);
+          if (r) entry.profitMargin = r.profitMargin;
+        }
+
+        if (widget.kpi === 'new_customers' && customerData) {
+          const r = customerData.find(d => d.year === year && d.month === month);
+          if (r) entry.totalCustomers = r.totalCustomers;
+        }
+
+        if (widget.kpi === 'project_delivery_compliance' && projectComplianceData) {
+          const r = projectComplianceData.find(d => d.year === year && d.month === month);
+          if (r) {
+            entry.projectCompliant = r.counts.compliant;
+            entry.projectMinorDelay = r.counts.minor_delay;
+            entry.projectDelayed = r.counts.delayed;
+          }
+        }
+
+        return entry;
       });
-      return Array.from(monthlyData.entries()).map(([month, data]) => ({
-        month,
-        targetValue: data.target,
-        actualValue: data.actual,
-        achievementRate: calculateAchievementRate(data.actual, data.target),
-      }) as ChartData).sort((a, b) => a.month.localeCompare(b.month));
     }
+
+    if (widget.scope === 'team' && teamGoalRecords) {
+        const map = new Map<string, { actual: number; target: number }>();
+    
+        teamGoalRecords.forEach(r => {
+            const key = format(r.date.toDate(), 'yyyy-MM');
+            if (!map.has(key)) map.set(key, { actual: 0, target: 0 });
+            const m = map.get(key)!;
+            // For simplicity, let's assume we take the last entry for a given month if multiple exist
+            // A better approach would be to aggregate (e.g., sum or average)
+            m.actual = r.actualValue;
+            m.target = r.targetValue;
+        });
+    
+        return Array.from(map.entries())
+            .sort(([a], [b]) => a.localeCompare(b)) // Sort by month 'yyyy-MM'
+            .map(([month, v]) => ({
+            month,
+            actualValue: v.actual,
+            targetValue: v.target,
+            achievementRate: calculateAchievementRate(v.actual, v.target),
+            salesActual: 0,
+            salesTarget: 0,
+            profitMargin: 0,
+            totalCustomers: 0,
+            projectCompliant: 0,
+            projectMinorDelay: 0,
+            projectDelayed: 0,
+            }));
+      }
+
     return [];
-  }, [salesData, profitData, customerData, projectComplianceData, teamGoalRecords, widget]);
-
-  let kpiLabel = 'N/A';
-  if(widget.scope === 'company' || widget.scope === 'personal') {
-    kpiLabel = kpiOptions[widget.scope].find(k => k.value === widget.kpi)?.label || 'N/A';
-  } else if (widget.scope === 'team') {
-    kpiLabel = widget.title; // For team goals, the title is the main label
-  }
-
-  const DataManagementDialog = () => {
-    if (widget.scope === 'company') {
-        switch(widget.kpi) {
-            case 'sales_revenue':
-                return (
-                    <SalesDataManagementDialog widget={widget} onSave={(records) => onSaveSalesRecords(widget.id, records)}>
-                        <DropdownMenuItem onSelect={e => e.preventDefault()}><Database className="mr-2 h-4 w-4"/>データ編集</DropdownMenuItem>
-                    </SalesDataManagementDialog>
-                );
-            case 'profit_margin':
-                return (
-                    <ProfitDataManagementDialog widget={widget} onSave={(records) => onSaveProfitRecords(widget.id, records)}>
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Database className="mr-2 h-4 w-4" />データ編集</DropdownMenuItem>
-                    </ProfitDataManagementDialog>
-                );
-            case 'new_customers':
-                return (
-                    <CustomerDataManagementDialog widget={widget} onSave={(records) => onSaveCustomerRecords(widget.id, records)}>
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Database className="mr-2 h-4 w-4" />データ編集</DropdownMenuItem>
-                    </CustomerDataManagementDialog>
-                );
-            case 'project_delivery_compliance':
-                 return (
-                    <ProjectComplianceDataManagementDialog widget={widget} onSave={(records) => onSaveProjectComplianceRecords(widget.id, records)}>
-                        <DropdownMenuItem onSelect={e => e.preventDefault()}><Database className="mr-2 h-4 w-4"/>データ編集</DropdownMenuItem>
-                    </ProjectComplianceDataManagementDialog>
-                );
-            default: return null;
-        }
-    } else if (widget.scope === 'team') {
-        if (widget.chartType === 'donut') {
-            return (
-                <TeamGoalDataDialog widget={widget} onSave={(data) => onSaveTeamGoalData(widget.id, data)}>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Database className="mr-2 h-4 w-4" />データ入力</DropdownMenuItem>
-                </TeamGoalDataDialog>
-            )
-        }
-        // Time-series graphs for teams
-        return (
-            <TeamGoalTimeSeriesDataDialog widget={widget} onSave={(records) => onSaveTeamGoalTimeSeriesData(widget.id, records)}>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Database className="mr-2 h-4 w-4"/>データ入力</DropdownMenuItem>
-            </TeamGoalTimeSeriesDataDialog>
-        );
-    }
-    return null;
-  }
+  }, [widget, salesData, profitData, customerData, projectComplianceData, teamGoalRecords]);
 
   return (
-    <Card key={widget.id} className={cn(
-      "flex flex-col",
-      widget.status === 'active' && "ring-2 ring-primary"
-    )}>
-      <CardHeader className='flex-row items-center justify-between pb-2'>
+    <Card className={cn('flex flex-col', widget.status === 'active' && 'ring-2 ring-primary')}>
+      <CardHeader className="flex-row items-center justify-between pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           {widget.status === 'active' && <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />}
           {widget.title}
         </CardTitle>
+
         {canEdit && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1269,32 +1231,97 @@ function WidgetCard({
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
+
             <DropdownMenuContent align="end" forceMount>
+              {/* 表示設定 */}
               {widget.status !== 'active' && (
                 <DropdownMenuItem onClick={() => onSetActive(widget.id)}>
-                  <Star className="mr-2 h-4 w-4"/>アプリで表示
+                  <Star className="mr-2 h-4 w-4" />
+                  アプリで表示
                 </DropdownMenuItem>
               )}
-              <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope as WidgetScope} currentUser={currentUser} organizations={organizations}>
-                <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                    <Edit className="mr-2 h-4 w-4"/>編集
+
+              {/* 編集 */}
+              <WidgetDialog
+                widget={widget}
+                onSave={(data) => onSave(data, widget.id)}
+                defaultScope={widget.scope as WidgetScope}
+                currentUser={currentUser}
+                organizations={organizations}
+              >
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  編集
                 </DropdownMenuItem>
               </WidgetDialog>
               
-              <DataManagementDialog />
-              
-               <DropdownMenuSeparator />
-               <AlertDialog>
+              {/* --- データ入力メニュー --- */}
+               {widget.scope === 'team' && widget.chartType === 'donut' && (
+                <TeamGoalDataDialog
+                  widget={widget}
+                  onSave={(data) => onSaveTeamGoalData(widget.id, data)}
+                >
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Database className="mr-2 h-4 w-4" />
+                    進捗入力
+                  </DropdownMenuItem>
+                </TeamGoalDataDialog>
+              )}
+              {widget.scope === 'team' && widget.chartType !== 'donut' && (
+                <TeamGoalTimeSeriesDataDialog
+                  widget={widget}
+                  onSave={(records) => onSaveTeamGoalTimeSeriesData(widget.id, records)}
+                >
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Database className="mr-2 h-4 w-4" />
+                    データ入力
+                  </DropdownMenuItem>
+                </TeamGoalTimeSeriesDataDialog>
+              )}
+               {widget.scope === 'company' && widget.kpi === 'sales_revenue' && (
+                <SalesDataManagementDialog widget={widget} onSave={(records) => onSaveSalesRecords(widget.id, records)}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Database className="mr-2 h-4 w-4" />データ編集
+                  </DropdownMenuItem>
+                </SalesDataManagementDialog>
+              )}
+               {widget.scope === 'company' && widget.kpi === 'profit_margin' && (
+                <ProfitDataManagementDialog widget={widget} onSave={(records) => onSaveProfitRecords(widget.id, records)}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Database className="mr-2 h-4 w-4" />データ編集
+                  </DropdownMenuItem>
+                </ProfitDataManagementDialog>
+              )}
+              {widget.scope === 'company' && widget.kpi === 'new_customers' && (
+                <CustomerDataManagementDialog widget={widget} onSave={(records) => onSaveCustomerRecords(widget.id, records)}>
+                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Database className="mr-2 h-4 w-4" />データ編集
+                  </DropdownMenuItem>
+                </CustomerDataManagementDialog>
+              )}
+              {widget.scope === 'company' && widget.kpi === 'project_delivery_compliance' && (
+                <ProjectComplianceDataManagementDialog widget={widget} onSave={(records) => onSaveProjectComplianceRecords(widget.id, records)}>
+                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Database className="mr-2 h-4 w-4" />データ編集
+                  </DropdownMenuItem>
+                </ProjectComplianceDataManagementDialog>
+              )}
+
+              <DropdownMenuSeparator />
+
+              {/* 削除 */}
+              <AlertDialog>
                 <AlertDialogTrigger asChild>
-                   <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
-                    <Trash2 className="mr-2 h-4 w-4"/>削除
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    削除
                   </DropdownMenuItem>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>ウィジェットを削除しますか？</AlertDialogTitle>
                     <AlertDialogDescription>
-                      ウィジェット「{widget.title}」を削除します。関連する月次データも全て削除され、この操作は元に戻せません。
+                      「{widget.title}」を削除します。この操作は元に戻せません。
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -1307,33 +1334,14 @@ function WidgetCard({
           </DropdownMenu>
         )}
       </CardHeader>
-      <CardContent className="h-60 w-full flex-grow">
-         <WidgetPreview 
-           widget={widget}
-           chartData={getChartDataForWidget()}
-         />
+
+      <CardContent className="h-60">
+        <WidgetPreview widget={widget} chartData={getChartDataForWidget()} />
       </CardContent>
-      <CardFooter className='flex justify-between items-end text-xs text-muted-foreground pt-2'>
-        <div>
-          {widget.scope === 'company' && widget.fiscalYear && (
-            <div className="text-xs">
-              {widget.fiscalYear}年度 ({widget.fiscalYearStartMonth || 'N/A'}月始まり)
-            </div>
-          )}
-           {widget.scope === 'team' && widget.startDate && widget.endDate && (
-             <div className="text-xs">
-               {format(widget.startDate.toDate(), 'yyyy/MM/dd')} - {format(widget.endDate.toDate(), 'yyyy/MM/dd')}
-             </div>
-           )}
-          <div className="font-semibold text-foreground">{kpiLabel}</div>
-        </div>
-         <span>
-           {chartOptions.find(c => c.value === widget.chartType)?.label || 'N/A'}
-         </span>
-      </CardFooter>
     </Card>
   );
 }
+
 
 function WidgetList({
   widgets,
