@@ -421,26 +421,14 @@ function TeamGoalTimeSeriesDataDialog({
   children,
 }: {
   widget: Goal;
-  onSave: (
-    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' | 'targetValue'>[]
-  ) => void;
+  onSave: (records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' >[]) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  const { user } = useUser();
-  const { data: existingRecords } = useSubCollection<GoalRecord>(
-    'goals',
-    widget.id,
-    'goalRecords'
-  );
-  const [records, setRecords] = useState<
-    Map<string, Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' | 'targetValue'>>
-  >(new Map());
-
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date()
-  );
+  const { data: existingRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
+  const [records, setRecords] = useState<Map<string, { date: Timestamp; actualValue: number }>>(new Map());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [currentActual, setCurrentActual] = useState('');
 
   useEffect(() => {
@@ -456,9 +444,7 @@ function TeamGoalTimeSeriesDataDialog({
     }
   }, [open, existingRecords]);
 
-  const selectedDateString = selectedDate
-    ? format(selectedDate, 'yyyy-MM-dd')
-    : '';
+  const selectedDateString = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
   const recordForSelectedDate = records.get(selectedDateString);
 
   useEffect(() => {
@@ -531,10 +517,6 @@ function TeamGoalTimeSeriesDataDialog({
               </h3>
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                   <Label>期間全体の目標値</Label>
-                   <Input value={`${widget.targetValue || 0} ${widget.unit || ''}`} disabled />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="actual-value">実績値 ({widget.unit})</Label>
                   <Input
                     id="actual-value"
@@ -547,10 +529,7 @@ function TeamGoalTimeSeriesDataDialog({
               </div>
               <Button
                 type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleAddOrUpdateRecord();
-                }}
+                onClick={(e) => { e.preventDefault(); handleAddOrUpdateRecord(); }}
                 disabled={!selectedDate}
                 className="w-full"
               >
@@ -1155,7 +1134,7 @@ function WidgetCard({
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
   onSaveTeamGoalTimeSeriesData: (
     goalId: string,
-    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' | 'targetValue'>[]
+    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]
   ) => void;
   currentUser: Member | null;
   canEdit: boolean;
@@ -1175,102 +1154,74 @@ function WidgetCard({
 
   const getChartDataForWidget = useCallback((): ChartData[] => {
     if (widget.scope === 'company') {
-      if (!widget.fiscalYear) return [];
-      const startMonth = widget.fiscalYearStartMonth || 8;
-      const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
+        if (!widget.fiscalYear) return [];
+        const startMonth = widget.fiscalYearStartMonth || 8;
+        const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
 
-      return fiscalYearMonths.map(({ year, month }) => {
-        const entry: ChartData = {
-          month: `${year}-${String(month).padStart(2, '0')}`,
-          salesActual: 0,
-          salesTarget: 0,
-          achievementRate: 0,
-          profitMargin: 0,
-          totalCustomers: 0,
-          projectCompliant: 0,
-          projectMinorDelay: 0,
-          projectDelayed: 0,
-          targetValue: 0,
-          actualValue: 0,
-        };
-
-        if (widget.kpi === 'sales_revenue' && salesData) {
-          const r = salesData.find(d => d.year === year && d.month === month);
-          if (r) Object.assign(entry, { ...r, salesActual: r.salesActual, salesTarget: r.salesTarget });
-        }
-
-        if (widget.kpi === 'profit_margin' && profitData) {
-          const r = profitData.find(d => d.year === year && d.month === month);
-          if (r) entry.profitMargin = r.profitMargin;
-        }
-
-        if (widget.kpi === 'new_customers' && customerData) {
-          const r = customerData.find(d => d.year === year && d.month === month);
-          if (r) entry.totalCustomers = r.totalCustomers;
-        }
-
-        if (widget.kpi === 'project_delivery_compliance' && projectComplianceData) {
-          const r = projectComplianceData.find(d => d.year === year && d.month === month);
-          if (r) {
-            entry.projectCompliant = r.counts.compliant;
-            entry.projectMinorDelay = r.counts.minor_delay;
-            entry.projectDelayed = r.counts.delayed;
-          }
-        }
-
-        return entry;
-      });
+        return fiscalYearMonths.map(({ year, month }) => {
+            const entry: ChartData = { month: `${year}-${String(month).padStart(2, '0')}`, salesActual: 0, salesTarget: 0, achievementRate: 0, profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0, periodActual: 0, cumulativeActual: 0, periodTarget: 0, cumulativeAchievementRate: 0 };
+            if (widget.kpi === 'sales_revenue' && salesData) { const r = salesData.find(d => d.year === year && d.month === month); if (r) Object.assign(entry, { ...r, salesActual: r.salesActual, salesTarget: r.salesTarget }); }
+            if (widget.kpi === 'profit_margin' && profitData) { const r = profitData.find(d => d.year === year && d.month === month); if (r) entry.profitMargin = r.profitMargin; }
+            if (widget.kpi === 'new_customers' && customerData) { const r = customerData.find(d => d.year === year && d.month === month); if (r) entry.totalCustomers = r.totalCustomers; }
+            if (widget.kpi === 'project_delivery_compliance' && projectComplianceData) { const r = projectComplianceData.find(d => d.year === year && d.month === month); if (r) { entry.projectCompliant = r.counts.compliant; entry.projectMinorDelay = r.counts.minor_delay; entry.projectDelayed = r.counts.delayed; } }
+            return entry;
+        });
     }
 
     if (widget.scope === 'team' && teamGoalRecords && widget.startDate && widget.endDate) {
-        if (widget.chartType === 'donut') return []; // Donut chart doesn't use this data format
+        if (widget.chartType === 'donut') return [];
         
         const recordsByDate = new Map<string, GoalRecord>();
         teamGoalRecords.forEach(r => recordsByDate.set(format(r.date.toDate(), 'yyyy-MM-dd'), r));
         
         const interval = { start: widget.startDate.toDate(), end: widget.endDate.toDate() };
         
-        let groupedData: { [key: string]: { actuals: number[], count: number } } = {};
+        let groupedData: { [key: string]: { date: Date; actuals: number[] } } = {};
   
         eachDayOfInterval(interval).forEach(day => {
           const dayString = format(day, 'yyyy-MM-dd');
           const record = recordsByDate.get(dayString);
-          let key = '';
+          let key: string;
+          let groupDate: Date;
   
           if (granularity === 'monthly') {
-            key = format(day, 'yyyy-MM-01');
+            groupDate = startOfMonth(day);
+            key = format(groupDate, 'yyyy-MM-dd');
           } else if (granularity === 'weekly') {
-            const weekStart = startOfWeek(day, { weekStartsOn: 1 }); // Monday
-            key = format(weekStart, 'yyyy-MM-dd');
+            groupDate = startOfWeek(day, { weekStartsOn: 1 }); // Monday
+            key = format(groupDate, 'yyyy-MM-dd');
           } else { // daily
+            groupDate = day;
             key = dayString;
           }
   
           if (!groupedData[key]) {
-            groupedData[key] = { actuals: [], count: 0 };
+            groupedData[key] = { date: groupDate, actuals: [] };
           }
           groupedData[key].actuals.push(record?.actualValue || 0);
-          groupedData[key].count += 1;
         });
-
+        
+        const sortedKeys = Object.keys(groupedData).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
+        const numDataPoints = sortedKeys.length;
+        const periodTarget = widget.targetValue ? widget.targetValue / numDataPoints : 0;
+        
         let cumulativeActual = 0;
-        return Object.entries(groupedData)
-            .sort(([keyA], [keyB]) => new Date(keyA).getTime() - new Date(keyB).getTime())
-            .map(([key, { actuals }]) => {
-                const periodActual = actuals.reduce((sum, val) => sum + val, 0);
-                cumulativeActual += periodActual;
-                return {
-                    month: key, // Keep 'month' as the key for x-axis
-                    targetValue: widget.targetValue || 0,
-                    actualValue: isCumulative ? cumulativeActual : periodActual, // Use cumulative or period value
-                    // These are for compatibility with composed chart.
-                    salesActual: isCumulative ? cumulativeActual : periodActual, 
-                    salesTarget: widget.targetValue || 0, 
-                    achievementRate: 0,
-                    profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
-                };
-            });
-      }
+        return sortedKeys.map(key => {
+            const { actuals } = groupedData[key];
+            const periodActual = (granularity === 'daily') ? actuals[0] || 0 : actuals.reduce((sum, val) => sum + val, 0);
+            cumulativeActual += periodActual;
+            const cumulativeAchievementRate = widget.targetValue ? Math.round((cumulativeActual / widget.targetValue) * 100) : 0;
+            return {
+                month: key,
+                periodActual,
+                cumulativeActual,
+                periodTarget,
+                cumulativeAchievementRate,
+                // Compatibility fields
+                salesActual: 0, salesTarget: 0, achievementRate: 0, profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
+            };
+        });
+    }
     
     return [];
   }, [widget, salesData, profitData, customerData, projectComplianceData, teamGoalRecords, granularity, isCumulative]);
@@ -1455,7 +1406,7 @@ function WidgetList({
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
-  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'|'targetValue'>[]) => void;
+  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => void;
   currentUser: Member | null;
   canEdit: boolean;
   organizations: Organization[];
@@ -1987,7 +1938,7 @@ export default function DashboardSettingsPage() {
       }
     };
 
-    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt' | 'targetValue'>[]) => {
+    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => {
       if (!firestore || !authUser) return;
       
       const batch = writeBatch(firestore);
@@ -2190,3 +2141,4 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+

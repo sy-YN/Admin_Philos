@@ -11,11 +11,6 @@ export type GoalRecord = {
    */
   date: Timestamp;
   /**
-   * The target value for this specific date/period.
-   * @deprecated This field is no longer used for team goals. The overall target is stored in the parent Goal document.
-   */
-  targetValue?: number;
-  /**
    * The actual achieved value for this specific date/period.
    */
   actualValue: number;
@@ -28,3 +23,4 @@ export type GoalRecord = {
    */
   updatedAt: Timestamp;
 };
+
