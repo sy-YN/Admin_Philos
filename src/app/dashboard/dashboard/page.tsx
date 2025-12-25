@@ -1162,6 +1162,7 @@ function WidgetCard({
   organizations: Organization[];
 }) {
   const [granularity, setGranularity] = useState<ChartGranularity>('monthly');
+  const [isCumulative, setIsCumulative] = useState(true);
   const { data: salesData } = useSubCollection<SalesRecord>('goals', widget.id, 'salesRecords');
   const { data: profitData } = useSubCollection<ProfitRecord>('goals', widget.id, 'profitRecords');
   const { data: customerData } = useSubCollection<CustomerRecord>('goals', widget.id, 'customerRecords');
@@ -1239,7 +1240,7 @@ function WidgetCard({
           if (granularity === 'monthly') {
             key = format(day, 'yyyy-MM-01');
           } else if (granularity === 'weekly') {
-            const weekStart = startOfWeek(day, { weekStartsOn: 1 });
+            const weekStart = startOfWeek(day, { weekStartsOn: 1 }); // Monday
             key = format(weekStart, 'yyyy-MM-dd');
           } else { // daily
             key = dayString;
@@ -1261,9 +1262,9 @@ function WidgetCard({
                 return {
                     month: key, // Keep 'month' as the key for x-axis
                     targetValue: widget.targetValue || 0,
-                    actualValue: cumulativeActual, // Use cumulative value for the line
+                    actualValue: isCumulative ? cumulativeActual : periodActual, // Use cumulative or period value
                     // These are for compatibility with composed chart.
-                    salesActual: cumulativeActual, 
+                    salesActual: isCumulative ? cumulativeActual : periodActual, 
                     salesTarget: widget.targetValue || 0, 
                     achievementRate: 0,
                     profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
@@ -1272,7 +1273,7 @@ function WidgetCard({
       }
     
     return [];
-  }, [widget, salesData, profitData, customerData, projectComplianceData, teamGoalRecords, granularity]);
+  }, [widget, salesData, profitData, customerData, projectComplianceData, teamGoalRecords, granularity, isCumulative]);
 
   return (
     <Card className={cn('flex flex-col', widget.status === 'active' && 'ring-2 ring-primary')}>
@@ -1285,19 +1286,28 @@ function WidgetCard({
          </div>
 
         <div className="flex items-center gap-1">
-          {widget.scope === 'team' && widget.chartType !== 'donut' && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-8 w-8">
-                  <CalendarClock className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setGranularity('monthly')}>月ごと</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setGranularity('weekly')}>週ごと</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setGranularity('daily')}>日ごと</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+           {widget.scope === 'team' && widget.chartType !== 'donut' && (
+             <div className="flex items-center gap-2">
+                <div className="flex items-center space-x-2">
+                  <Switch id={`cumulative-switch-${widget.id}`} checked={isCumulative} onCheckedChange={setIsCumulative} />
+                  <Label htmlFor={`cumulative-switch-${widget.id}`} className="text-xs font-normal">
+                    実績を積上
+                  </Label>
+                </div>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-8 w-8">
+                      <CalendarClock className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setGranularity('monthly')}>月ごと</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setGranularity('weekly')}>週ごと</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setGranularity('daily')}>日ごと</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
           )}
 
           {canEdit && (
@@ -1413,7 +1423,7 @@ function WidgetCard({
       </CardHeader>
 
       <CardContent className="h-60">
-        <WidgetPreview widget={widget} chartData={getChartDataForWidget()} granularity={granularity} />
+        <WidgetPreview widget={widget} chartData={getChartDataForWidget()} granularity={granularity} isCumulative={isCumulative} />
       </CardContent>
     </Card>
   );

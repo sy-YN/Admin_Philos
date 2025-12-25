@@ -563,57 +563,84 @@ function DonutChartWidget({ widget }: { widget: Goal }) {
   );
 }
 
-function TeamGoalCumulativeLineChart({
-    chartData,
-    widget,
-    xTickFormatter,
+function TeamGoalTimeSeriesChart({
+  chartData,
+  widget,
+  xTickFormatter,
+  isCumulative,
 }: {
-    chartData: ChartData[];
-    widget: Goal;
-    xTickFormatter: (value: string, index: number) => string;
+  chartData: ChartData[];
+  widget: Goal;
+  xTickFormatter: (value: string, index: number) => string;
+  isCumulative: boolean;
 }) {
-    if (!chartData || chartData.length === 0) {
-        return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
-    }
-    
-    const displayUnit = widget.unit === '百万円' ? 'M' : (widget.unit || '');
+  if (!chartData || chartData.length === 0) {
+    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
+  }
+  const displayUnit = widget.unit === '百万円' ? 'M' : widget.unit || '';
 
+  if (isCumulative) {
     return (
-        <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
-            <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={xTickFormatter} tick={{ fontSize: 10 }} />
-                <YAxis unit={displayUnit} tick={{ fontSize: 10 }} domain={[0, 'dataMax']} />
-                <Tooltip
-                    content={
-                        <ChartTooltipContent
-                            labelFormatter={(label) => {
-                                try { return format(new Date(label), 'yyyy年M月d日'); } catch { return label; }
-                            }}
-                            formatter={(value, name, item) => {
-                                if (name === "実績") {
-                                    return `${value} ${displayUnit}`;
-                                }
-                                return null;
-                            }}
-                        />
-                    }
-                />
-                <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} payload={[{ value: '実績 (累計)', type: 'line', id: 'actualValue', color: teamGoalChartConfig.actualValue.color }, { value: '期間目標', type: 'line', id: 'targetValue', color: teamGoalChartConfig.targetValue.color }]} />
-                <Line dataKey="actualValue" name="実績" stroke="var(--color-actualValue)" strokeWidth={2} dot={false} />
-                <ReferenceLine y={widget.targetValue} label={{ value: "目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="var(--color-targetValue)" strokeDasharray="3 3" />
-            </ComposedChart>
-        </ChartContainer>
+      <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
+        <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={xTickFormatter} tick={{ fontSize: 10 }} />
+          <YAxis unit={displayUnit} tick={{ fontSize: 10 }} domain={[0, 'dataMax']} />
+          <Tooltip
+            content={
+              <ChartTooltipContent
+                labelFormatter={(label) => {
+                  try { return format(new Date(label), 'yyyy年M月d日'); } catch { return label; }
+                }}
+                formatter={(value, name, item) => {
+                  if (name === "実績") {
+                    return `${value} ${displayUnit}`;
+                  }
+                  return null;
+                }}
+              />
+            }
+          />
+          <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} payload={[{ value: '実績 (累計)', type: 'line', id: 'actualValue', color: teamGoalChartConfig.actualValue.color }, { value: '期間目標', type: 'line', id: 'targetValue', color: teamGoalChartConfig.targetValue.color }]} />
+          <Line dataKey="actualValue" name="実績" stroke="var(--color-actualValue)" strokeWidth={2} dot={false} />
+          <ReferenceLine y={widget.targetValue} label={{ value: "目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="var(--color-targetValue)" strokeDasharray="3 3" />
+        </ComposedChart>
+      </ChartContainer>
     );
+  } else {
+    // Non-cumulative view (Bar chart of period values)
+    return (
+       <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
+        <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={xTickFormatter} tick={{ fontSize: 10 }} />
+          <YAxis unit={displayUnit} tick={{ fontSize: 10 }} />
+           <Tooltip
+            content={
+              <ChartTooltipContent
+                labelFormatter={(label) => {
+                  try { return format(new Date(label), 'yyyy年M月d日'); } catch { return label; }
+                }}
+                formatter={(value) => [`${value} ${displayUnit}`, '実績']}
+              />
+            }
+          />
+          <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} payload={[{ value: '期間実績', type: 'rect', id: 'actualValue', color: teamGoalChartConfig.actualValue.color }]}/>
+          <Bar dataKey="actualValue" fill="var(--color-actualValue)" />
+        </ComposedChart>
+      </ChartContainer>
+    )
+  }
 }
 
 interface WidgetPreviewProps {
     widget: Goal;
     chartData: ChartData[];
     granularity: ChartGranularity;
+    isCumulative: boolean;
 }
 
-export default function WidgetPreview({ widget, chartData, granularity }: WidgetPreviewProps) {
+export default function WidgetPreview({ widget, chartData, granularity, isCumulative }: WidgetPreviewProps) {
 
     const xTickFormatter = (value: string, index: number): string => {
         try {
@@ -631,7 +658,8 @@ export default function WidgetPreview({ widget, chartData, granularity }: Widget
             if (granularity === 'daily') {
                 if (!widget.startDate || !widget.endDate) return value;
                 const totalDays = differenceInDays(widget.endDate.toDate(), widget.startDate.toDate());
-                const tickInterval = totalDays > 30 ? 14 : totalDays > 14 ? 7 : 1;
+                if (totalDays <= 0) return format(date, 'M/d');
+                const tickInterval = totalDays > 30 ? Math.floor(totalDays / 7) : totalDays > 14 ? 2 : 1;
                 if (index % tickInterval === 0) {
                     return format(date, 'M/d');
                 }
@@ -647,8 +675,8 @@ export default function WidgetPreview({ widget, chartData, granularity }: Widget
         switch(widget.chartType) {
             case 'donut':
                 return <DonutChartWidget widget={widget} />;
-            default: // bar, line, composed will all use the new cumulative line chart
-                return <TeamGoalCumulativeLineChart chartData={chartData} widget={widget} xTickFormatter={xTickFormatter} />;
+            default: // bar, line, composed
+                return <TeamGoalTimeSeriesChart chartData={chartData} widget={widget} xTickFormatter={xTickFormatter} isCumulative={isCumulative} />;
         }
     }
 
