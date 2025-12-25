@@ -44,11 +44,11 @@ const OrganizationNode = ({
   onSelect: (value: string) => void;
   selectedValue: string;
   level?: number;
-  disabled?: boolean;
+  disabled?: (org: Organization) => boolean;
 }) => {
   const [isOpen, setIsOpen] = React.useState(level < 2);
   const hasChildren = node.children && node.children.length > 0;
-  const isNodeDisabled = !!disabled;
+  const isNodeDisabled = disabled ? disabled(node) : false;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
@@ -77,7 +77,7 @@ const OrganizationNode = ({
           variant="ghost"
           className={cn(
               "flex-1 justify-start h-8 px-2",
-              isNodeDisabled && "text-muted-foreground cursor-not-allowed"
+              isNodeDisabled && "text-muted-foreground cursor-not-allowed opacity-50"
             )}
           onClick={() => !isNodeDisabled && onSelect(node.id)}
           disabled={isNodeDisabled}
@@ -101,7 +101,7 @@ const OrganizationNode = ({
                 onSelect={onSelect}
                 selectedValue={selectedValue}
                 level={level + 1}
-                disabled={isNodeDisabled || (typeof disabled === 'function' && disabled(child))}
+                disabled={disabled}
               />
             ))}
           </div>
@@ -164,7 +164,7 @@ export function OrganizationPicker({
     setOpen(false);
   };
   
-  const isNodeDisabled = (node: Organization) => {
+  const isNodeDisabled = (node: Organization): boolean => {
     if (typeof disabled === 'function') {
         return disabled(node);
     }
@@ -208,7 +208,7 @@ export function OrganizationPicker({
                             node={node} 
                             onSelect={handleSelect} 
                             selectedValue={value} 
-                            disabled={isNodeDisabled(node)}
+                            disabled={disabled instanceof Function ? disabled : undefined}
                         />
                     ))}
                  </div>
