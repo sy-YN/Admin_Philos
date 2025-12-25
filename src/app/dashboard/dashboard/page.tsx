@@ -427,67 +427,66 @@ function TeamGoalTimeSeriesDataDialog({
   onSave: (records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]) => void;
   children: React.ReactNode;
 }) {
-    const [open, setOpen] = useState(false);
-    const { toast } = useToast();
-    const { user } = useUser();
-    const { data: existingRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
-    const [records, setRecords] = useState<Map<string, Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>>>(new Map());
-    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-    const [currentTarget, setCurrentTarget] = useState('');
-    const [currentActual, setCurrentActual] = useState('');
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const { user } = useUser();
+  const { data: existingRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
+  const [records, setRecords] = useState<Map<string, Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>>>(new Map());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [currentTarget, setCurrentTarget] = useState('');
+  const [currentActual, setCurrentActual] = useState('');
 
-    useEffect(() => {
-      if (open && existingRecords) {
-        const initialRecords = new Map();
-        existingRecords.forEach(rec => {
-          initialRecords.set(format(rec.date.toDate(), 'yyyy-MM-dd'), {
-            date: rec.date,
-            targetValue: rec.targetValue,
-            actualValue: rec.actualValue,
-          });
+  useEffect(() => {
+    if (open && existingRecords) {
+      const initialRecords = new Map();
+      existingRecords.forEach(rec => {
+        initialRecords.set(format(rec.date.toDate(), 'yyyy-MM-dd'), {
+          date: rec.date,
+          targetValue: rec.targetValue,
+          actualValue: rec.actualValue,
         });
-        setRecords(initialRecords);
-      }
-    }, [open, existingRecords]);
-
-    const selectedDateString = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
-    const recordForSelectedDate = records.get(selectedDateString);
-    
-    useEffect(() => {
-        if(selectedDate && records.has(selectedDateString)) {
-            setCurrentTarget(recordForSelectedDate?.targetValue.toString() || '');
-            setCurrentActual(recordForSelectedDate?.actualValue.toString() || '');
-        } else {
-            setCurrentTarget('');
-            setCurrentActual('');
-        }
-    }, [selectedDate, records, selectedDateString, recordForSelectedDate]);
-
-
-    const handleAddOrUpdateRecord = () => {
-        if (!selectedDate) return;
-        const target = parseFloat(currentTarget) || 0;
-        const actual = parseFloat(currentActual) || 0;
-        
-        const newRecords = new Map(records);
-        newRecords.set(selectedDateString, {
-            date: Timestamp.fromDate(selectedDate),
-            targetValue: target,
-            actualValue: actual,
-        });
-        setRecords(newRecords);
-        toast({ title: '一時保存', description: `${selectedDateString}のデータを更新しました。最後に保存ボタンを押してください。`})
-    };
-    
-    const handleSaveAll = () => {
-        const recordsToSave = Array.from(records.values());
-        onSave(recordsToSave);
-        setOpen(false);
+      });
+      setRecords(initialRecords);
     }
-    
-    const sortedRecords = useMemo(() => Array.from(records.values()).sort((a,b) => b.date.toMillis() - a.date.toMillis()), [records]);
+  }, [open, existingRecords]);
 
-    return (
+  const selectedDateString = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
+  const recordForSelectedDate = records.get(selectedDateString);
+
+  useEffect(() => {
+    if (selectedDate && records.has(selectedDateString)) {
+      setCurrentTarget(recordForSelectedDate?.targetValue.toString() || '');
+      setCurrentActual(recordForSelectedDate?.actualValue.toString() || '');
+    } else {
+      setCurrentTarget('');
+      setCurrentActual('');
+    }
+  }, [selectedDate, records, selectedDateString, recordForSelectedDate]);
+
+  const handleAddOrUpdateRecord = () => {
+    if (!selectedDate) return;
+    const target = parseFloat(currentTarget) || 0;
+    const actual = parseFloat(currentActual) || 0;
+
+    const newRecords = new Map(records);
+    newRecords.set(selectedDateString, {
+      date: Timestamp.fromDate(selectedDate),
+      targetValue: target,
+      actualValue: actual,
+    });
+    setRecords(newRecords);
+    toast({ title: '一時保存', description: `${selectedDateString}のデータを更新しました。最後に保存ボタンを押してください。` });
+  };
+
+  const handleSaveAll = () => {
+    const recordsToSave = Array.from(records.values());
+    onSave(recordsToSave);
+    setOpen(false);
+  };
+
+  const sortedRecords = useMemo(() => Array.from(records.values()).sort((a, b) => b.date.toMillis() - a.date.toMillis()), [records]);
+
+  return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-4xl">
@@ -496,73 +495,73 @@ function TeamGoalTimeSeriesDataDialog({
           <DialogDescription>カレンダーから日付を選択し、目標値と実績値を入力してください。</DialogDescription>
         </DialogHeader>
         <div className="grid md:grid-cols-2 gap-8 py-4">
-            <div className="flex flex-col gap-4">
-                <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    className="rounded-md border mx-auto"
-                    disabled={(date) => 
-                        (widget.startDate && date < widget.startDate.toDate()) || 
-                        (widget.endDate && date > widget.endDate.toDate()) ||
-                        false
-                    }
-                    initialFocus
-                />
-                 <div className="space-y-4 p-4 border rounded-md">
-                    <h3 className="font-semibold text-sm">
-                        {selectedDate ? format(selectedDate, 'yyyy年M月d日') : '日付を選択してください'}
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="target-value">目標値 ({widget.unit})</Label>
-                            <Input id="target-value" type="number" value={currentTarget} onChange={e => setCurrentTarget(e.target.value)} disabled={!selectedDate} />
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="actual-value">実績値 ({widget.unit})</Label>
-                            <Input id="actual-value" type="number" value={currentActual} onChange={e => setCurrentActual(e.target.value)} disabled={!selectedDate} />
-                        </div>
-                    </div>
-                     <Button 
-                        type="button" 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleAddOrUpdateRecord();
-                        }} 
-                        disabled={!selectedDate} 
-                        className="w-full"
-                     >
-                       この日付のデータを追加/更新
-                    </Button>
+          <div className="flex flex-col gap-4">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              className="rounded-md border mx-auto"
+              disabled={(date) =>
+                (widget.startDate && date < widget.startDate.toDate()) ||
+                (widget.endDate && date > widget.endDate.toDate()) ||
+                false
+              }
+              initialFocus
+            />
+            <div className="space-y-4 p-4 border rounded-md">
+              <h3 className="font-semibold text-sm">
+                {selectedDate ? format(selectedDate, 'yyyy年M月d日') : '日付を選択してください'}
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="target-value">目標値 ({widget.unit})</Label>
+                  <Input id="target-value" type="number" value={currentTarget} onChange={e => setCurrentTarget(e.target.value)} disabled={!selectedDate} />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="actual-value">実績値 ({widget.unit})</Label>
+                  <Input id="actual-value" type="number" value={currentActual} onChange={e => setCurrentActual(e.target.value)} disabled={!selectedDate} />
+                </div>
+              </div>
+              <Button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleAddOrUpdateRecord();
+                }}
+                disabled={!selectedDate}
+                className="w-full"
+              >
+                この日付のデータを追加/更新
+              </Button>
             </div>
-            <div className="space-y-4">
-                <h3 className="font-semibold">記録済みデータ</h3>
-                <ScrollArea className="h-[450px] border rounded-md">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>日付</TableHead>
-                                <TableHead>目標</TableHead>
-                                <TableHead>実績</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sortedRecords.length > 0 ? sortedRecords.map(rec => (
-                                <TableRow key={rec.date.toMillis()} onClick={() => setSelectedDate(rec.date.toDate())} className="cursor-pointer">
-                                    <TableCell>{format(rec.date.toDate(), 'yy/MM/dd')}</TableCell>
-                                    <TableCell>{rec.targetValue} {widget.unit}</TableCell>
-                                    <TableCell>{rec.actualValue} {widget.unit}</TableCell>
-                                </TableRow>
-                            )) : (
-                                <TableRow>
-                                    <TableCell colSpan={3} className="text-center text-muted-foreground h-24">データがありません</TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
-            </div>
+          </div>
+          <div className="space-y-4">
+            <h3 className="font-semibold">記録済みデータ</h3>
+            <ScrollArea className="h-[450px] border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>日付</TableHead>
+                    <TableHead>目標</TableHead>
+                    <TableHead>実績</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedRecords.length > 0 ? sortedRecords.map(rec => (
+                    <TableRow key={rec.date.toMillis()} onClick={() => setSelectedDate(rec.date.toDate())} className="cursor-pointer">
+                      <TableCell>{format(rec.date.toDate(), 'yy/MM/dd')}</TableCell>
+                      <TableCell>{rec.targetValue} {widget.unit}</TableCell>
+                      <TableCell>{rec.actualValue} {widget.unit}</TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground h-24">データがありません</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
@@ -570,7 +569,7 @@ function TeamGoalTimeSeriesDataDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    )
+  );
 }
 
 
@@ -1270,7 +1269,7 @@ function WidgetCard({
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" forceMount>
               {widget.status !== 'active' && (
                 <DropdownMenuItem onClick={() => onSetActive(widget.id)}>
                   <Star className="mr-2 h-4 w-4"/>アプリで表示
@@ -1899,14 +1898,10 @@ export default function DashboardSettingsPage() {
       const batch = writeBatch(firestore);
       const subCollectionRef = collection(firestore, 'goals', goalId, 'goalRecords');
 
-      // To keep it simple, we'll overwrite existing records for now.
-      // A more complex logic could be to only update changed records.
-      // First, let's get all existing docs to delete them.
       const existingDocsSnapshot = await getDocs(subCollectionRef);
       existingDocsSnapshot.forEach(doc => batch.delete(doc.ref));
 
       records.forEach(record => {
-          // Use a new doc ref for each record to avoid ID collisions if dates change.
           const recordRef = doc(subCollectionRef);
           batch.set(recordRef, {
             ...record,
@@ -2100,4 +2095,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-
