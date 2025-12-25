@@ -138,7 +138,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
     if (scope === 'company') scopeId = currentUser.company || '';
     if (scope === 'team') scopeId = teamScopeId;
 
-    if (!scopeId) {
+    if (!scopeId && scope !== 'personal') {
         alert("ユーザー情報から対象を特定できませんでした。");
         return;
     }
