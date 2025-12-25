@@ -48,6 +48,7 @@ const OrganizationNode = ({
 }) => {
   const [isOpen, setIsOpen] = React.useState(level < 2);
   const hasChildren = node.children && node.children.length > 0;
+  const isNodeDisabled = !!disabled;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
@@ -76,10 +77,10 @@ const OrganizationNode = ({
           variant="ghost"
           className={cn(
               "flex-1 justify-start h-8 px-2",
-              disabled && "text-muted-foreground"
+              isNodeDisabled && "text-muted-foreground cursor-not-allowed"
             )}
-          onClick={() => !disabled && onSelect(node.id)}
-          disabled={disabled}
+          onClick={() => !isNodeDisabled && onSelect(node.id)}
+          disabled={isNodeDisabled}
         >
           {node.name}
         </Button>
@@ -100,7 +101,7 @@ const OrganizationNode = ({
                 onSelect={onSelect}
                 selectedValue={selectedValue}
                 level={level + 1}
-                disabled={disabled}
+                disabled={isNodeDisabled || (typeof disabled === 'function' && disabled(child))}
               />
             ))}
           </div>
