@@ -608,7 +608,11 @@ function TeamGoalPeriodicBarChart({
           }
         />
         <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} payload={[{ value: '期間実績', type: 'rect', id: 'base', color: teamGoalChartConfig.periodActual.color }, { value: '超過達成', type: 'rect', id: 'over', color: teamGoalChartConfig.overAchievement.color }]}/>
-        {(widget.targetValue || 0) > 0 && <ReferenceLine y={widget.targetValue} label={{ value: "全体目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />}
+        
+        {(widget.targetValue || 0) > 0 && chartData[0]?.periodTarget > 0 && (
+          <ReferenceLine y={chartData[0].periodTarget} label={{ value: "期間目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+        )}
+        
         <Bar dataKey="base" name="期間実績" fill="var(--color-periodActual)" stackId="a" />
         <Bar dataKey="over" name="超過達成" fill="var(--color-overAchievement)" stackId="a" />
       </ComposedChart>
