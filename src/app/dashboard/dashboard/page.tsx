@@ -61,8 +61,7 @@ const kpiOptions = {
     { value: 'project_delivery_compliance', label: 'プロジェクトの納期遵守率' },
   ],
   team: [
-    { value: 'task_completion_rate', label: 'タスク完了率' },
-    { value: 'project_progress', label: 'プロジェクト進捗率' },
+    // This is now dynamic based on title, so this list might be deprecated
   ],
   personal: [
     { value: 'personal_sales_achievement', label: '個人の売上達成率' },
@@ -73,10 +72,9 @@ const kpiOptions = {
 };
 
 const chartOptions = [
-    { value: 'line', label: '折れ線グラフ' },
-    { value: 'bar', label: '棒グラフ' },
-    { value: 'pie', label: '円グラフ' },
     { value: 'donut', label: 'ドーナツチャート' },
+    { value: 'bar', label: '棒グラフ' },
+    { value: 'line', label: '折れ線グラフ' },
     { value: 'composed', label: '複合グラフ' }
 ];
 
@@ -86,7 +84,7 @@ export const kpiToChartMapping: Record<string, string[]> = {
   profit_margin: ['line'],
   new_customers: ['bar'],
   project_delivery_compliance: ['pie', 'bar'],
-  // Team & Personal
+  // Team & Personal (These might be deprecated as team goals are now dynamic)
   task_completion_rate: ['donut', 'pie', 'bar'],
   project_progress: ['donut'],
   personal_sales_achievement: ['donut', 'bar'],
@@ -121,21 +119,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
   const [targetValue, setTargetValue] = useState(100);
   const [unit, setUnit] = useState('%');
   const [teamScopeId, setTeamScopeId] = useState('');
-
-  const teamScopeOrganizations = useMemo(() => {
-    // For team scope goals, we can only assign them to 'department' type organizations.
-    return organizations.filter(org => org.type === 'department');
-  }, [organizations]);
-
-  const availableChartOptions = useMemo(() => {
-    if (!kpi) return [];
-    let allowedChartTypes = kpiToChartMapping[kpi] || [];
-    if(scope === 'team') {
-       allowedChartTypes = ['donut', 'bar', 'line', 'composed'];
-    }
-    return chartOptions.filter(option => allowedChartTypes.includes(option.value));
-  }, [kpi, scope]);
-
+  
   const handleKpiChange = (newKpi: string) => {
     setKpi(newKpi);
     const allowedCharts = kpiToChartMapping[newKpi] || (scope === 'team' ? ['donut', 'bar', 'line', 'composed'] : []);
@@ -151,7 +135,6 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
     let scopeId = '';
     if (scope === 'company') scopeId = currentUser.company || '';
     if (scope === 'team') scopeId = teamScopeId;
-    if (scope === 'personal') scopeId = currentUser.uid;
 
     if (!scopeId) {
         alert("ユーザー情報から対象を特定できませんでした。");
@@ -162,11 +145,11 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
       title,
       scope,
       scopeId,
-      kpi,
       chartType,
     };
     
     if (scope === 'company') {
+      baseData.kpi = kpi;
       const needsFiscalYear = kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers' || kpi === 'project_delivery_compliance';
       if (needsFiscalYear) {
         baseData.fiscalYear = fiscalYear;
@@ -179,14 +162,15 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
         }
         baseData.startDate = Timestamp.fromDate(dateRange.from);
         baseData.endDate = Timestamp.fromDate(dateRange.to);
-        baseData.targetValue = targetValue;
-        
-        // When creating a new goal, currentValue is 0.
-        if (!widget) {
-          baseData.currentValue = 0;
-        }
-        
         baseData.unit = unit;
+
+        if (chartType === 'donut') {
+            baseData.targetValue = targetValue;
+            // When creating a new goal, currentValue is 0.
+            if (!widget) {
+              baseData.currentValue = 0;
+            }
+        }
     }
 
     onSave(baseData);
@@ -198,10 +182,10 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
       const initialScope = widget?.scope || defaultScope;
       setTitle(widget?.title || '');
       setScope(initialScope);
-      setKpi(widget?.kpi || '');
       setChartType(widget?.chartType || '');
 
       if (initialScope === 'company') {
+        setKpi(widget?.kpi || '');
         const startMonth = widget?.fiscalYearStartMonth || 8;
         setFiscalYear(widget?.fiscalYear || getCurrentFiscalYear(startMonth));
         setFiscalYearStartMonth(startMonth);
@@ -227,7 +211,6 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
   }, [widget, open, defaultScope]);
 
   const needsFiscalYear = scope === 'company' && (kpi === 'sales_revenue' || kpi === 'profit_margin' || kpi === 'new_customers' || kpi === 'project_delivery_compliance');
-  const needsTeamFields = scope === 'team';
   const isCompanyScopeOnly = scope === 'company' && (currentUser?.role !== 'admin' && currentUser?.role !== 'executive');
   
   return (
@@ -237,12 +220,12 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{widget ? 'ウィジェットを編集' : '新規ウィジェットを追加'}</DialogTitle>
-            <DialogDescription>表示したいKPIとグラフの種類を選択してください。</DialogDescription>
+            <DialogDescription>表示したい目標とグラフの種類を選択してください。</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="widget-title">ウィジェットタイトル</Label>
-              <Input id="widget-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="例: 全社の売上推移" required />
+              <Input id="widget-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="例: 四半期新規契約数" required />
             </div>
 
             <div className="grid gap-2">
@@ -256,91 +239,114 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
               </Select>
             </div>
             
-            {needsFiscalYear && (
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="grid gap-2">
-                    <Label htmlFor="widget-fiscal-year">対象年度</Label>
-                     <Select value={String(fiscalYear)} onValueChange={(v) => setFiscalYear(Number(v))}>
-                      <SelectTrigger id="widget-fiscal-year"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {getFiscalYears(fiscalYearStartMonth).map(year => (
-                          <SelectItem key={year} value={String(year)}>{year}年度</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                 </div>
-                 <div className="grid gap-2">
-                   <Label htmlFor="widget-start-month">年度開始月</Label>
-                   <Select value={String(fiscalYearStartMonth)} onValueChange={(v) => setFiscalYearStartMonth(Number(v))}>
-                    <SelectTrigger id="widget-start-month"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                        <SelectItem key={month} value={String(month)}>{month}月</SelectItem>
-                      ))}
-                    </SelectContent>
-                   </Select>
-                 </div>
-              </div>
-            )}
-            
-            {needsTeamFields && (
+            {scope === 'company' ? (
                 <>
-                 <div className="grid gap-2">
+                {needsFiscalYear && (
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="widget-fiscal-year">対象年度</Label>
+                        <Select value={String(fiscalYear)} onValueChange={(v) => setFiscalYear(Number(v))}>
+                        <SelectTrigger id="widget-fiscal-year"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {getFiscalYears(fiscalYearStartMonth).map(year => (
+                            <SelectItem key={year} value={String(year)}>{year}年度</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2">
+                    <Label htmlFor="widget-start-month">年度開始月</Label>
+                    <Select value={String(fiscalYearStartMonth)} onValueChange={(v) => setFiscalYearStartMonth(Number(v))}>
+                        <SelectTrigger id="widget-start-month"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                            <SelectItem key={month} value={String(month)}>{month}月</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    </div>
+                </div>
+                )}
+                <div className="grid gap-2">
+                <Label htmlFor="widget-kpi">KPI項目</Label>
+                <Select value={kpi} onValueChange={handleKpiChange} required>
+                    <SelectTrigger><SelectValue placeholder="KPIを選択" /></SelectTrigger>
+                    <SelectContent>
+                    {kpiOptions.company.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                    </SelectContent>
+                </Select>
+                </div>
+                <div className="grid gap-2">
+                <Label htmlFor="widget-chart">グラフの種類</Label>
+                <Select value={chartType} onValueChange={(v: any) => setChartType(v)} required disabled={!kpi}>
+                    <SelectTrigger><SelectValue placeholder={!kpi ? "先にKPIを選択" : "グラフを選択"} /></SelectTrigger>
+                    <SelectContent>
+                    {(kpiToChartMapping[kpi] || []).map(chartVal => {
+                        const option = chartOptions.find(o => o.value === chartVal);
+                        return option ? <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem> : null;
+                    })}
+                    </SelectContent>
+                </Select>
+                </div>
+                </>
+            ) : ( // Team Scope
+                <>
+                <div className="grid gap-2">
                     <Label htmlFor="team-org-picker">対象組織</Label>
                     <OrganizationPicker
                       organizations={organizations}
                       value={teamScopeId}
                       onChange={setTeamScopeId}
-                      disabled={(org) => org.type !== 'department'}
+                      disabled={(org) => org.type === 'holding' || org.type === 'company'}
                     />
-                 </div>
-                  <div className="grid gap-2">
-                     <Label>期間</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date" variant="outline" className={cn('w-full justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'PPP', { locale: ja })} - {format(dateRange.to, 'PPP', { locale: ja })}</>) : (format(dateRange.from, 'PPP', { locale: ja }))) : (<span>日付を選択</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus locale={ja} /></PopoverContent>
-                      </Popover>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                          <Label>目標値</Label>
-                          <Input type="number" value={targetValue} onChange={e => setTargetValue(Number(e.target.value))} />
-                      </div>
-                      <div className="grid gap-2">
-                          <Label>単位</Label>
-                          <Input value={unit} onChange={e => setUnit(e.target.value)} />
-                      </div>
-                  </div>
+                </div>
+                <div className="grid gap-2">
+                    <Label>グラフの種類</Label>
+                    <Select value={chartType} onValueChange={(v) => setChartType(v)} required>
+                        <SelectTrigger><SelectValue placeholder="グラフを選択" /></SelectTrigger>
+                        <SelectContent>
+                        {chartOptions.map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2">
+                    <Label>期間</Label>
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button id="date" variant="outline" className={cn('w-full justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'PPP', { locale: ja })} - {format(dateRange.to, 'PPP', { locale: ja })}</>) : (format(dateRange.from, 'PPP', { locale: ja }))) : (<span>日付を選択</span>)}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus locale={ja} /></PopoverContent>
+                    </Popover>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    {chartType === 'donut' && (
+                        <div className="grid gap-2">
+                            <Label>目標値</Label>
+                            <Input type="number" value={targetValue} onChange={e => setTargetValue(Number(e.target.value))} />
+                        </div>
+                    )}
+                    <div className="grid gap-2">
+                        <Label>単位</Label>
+                        <Select value={unit} onValueChange={setUnit}>
+                            <SelectTrigger><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="%">%</SelectItem>
+                                <SelectItem value="件">件</SelectItem>
+                                <SelectItem value="円">円</SelectItem>
+                                <SelectItem value="百万円">百万円</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
                 </>
             )}
-
-            <div className="grid gap-2">
-              <Label htmlFor="widget-kpi">KPI項目</Label>
-              <Select value={kpi} onValueChange={handleKpiChange} required>
-                <SelectTrigger><SelectValue placeholder="KPIを選択" /></SelectTrigger>
-                <SelectContent>
-                  {kpiOptions[scope].map(option => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="widget-chart">グラフの種類</Label>
-              <Select value={chartType} onValueChange={(v: any) => setChartType(v)} required disabled={!kpi}>
-                <SelectTrigger><SelectValue placeholder={!kpi ? "先にKPIを選択" : "グラフを選択"} /></SelectTrigger>
-                <SelectContent>
-                  {availableChartOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <DialogFooter>
             <Button type="submit">保存</Button>
@@ -1018,6 +1024,53 @@ function WidgetCard({
     kpiLabel = widget.title; // For team goals, the title is the main label
   }
 
+  const DataManagementDialog = () => {
+    if (widget.scope === 'company') {
+        switch(widget.kpi) {
+            case 'sales_revenue':
+                return (
+                    <SalesDataManagementDialog widget={widget} onSave={(records) => onSaveSalesRecords(widget.id, records)}>
+                        <DropdownMenuItem onSelect={e => e.preventDefault()}><Database className="mr-2 h-4 w-4"/>データ編集</DropdownMenuItem>
+                    </SalesDataManagementDialog>
+                );
+            case 'profit_margin':
+                return (
+                    <ProfitDataManagementDialog widget={widget} onSave={(records) => onSaveProfitRecords(widget.id, records)}>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Database className="mr-2 h-4 w-4" />データ編集</DropdownMenuItem>
+                    </ProfitDataManagementDialog>
+                );
+            case 'new_customers':
+                return (
+                    <CustomerDataManagementDialog widget={widget} onSave={(records) => onSaveCustomerRecords(widget.id, records)}>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Database className="mr-2 h-4 w-4" />データ編集</DropdownMenuItem>
+                    </CustomerDataManagementDialog>
+                );
+            case 'project_delivery_compliance':
+                 return (
+                    <ProjectComplianceDataManagementDialog widget={widget} onSave={(records) => onSaveProjectComplianceRecords(widget.id, records)}>
+                        <DropdownMenuItem onSelect={e => e.preventDefault()}><Database className="mr-2 h-4 w-4"/>データ編集</DropdownMenuItem>
+                    </ProjectComplianceDataManagementDialog>
+                );
+            default: return null;
+        }
+    } else if (widget.scope === 'team') {
+        if (widget.chartType === 'donut') {
+            return (
+                <TeamGoalDataDialog widget={widget} onSave={(data) => onSaveTeamGoalData(widget.id, data)}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Database className="mr-2 h-4 w-4" />データ入力</DropdownMenuItem>
+                </TeamGoalDataDialog>
+            )
+        }
+        // TODO: Add data entry for time-series team goals
+        return (
+            <DropdownMenuItem onSelect={e => e.preventDefault()} disabled>
+                <Database className="mr-2 h-4 w-4"/>データ入力 (開発中)
+            </DropdownMenuItem>
+        );
+    }
+    return null;
+  }
+
   return (
     <Card key={widget.id} className={cn(
       "flex flex-col",
@@ -1046,47 +1099,9 @@ function WidgetCard({
                     <Edit className="mr-2 h-4 w-4"/>編集
                 </DropdownMenuItem>
               </WidgetDialog>
-               {widget.scope === 'company' && widget.kpi === 'sales_revenue' && (
-                  <SalesDataManagementDialog widget={widget} onSave={(records) => onSaveSalesRecords(widget.id, records)}>
-                      <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                          <Database className="mr-2 h-4 w-4"/>データ編集
-                      </DropdownMenuItem>
-                  </SalesDataManagementDialog>
-              )}
-              {widget.scope === 'company' && widget.kpi === 'profit_margin' && (
-                <ProfitDataManagementDialog widget={widget} onSave={(records) => onSaveProfitRecords(widget.id, records)}>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Database className="mr-2 h-4 w-4" />
-                    データ編集
-                  </DropdownMenuItem>
-                </ProfitDataManagementDialog>
-              )}
-              {widget.scope === 'company' && widget.kpi === 'new_customers' && (
-                <CustomerDataManagementDialog
-                  widget={widget}
-                  onSave={(records) => onSaveCustomerRecords(widget.id, records)}
-                >
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Database className="mr-2 h-4 w-4" />
-                    データ編集
-                  </DropdownMenuItem>
-                </CustomerDataManagementDialog>
-              )}
-              {widget.scope === 'company' && widget.kpi === 'project_delivery_compliance' && (
-                <ProjectComplianceDataManagementDialog widget={widget} onSave={(records) => onSaveProjectComplianceRecords(widget.id, records)}>
-                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                        <Database className="mr-2 h-4 w-4"/>データ編集
-                    </DropdownMenuItem>
-                </ProjectComplianceDataManagementDialog>
-              )}
-               {widget.scope === 'team' && (
-                <TeamGoalDataDialog widget={widget} onSave={(data) => onSaveTeamGoalData(widget.id, data)}>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Database className="mr-2 h-4 w-4" />
-                    データ入力
-                  </DropdownMenuItem>
-                </TeamGoalDataDialog>
-              )}
+              
+              <DataManagementDialog />
+              
                <DropdownMenuSeparator />
                <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -1525,15 +1540,17 @@ export default function DashboardSettingsPage() {
     const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
 
     const handleSaveWidget = async (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => {
-        if (!firestore || !authUser || !widgets) return;
+        if (!firestore || !authUser) return;
         
+        const widgetsForScope = widgets?.filter(w => w.scope === data.scope && w.scopeId === data.scopeId) || [];
+
         try {
             if (id) {
                 const widgetRef = doc(firestore, 'goals', id);
                 await updateDoc(widgetRef, { ...data, updatedAt: serverTimestamp() });
                 toast({ title: "成功", description: "ウィジェットを更新しました。" });
             } else {
-                const currentActive = widgets.find(w => w.scope === data.scope && w.scopeId === data.scopeId && w.status === 'active');
+                const currentActive = widgetsForScope.find(w => w.status === 'active');
                 await addDoc(collection(firestore, 'goals'), {
                     ...data,
                     authorId: authUser.uid,
@@ -1553,7 +1570,7 @@ export default function DashboardSettingsPage() {
       if (!firestore) return;
       try {
         const goalRef = doc(firestore, 'goals', id);
-        const subcollectionNames = ['salesRecords', 'profitRecords', 'customerRecords', 'projectComplianceRecords'];
+        const subcollectionNames = ['salesRecords', 'profitRecords', 'customerRecords', 'projectComplianceRecords', 'goalRecords'];
         
         for (const subcollectionName of subcollectionNames) {
             const subcollectionRef = collection(goalRef, subcollectionName);
@@ -1776,7 +1793,7 @@ export default function DashboardSettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
-          <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1 max-w-[150px]" : "hidden")))}>
+          <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-2" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1 max-w-[150px]" : "hidden")))}>
               {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
               {canManageOrgPersonalGoals && (
                 <>
@@ -1865,3 +1882,4 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
