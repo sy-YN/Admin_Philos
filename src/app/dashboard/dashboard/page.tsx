@@ -1260,13 +1260,13 @@ function PersonalGoalsList({
       <div className="space-y-8">
         <div>
           <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
-           {hasOngoingGoal ? (
+           {hasOngoingGoal && (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {ongoing.map(goal => (
                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
               ))}
             </div>
-           ) : null}
+           )}
         </div>
         
         {!hasOngoingGoal && (
@@ -1817,6 +1817,7 @@ export default function DashboardSettingsPage() {
                           organizations={editableOrgs}
                           value={selectedOrgId}
                           onChange={setSelectedOrgId}
+                          disabled={(org) => org.type === 'holding' || org.type === 'company'}
                         />
                     </div>
                      {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
@@ -1864,4 +1865,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-
