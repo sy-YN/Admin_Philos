@@ -35,8 +35,8 @@ export type ChartData = {
     
     // For team goals
     periodActual: number;
-    cumulativeActual: number;
     periodTarget: number;
+    cumulativeActual: number;
     cumulativeAchievementRate: number;
 }
 
@@ -67,7 +67,7 @@ const projectComplianceChartConfig = {
 const teamGoalChartConfig = {
   periodActual: { label: "期間実績", color: "hsl(var(--primary))" },
   cumulativeActual: { label: "累計実績", color: "hsl(var(--primary))" },
-  overAchievement: { label: "超過達成", color: "hsl(221 83% 53%)" }, // Blue for overachievement
+  overAchievement: { label: "超過達成", color: "hsl(221 83% 53%)" },
   cumulativeAchievementRate: { label: '累計達成率', color: 'hsl(38 92% 50%)' },
   targetLine: { label: "期間目標", color: "hsl(var(--muted-foreground))" },
 };
@@ -767,5 +767,7 @@ export default function WidgetPreview({ widget, chartData, granularity, isCumula
         default: return <BarChartPreview />;
       }
 }
+
+    
 
     
