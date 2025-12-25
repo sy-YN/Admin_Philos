@@ -166,13 +166,11 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
         baseData.startDate = Timestamp.fromDate(dateRange.from);
         baseData.endDate = Timestamp.fromDate(dateRange.to);
         baseData.unit = unit;
-
-        if (chartType === 'donut') {
-            baseData.targetValue = targetValue;
-            // When creating a new goal, currentValue is 0.
-            if (!widget) {
-              baseData.currentValue = 0;
-            }
+        baseData.targetValue = targetValue;
+        
+        // When creating a new goal, currentValue is 0.
+        if (!widget) {
+          baseData.currentValue = 0;
         }
     }
 
@@ -329,12 +327,10 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                     </Popover>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    {chartType === 'donut' && (
-                        <div className="grid gap-2">
-                            <Label>目標値</Label>
-                            <Input type="number" value={targetValue} onChange={e => setTargetValue(Number(e.target.value))} />
-                        </div>
-                    )}
+                    <div className="grid gap-2">
+                        <Label>期間全体の目標値</Label>
+                        <Input type="number" value={targetValue} onChange={e => setTargetValue(Number(e.target.value))} />
+                    </div>
                     <div className="grid gap-2">
                         <Label>単位</Label>
                         <Select value={unit} onValueChange={setUnit}>
@@ -426,7 +422,7 @@ function TeamGoalTimeSeriesDataDialog({
 }: {
   widget: Goal;
   onSave: (
-    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]
+    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' | 'targetValue'>[]
   ) => void;
   children: React.ReactNode;
 }) {
@@ -439,12 +435,12 @@ function TeamGoalTimeSeriesDataDialog({
     'goalRecords'
   );
   const [records, setRecords] = useState<
-    Map<string, Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>>
+    Map<string, Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' | 'targetValue'>>
   >(new Map());
+
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date()
   );
-  const [currentTarget, setCurrentTarget] = useState('');
   const [currentActual, setCurrentActual] = useState('');
 
   useEffect(() => {
@@ -453,7 +449,6 @@ function TeamGoalTimeSeriesDataDialog({
       existingRecords.forEach((rec) => {
         initialRecords.set(format(rec.date.toDate(), 'yyyy-MM-dd'), {
           date: rec.date,
-          targetValue: rec.targetValue,
           actualValue: rec.actualValue,
         });
       });
@@ -468,29 +463,25 @@ function TeamGoalTimeSeriesDataDialog({
 
   useEffect(() => {
     if (selectedDate && records.has(selectedDateString)) {
-      setCurrentTarget(recordForSelectedDate?.targetValue.toString() || '');
       setCurrentActual(recordForSelectedDate?.actualValue.toString() || '');
     } else {
-      setCurrentTarget('');
       setCurrentActual('');
     }
   }, [selectedDate, records, selectedDateString, recordForSelectedDate]);
 
   const handleAddOrUpdateRecord = () => {
     if (!selectedDate) return;
-    const target = parseFloat(currentTarget) || 0;
     const actual = parseFloat(currentActual) || 0;
 
     const newRecords = new Map(records);
     newRecords.set(selectedDateString, {
       date: Timestamp.fromDate(selectedDate),
-      targetValue: target,
       actualValue: actual,
     });
     setRecords(newRecords);
     toast({
       title: '一時保存',
-      description: `${selectedDateString}のデータを更新しました。最後に保存ボタンを押してください。`,
+      description: `${selectedDateString}のデータを更新しました。最後に「全ての変更を保存」ボタンを押してください。`,
     });
   };
 
@@ -513,9 +504,9 @@ function TeamGoalTimeSeriesDataDialog({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>時系列データ編集: {widget.title}</DialogTitle>
+          <DialogTitle>実績データ編集: {widget.title}</DialogTitle>
           <DialogDescription>
-            カレンダーから日付を選択し、目標値と実績値を入力してください。
+            カレンダーから日付を選択し、その日の実績値を入力してください。
           </DialogDescription>
         </DialogHeader>
         <div className="grid md:grid-cols-2 gap-8 py-4">
@@ -538,16 +529,10 @@ function TeamGoalTimeSeriesDataDialog({
                   ? format(selectedDate, 'yyyy年M月d日')
                   : '日付を選択してください'}
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="target-value">目標値 ({widget.unit})</Label>
-                  <Input
-                    id="target-value"
-                    type="number"
-                    value={currentTarget}
-                    onChange={(e) => setCurrentTarget(e.target.value)}
-                    disabled={!selectedDate}
-                  />
+                   <Label>期間全体の目標値</Label>
+                   <Input value={`${widget.targetValue || 0} ${widget.unit || ''}`} disabled />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="actual-value">実績値 ({widget.unit})</Label>
@@ -580,7 +565,6 @@ function TeamGoalTimeSeriesDataDialog({
                 <TableHeader>
                   <TableRow>
                     <TableHead>日付</TableHead>
-                    <TableHead>目標</TableHead>
                     <TableHead>実績</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -594,9 +578,6 @@ function TeamGoalTimeSeriesDataDialog({
                       >
                         <TableCell>
                           {format(rec.date.toDate(), 'yy/MM/dd')}
-                        </TableCell>
-                        <TableCell>
-                          {rec.targetValue} {widget.unit}
                         </TableCell>
                         <TableCell>
                           {rec.actualValue} {widget.unit}
@@ -628,7 +609,6 @@ function TeamGoalTimeSeriesDataDialog({
     </Dialog>
   );
 }
-
 
 function SalesDataManagementDialog({
   widget,
@@ -1175,7 +1155,7 @@ function WidgetCard({
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
   onSaveTeamGoalTimeSeriesData: (
     goalId: string,
-    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]
+    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' | 'targetValue'>[]
   ) => void;
   currentUser: Member | null;
   canEdit: boolean;
@@ -1242,12 +1222,14 @@ function WidgetCard({
     }
 
     if (widget.scope === 'team' && teamGoalRecords && widget.startDate && widget.endDate) {
+        if (widget.chartType === 'donut') return []; // Donut chart doesn't use this data format
+        
         const recordsByDate = new Map<string, GoalRecord>();
         teamGoalRecords.forEach(r => recordsByDate.set(format(r.date.toDate(), 'yyyy-MM-dd'), r));
         
         const interval = { start: widget.startDate.toDate(), end: widget.endDate.toDate() };
         
-        let groupedData: { [key: string]: { targets: number[], actuals: number[], count: number } } = {};
+        let groupedData: { [key: string]: { actuals: number[], count: number } } = {};
   
         eachDayOfInterval(interval).forEach(day => {
           const dayString = format(day, 'yyyy-MM-dd');
@@ -1255,7 +1237,7 @@ function WidgetCard({
           let key = '';
   
           if (granularity === 'monthly') {
-            key = format(day, 'yyyy-MM');
+            key = format(day, 'yyyy-MM-01');
           } else if (granularity === 'weekly') {
             const weekStart = startOfWeek(day, { weekStartsOn: 1 });
             key = format(weekStart, 'yyyy-MM-dd');
@@ -1264,26 +1246,29 @@ function WidgetCard({
           }
   
           if (!groupedData[key]) {
-            groupedData[key] = { targets: [], actuals: [], count: 0 };
+            groupedData[key] = { actuals: [], count: 0 };
           }
-          groupedData[key].targets.push(record?.targetValue || 0);
           groupedData[key].actuals.push(record?.actualValue || 0);
           groupedData[key].count += 1;
         });
-        
-        return Object.entries(groupedData).map(([key, { targets, actuals }]) => {
-            const totalTarget = targets.reduce((sum, val) => sum + val, 0);
-            const totalActual = actuals.reduce((sum, val) => sum + val, 0);
-            return {
-              month: key, // Keep 'month' as the key for x-axis
-              targetValue: totalTarget,
-              actualValue: totalActual,
-              achievementRate: calculateAchievementRate(totalActual, totalTarget),
-              salesActual: totalActual,
-              salesTarget: totalTarget,
-              profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
-            };
-        }).sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
+
+        let cumulativeActual = 0;
+        return Object.entries(groupedData)
+            .sort(([keyA], [keyB]) => new Date(keyA).getTime() - new Date(keyB).getTime())
+            .map(([key, { actuals }]) => {
+                const periodActual = actuals.reduce((sum, val) => sum + val, 0);
+                cumulativeActual += periodActual;
+                return {
+                    month: key, // Keep 'month' as the key for x-axis
+                    targetValue: widget.targetValue || 0,
+                    actualValue: cumulativeActual, // Use cumulative value for the line
+                    // These are for compatibility with composed chart.
+                    salesActual: cumulativeActual, 
+                    salesTarget: widget.targetValue || 0, 
+                    achievementRate: 0,
+                    profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
+                };
+            });
       }
     
     return [];
@@ -1460,7 +1445,7 @@ function WidgetList({
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
-  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => void;
+  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'|'targetValue'>[]) => void;
   currentUser: Member | null;
   canEdit: boolean;
   organizations: Organization[];
@@ -1992,7 +1977,7 @@ export default function DashboardSettingsPage() {
       }
     };
 
-    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => {
+    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt' | 'targetValue'>[]) => {
       if (!firestore || !authUser) return;
       
       const batch = writeBatch(firestore);
@@ -2012,10 +1997,10 @@ export default function DashboardSettingsPage() {
       
       try {
         await batch.commit();
-        toast({ title: '成功', description: '時系列データを保存しました。' });
+        toast({ title: '成功', description: '実績データを保存しました。' });
       } catch (error) {
         console.error("Error saving time series goal records:", error);
-        toast({ title: "エラー", description: "時系列データの保存に失敗しました。", variant: 'destructive' });
+        toast({ title: "エラー", description: "実績データの保存に失敗しました。", variant: 'destructive' });
       }
     };
     
