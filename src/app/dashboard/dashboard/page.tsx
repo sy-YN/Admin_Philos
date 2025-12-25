@@ -96,7 +96,7 @@ export const kpiToChartMapping: Record<string, string[]> = {
 };
 
 
-type WidgetScope = 'company' | 'team' | 'personal';
+type WidgetScope = 'company' | 'team';
 
 const calculateAchievementRate = (actual: number, target: number) => {
   if (target === 0) return actual > 0 ? 100 : 0;
@@ -523,7 +523,7 @@ function TeamGoalTimeSeriesDataDialog({
                             <Input id="actual-value" type="number" value={currentActual} onChange={e => setCurrentActual(e.target.value)} disabled={!selectedDate} />
                         </div>
                     </div>
-                     <Button onClick={handleAddOrUpdateRecord} disabled={!selectedDate} className="w-full">
+                     <Button type="button" onClick={handleAddOrUpdateRecord} disabled={!selectedDate} className="w-full">
                        この日付のデータを追加/更新
                     </Button>
                 </div>
@@ -1268,7 +1268,7 @@ function WidgetCard({
                   <Star className="mr-2 h-4 w-4"/>アプリで表示
                 </DropdownMenuItem>
               )}
-              <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope} currentUser={currentUser} organizations={organizations}>
+              <WidgetDialog widget={widget} onSave={(data) => onSave(data, widget.id)} defaultScope={widget.scope as WidgetScope} currentUser={currentUser} organizations={organizations}>
                 <DropdownMenuItem onSelect={e => e.preventDefault()}>
                     <Edit className="mr-2 h-4 w-4"/>編集
                 </DropdownMenuItem>
@@ -1628,7 +1628,7 @@ export default function DashboardSettingsPage() {
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
     const [userPermissions, setUserPermissions] = useState<string[]>([]);
     const [isCurrentUserLoading, setIsCurrentUserLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<WidgetScope>('company');
+    const [activeTab, setActiveTab] = useState<WidgetScope | 'personal'>('company');
     
     const [selectedOrgId, setSelectedOrgId] = useState<string>('');
     const [editableOrgs, setEditableOrgs] = useState<Organization[]>([]);
@@ -1990,7 +1990,7 @@ export default function DashboardSettingsPage() {
               (activeTab === 'team' && canManageOrgPersonalGoals)
             )) && (
               <div className='flex items-center gap-4'>
-                  <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab} currentUser={currentUserData} organizations={allOrganizations || []}>
+                  <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab as WidgetScope} currentUser={currentUserData} organizations={allOrganizations || []}>
                       <Button>
                           <PlusCircle className="mr-2 h-4 w-4" />
                           新規ウィジェット追加
@@ -2000,7 +2000,7 @@ export default function DashboardSettingsPage() {
             )}
         </div>
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope | 'personal')}>
           <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1 max-w-[150px]" : "hidden")))}>
               {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
               {canManageOrgPersonalGoals && (
