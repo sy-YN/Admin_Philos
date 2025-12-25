@@ -181,7 +181,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
         baseData.endDate = Timestamp.fromDate(dateRange.to);
         baseData.targetValue = targetValue;
         
-        // When creating a new goal, currentValue is 0. When editing, keep the existing one.
+        // When creating a new goal, currentValue is 0.
         if (!widget) {
           baseData.currentValue = 0;
         }
@@ -252,7 +252,6 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                 <SelectContent>
                   <SelectItem value="company">会社単位</SelectItem>
                   <SelectItem value="team">組織単位</SelectItem>
-                  <SelectItem value="personal">個人単位</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -288,11 +287,11 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                 <>
                  <div className="grid gap-2">
                     <Label htmlFor="team-org-picker">対象組織</Label>
-                    <OrganizationPicker 
-                        organizations={organizations} 
-                        value={teamScopeId} 
-                        onChange={setTeamScopeId} 
-                        disabled={(org) => org.type !== 'department'}
+                    <OrganizationPicker
+                      organizations={organizations}
+                      value={teamScopeId}
+                      onChange={setTeamScopeId}
+                      disabled={(org) => org.type !== 'department'}
                     />
                  </div>
                   <div className="grid gap-2">
@@ -1865,3 +1864,4 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
