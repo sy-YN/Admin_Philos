@@ -422,25 +422,35 @@ function TeamGoalDataDialog({
 function TeamGoalTimeSeriesDataDialog({
   widget,
   onSave,
-  children
+  children,
 }: {
   widget: Goal;
-  onSave: (records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]) => void;
+  onSave: (
+    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]
+  ) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useUser();
-  const { data: existingRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
-  const [records, setRecords] = useState<Map<string, Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>>>(new Map());
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const { data: existingRecords } = useSubCollection<GoalRecord>(
+    'goals',
+    widget.id,
+    'goalRecords'
+  );
+  const [records, setRecords] = useState<
+    Map<string, Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>>
+  >(new Map());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    new Date()
+  );
   const [currentTarget, setCurrentTarget] = useState('');
   const [currentActual, setCurrentActual] = useState('');
 
   useEffect(() => {
     if (open && existingRecords) {
       const initialRecords = new Map();
-      existingRecords.forEach(rec => {
+      existingRecords.forEach((rec) => {
         initialRecords.set(format(rec.date.toDate(), 'yyyy-MM-dd'), {
           date: rec.date,
           targetValue: rec.targetValue,
@@ -451,7 +461,9 @@ function TeamGoalTimeSeriesDataDialog({
     }
   }, [open, existingRecords]);
 
-  const selectedDateString = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
+  const selectedDateString = selectedDate
+    ? format(selectedDate, 'yyyy-MM-dd')
+    : '';
   const recordForSelectedDate = records.get(selectedDateString);
 
   useEffect(() => {
@@ -476,7 +488,10 @@ function TeamGoalTimeSeriesDataDialog({
       actualValue: actual,
     });
     setRecords(newRecords);
-    toast({ title: '一時保存', description: `${selectedDateString}のデータを更新しました。最後に保存ボタンを押してください。` });
+    toast({
+      title: '一時保存',
+      description: `${selectedDateString}のデータを更新しました。最後に保存ボタンを押してください。`,
+    });
   };
 
   const handleSaveAll = () => {
@@ -485,7 +500,13 @@ function TeamGoalTimeSeriesDataDialog({
     setOpen(false);
   };
 
-  const sortedRecords = useMemo(() => Array.from(records.values()).sort((a, b) => b.date.toMillis() - a.date.toMillis()), [records]);
+  const sortedRecords = useMemo(
+    () =>
+      Array.from(records.values()).sort(
+        (a, b) => b.date.toMillis() - a.date.toMillis()
+      ),
+    [records]
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -493,7 +514,9 @@ function TeamGoalTimeSeriesDataDialog({
       <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>時系列データ編集: {widget.title}</DialogTitle>
-          <DialogDescription>カレンダーから日付を選択し、目標値と実績値を入力してください。</DialogDescription>
+          <DialogDescription>
+            カレンダーから日付を選択し、目標値と実績値を入力してください。
+          </DialogDescription>
         </DialogHeader>
         <div className="grid md:grid-cols-2 gap-8 py-4">
           <div className="flex flex-col gap-4">
@@ -511,16 +534,30 @@ function TeamGoalTimeSeriesDataDialog({
             />
             <div className="space-y-4 p-4 border rounded-md">
               <h3 className="font-semibold text-sm">
-                {selectedDate ? format(selectedDate, 'yyyy年M月d日') : '日付を選択してください'}
+                {selectedDate
+                  ? format(selectedDate, 'yyyy年M月d日')
+                  : '日付を選択してください'}
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="target-value">目標値 ({widget.unit})</Label>
-                  <Input id="target-value" type="number" value={currentTarget} onChange={e => setCurrentTarget(e.target.value)} disabled={!selectedDate} />
+                  <Input
+                    id="target-value"
+                    type="number"
+                    value={currentTarget}
+                    onChange={(e) => setCurrentTarget(e.target.value)}
+                    disabled={!selectedDate}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="actual-value">実績値 ({widget.unit})</Label>
-                  <Input id="actual-value" type="number" value={currentActual} onChange={e => setCurrentActual(e.target.value)} disabled={!selectedDate} />
+                  <Input
+                    id="actual-value"
+                    type="number"
+                    value={currentActual}
+                    onChange={(e) => setCurrentActual(e.target.value)}
+                    disabled={!selectedDate}
+                  />
                 </div>
               </div>
               <Button
@@ -548,15 +585,32 @@ function TeamGoalTimeSeriesDataDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedRecords.length > 0 ? sortedRecords.map(rec => (
-                    <TableRow key={rec.date.toMillis()} onClick={() => setSelectedDate(rec.date.toDate())} className="cursor-pointer">
-                      <TableCell>{format(rec.date.toDate(), 'yy/MM/dd')}</TableCell>
-                      <TableCell>{rec.targetValue} {widget.unit}</TableCell>
-                      <TableCell>{rec.actualValue} {widget.unit}</TableCell>
-                    </TableRow>
-                  )) : (
+                  {sortedRecords.length > 0 ? (
+                    sortedRecords.map((rec) => (
+                      <TableRow
+                        key={rec.date.toMillis()}
+                        onClick={() => setSelectedDate(rec.date.toDate())}
+                        className="cursor-pointer"
+                      >
+                        <TableCell>
+                          {format(rec.date.toDate(), 'yy/MM/dd')}
+                        </TableCell>
+                        <TableCell>
+                          {rec.targetValue} {widget.unit}
+                        </TableCell>
+                        <TableCell>
+                          {rec.actualValue} {widget.unit}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground h-24">データがありません</TableCell>
+                      <TableCell
+                        colSpan={3}
+                        className="text-center text-muted-foreground h-24"
+                      >
+                        データがありません
+                      </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -565,7 +619,9 @@ function TeamGoalTimeSeriesDataDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            キャンセル
+          </Button>
           <Button onClick={handleSaveAll}>全ての変更を保存</Button>
         </DialogFooter>
       </DialogContent>
@@ -1159,7 +1215,7 @@ function WidgetCard({
 
         if (widget.kpi === 'sales_revenue' && salesData) {
           const r = salesData.find(d => d.year === year && d.month === month);
-          if (r) Object.assign(entry, r);
+          if (r) Object.assign(entry, { ...r, salesActual: r.salesActual, salesTarget: r.salesTarget });
         }
 
         if (widget.kpi === 'profit_margin' && profitData) {
@@ -1219,11 +1275,13 @@ function WidgetCard({
           const totalTarget = targets.reduce((sum, val) => sum + val, 0);
           const totalActual = actuals.reduce((sum, val) => sum + val, 0);
           return {
-            month: key, // Keep 'month' as key for chart compatibility
+            month: key,
             targetValue: totalTarget,
             actualValue: totalActual,
             achievementRate: calculateAchievementRate(totalActual, totalTarget),
-            salesActual: 0, salesTarget: 0, profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
+            salesActual: totalActual, // Use salesActual for team data too
+            salesTarget: totalTarget, // Use salesTarget for team data too
+            profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
           };
       }).sort((a, b) => a.month.localeCompare(b.month));
     }

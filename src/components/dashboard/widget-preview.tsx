@@ -66,7 +66,7 @@ const teamGoalChartConfig = {
   achievementRate: { label: '達成率', color: 'hsl(38 92% 50%)' },
 }
 
-function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
+function ActualSalesComposedChart({ chartData, unit }: { chartData: ChartData[], unit?:string }) {
     if (!chartData || chartData.length === 0) {
         return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
     }
@@ -109,7 +109,7 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
             <ComposedChart accessibilityLayer data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
-                <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="M" />
+                <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit={unit === '百万円' ? 'M' : unit} />
                 <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="%" />
                 <Tooltip
                   cursor={true}
@@ -120,6 +120,7 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
                       }
                       formatter={(value, name, item) => {
                         const { salesActual, salesTarget, achievementRate, over, shortfall } = item.payload as any;
+                        const displayUnit = unit === '百万円' ? 'M' : (unit || '');
                         const renderItem = (label: string, value: string | number) => (
                            <div className="flex w-full items-center justify-between text-xs">
                               <span>{label}</span>
@@ -129,13 +130,13 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
 
                         switch (item.dataKey) {
                             case 'base':
-                              return renderItem("目標 / 実績", `${salesTarget}M / ${salesActual}M`);
+                              return renderItem("目標 / 実績", `${salesTarget}${displayUnit} / ${salesActual}${displayUnit}`);
                             case 'over':
-                                if (over > 0) return renderItem("超過達成", `${over}M`);
+                                if (over > 0) return renderItem("超過達成", `${over}${displayUnit}`);
                                 return null;
                             case 'shortfall':
                                 // Display '不足分' only when it's a real shortfall, not just an empty actual
-                                if (shortfall > 0 && salesActual > 0) return renderItem("不足分", `${shortfall}M`);
+                                if (shortfall > 0 && salesActual > 0) return renderItem("不足分", `${shortfall}${displayUnit}`);
                                 return null;
                             case 'achievementRate':
                                 return renderItem("達成率", `${achievementRate}%`);
@@ -178,7 +179,7 @@ function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
     );
 }
 
-function ActualSalesBarChart({ chartData }: { chartData: ChartData[] }) {
+function ActualSalesBarChart({ chartData, unit }: { chartData: ChartData[], unit?: string }) {
     if (!chartData || chartData.length === 0) {
         return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
     }
@@ -198,7 +199,7 @@ function ActualSalesBarChart({ chartData }: { chartData: ChartData[] }) {
             <ComposedChart data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
-                <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="M" />
+                <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit={unit === '百万円' ? 'M' : unit} />
                 <Tooltip
                   cursor={true}
                   content={
@@ -206,13 +207,14 @@ function ActualSalesBarChart({ chartData }: { chartData: ChartData[] }) {
                       labelFormatter={(label) => `${new Date(label).getFullYear()}年 ${new Date(label).getMonth() + 1}月`}
                       formatter={(value, name, item) => {
                           const { salesActual, salesTarget, over, shortfall } = item.payload as any;
+                          const displayUnit = unit === '百万円' ? 'M' : (unit || '');
                           const renderItem = (label: string, value: string | number) => (
                              <div className="flex w-full items-center justify-between text-xs"><span>{label}</span><span className="font-bold">{value}</span></div>
                           );
                           switch (item.dataKey) {
-                              case 'base': return renderItem("実績 / 目標", `${salesActual}M / ${salesTarget}M`);
-                              case 'over': if (over > 0) return renderItem("超過達成", `${over}M`); return null;
-                              case 'shortfall': if (shortfall > 0 && salesActual > 0) return renderItem("不足分", `${shortfall}M`); return null;
+                              case 'base': return renderItem("実績 / 目標", `${salesActual}${displayUnit} / ${salesTarget}${displayUnit}`);
+                              case 'over': if (over > 0) return renderItem("超過達成", `${over}${displayUnit}`); return null;
+                              case 'shortfall': if (shortfall > 0 && salesActual > 0) return renderItem("不足分", `${shortfall}${displayUnit}`); return null;
                               default: return null;
                           }
                       }}
@@ -246,7 +248,7 @@ function ActualSalesBarChart({ chartData }: { chartData: ChartData[] }) {
     );
 }
 
-function TargetAndActualLineChart({ chartData }: { chartData: ChartData[] }) {
+function TargetAndActualLineChart({ chartData, unit }: { chartData: ChartData[], unit?: string }) {
     if (!chartData || chartData.length === 0) {
         return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
     }
@@ -263,13 +265,14 @@ function TargetAndActualLineChart({ chartData }: { chartData: ChartData[] }) {
         projected: { label: "実績", color: "hsl(var(--primary))" },
         target: { label: "目標", color: "hsl(var(--muted-foreground))" },
     };
+    const displayUnit = unit === '百万円' ? 'M' : (unit || '');
 
     return (
         <ChartContainer config={lineChartConfig} className="h-full w-full">
             <ComposedChart data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
-                <YAxis unit="M" tick={{ fontSize: 10 }} />
+                <YAxis unit={displayUnit} tick={{ fontSize: 10 }} />
                 <Tooltip
                     content={
                         <ChartTooltipContent
@@ -280,14 +283,14 @@ function TargetAndActualLineChart({ chartData }: { chartData: ChartData[] }) {
                                 if (name === 'projected' && hasActual) {
                                     return (
                                         <div className="flex flex-col gap-1">
-                                           <div className="flex justify-between"><span>実績:</span><span className="font-bold ml-2">{salesActual}M</span></div>
-                                           <div className="flex justify-between"><span>目標:</span><span className="font-bold ml-2">{salesTarget}M</span></div>
+                                           <div className="flex justify-between"><span>実績:</span><span className="font-bold ml-2">{salesActual}{displayUnit}</span></div>
+                                           <div className="flex justify-between"><span>目標:</span><span className="font-bold ml-2">{salesTarget}{displayUnit}</span></div>
                                         </div>
                                     );
                                 }
                                  if (name === 'target' && !hasActual) {
                                      return (
-                                       <div className="flex justify-between"><span>目標:</span><span className="font-bold ml-2">{salesTarget}M</span></div>
+                                       <div className="flex justify-between"><span>目標:</span><span className="font-bold ml-2">{salesTarget}{displayUnit}</span></div>
                                      )
                                  }
                                 return null;
@@ -566,19 +569,7 @@ function TeamGoalBarChart({ chartData, unit, granularity }: { chartData: ChartDa
     if (granularity === 'daily') return value.substring(5); // MM-DD
     return value;
   };
-  return (
-    <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
-      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatXAxis} tick={{ fontSize: 10 }} />
-        <YAxis tick={{ fontSize: 10 }} unit={unit} />
-        <Tooltip content={<ChartTooltipContent />} />
-        <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-        <Bar dataKey="actualValue" name="実績" fill="var(--color-actualValue)" />
-        <Bar dataKey="targetValue" name="目標" fill="var(--color-targetValue)" />
-      </ComposedChart>
-    </ChartContainer>
-  );
+  return <ActualSalesBarChart chartData={chartData} unit={unit} />;
 }
 
 function TeamGoalLineChart({ chartData, unit, granularity }: { chartData: ChartData[], unit?: string, granularity: ChartGranularity }) {
@@ -588,18 +579,7 @@ function TeamGoalLineChart({ chartData, unit, granularity }: { chartData: ChartD
     if (granularity === 'daily') return value.substring(5); // MM-DD
     return value;
   };
-  return (
-    <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
-      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatXAxis} tick={{ fontSize: 10 }} />
-        <YAxis tick={{ fontSize: 10 }} unit={unit} />
-        <Tooltip content={<ChartTooltipContent />} />
-        <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-        <Line type="monotone" dataKey="actualValue" name="実績" stroke="var(--color-actualValue)" strokeWidth={2} dot={false} />
-      </ComposedChart>
-    </ChartContainer>
-  );
+  return <TargetAndActualLineChart chartData={chartData} unit={unit} />;
 }
 
 function TeamGoalComposedChart({ chartData, unit, granularity }: { chartData: ChartData[], unit?: string, granularity: ChartGranularity }) {
@@ -609,21 +589,7 @@ function TeamGoalComposedChart({ chartData, unit, granularity }: { chartData: Ch
     if (granularity === 'daily') return value.substring(5);
     return value;
   };
-  return (
-    <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
-      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatXAxis} tick={{ fontSize: 10 }} />
-        <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit={unit} />
-        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} unit="%" />
-        <Tooltip content={<ChartTooltipContent />} />
-        <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-        <Bar yAxisId="left" dataKey="actualValue" name="実績" fill="var(--color-actualValue)" />
-        <Bar yAxisId="left" dataKey="targetValue" name="目標" fill="var(--color-targetValue)" />
-        <Line yAxisId="right" type="monotone" dataKey="achievementRate" name="達成率" stroke="var(--color-achievementRate)" strokeWidth={2} dot={false} />
-      </ComposedChart>
-    </ChartContainer>
-  );
+  return <ActualSalesComposedChart chartData={chartData} unit={unit} />;
 }
 
 
@@ -651,9 +617,9 @@ export default function WidgetPreview({ widget, chartData, granularity }: Widget
     if (widget.scope === 'company') {
         if (widget.kpi === 'sales_revenue') {
             switch (widget.chartType) {
-                case 'composed': return <ActualSalesComposedChart chartData={chartData} />;
-                case 'bar': return <ActualSalesBarChart chartData={chartData} />;
-                case 'line': return <TargetAndActualLineChart chartData={chartData} />;
+                case 'composed': return <ActualSalesComposedChart chartData={chartData} unit="百万円" />;
+                case 'bar': return <ActualSalesBarChart chartData={chartData} unit="百万円" />;
+                case 'line': return <TargetAndActualLineChart chartData={chartData} unit="百万円" />;
             }
         }
         if (widget.kpi === 'profit_margin') {
