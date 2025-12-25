@@ -523,7 +523,15 @@ function TeamGoalTimeSeriesDataDialog({
                             <Input id="actual-value" type="number" value={currentActual} onChange={e => setCurrentActual(e.target.value)} disabled={!selectedDate} />
                         </div>
                     </div>
-                     <Button type="button" onClick={handleAddOrUpdateRecord} disabled={!selectedDate} className="w-full">
+                     <Button 
+                        type="button" 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleAddOrUpdateRecord();
+                        }} 
+                        disabled={!selectedDate} 
+                        className="w-full"
+                     >
                        この日付のデータを追加/更新
                     </Button>
                 </div>
