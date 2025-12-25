@@ -301,7 +301,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                       organizations={organizations}
                       value={teamScopeId}
                       onChange={setTeamScopeId}
-                      disabled={(org) => org.type === 'holding' || org.type === 'company'}
+                      disabled={(org) => org.type === 'holding'}
                     />
                 </div>
                 <div className="grid gap-2">
@@ -2001,7 +2001,7 @@ export default function DashboardSettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope | 'personal')}>
-          <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1 max-w-[150px]" : "hidden")))}>
+          <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-2" : "hidden")))}>
               {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
               {canManageOrgPersonalGoals && (
                 <>
@@ -2009,7 +2009,7 @@ export default function DashboardSettingsPage() {
                   <TabsTrigger value="personal">個人単位</TabsTrigger>
                 </>
               )}
-            </TabsList>
+          </TabsList>
             <TabsContent value="company">
                 {canManageCompanyGoals ? (
                   isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
