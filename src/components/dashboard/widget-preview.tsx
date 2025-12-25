@@ -66,7 +66,7 @@ const teamGoalChartConfig = {
   targetValue: { label: "目標", color: "hsl(var(--muted-foreground))" },
   achievementRate: { label: '達成率', color: 'hsl(38 92% 50%)' },
   base: { label: "実績", color: "hsl(var(--primary))" },
-  over: { label: "超過達成", color: "hsl(var(--destructive))" },
+  over: { label: "超過達成", color: "hsl(221 83% 53%)" }, // Changed to blue
   shortfall: { label: "目標不足分", color: "hsl(var(--primary))", inactive: true },
 }
 
@@ -578,7 +578,7 @@ function TeamGoalTimeSeriesChart({
   isCumulative: boolean;
 }) {
   if (!chartData || chartData.length === 0) {
-    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
+     return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
   }
   const displayUnit = widget.unit === '百万円' ? 'M' : widget.unit || '';
 
@@ -612,9 +612,20 @@ function TeamGoalTimeSeriesChart({
     );
   } else {
     // Non-cumulative view (Bar chart of period values)
+     const processedData = chartData.map(d => {
+        const periodTarget = widget.targetValue ? (widget.targetValue / chartData.length) : 0; // Simplified target per period
+        const hasActual = d.actualValue > 0;
+        if(hasActual) {
+            return d.actualValue >= periodTarget 
+                ? { ...d, base: periodTarget, over: d.actualValue - periodTarget, shortfall: 0 }
+                : { ...d, base: d.actualValue, over: 0, shortfall: periodTarget - d.actualValue };
+        }
+        return { ...d, base: 0, over: 0, shortfall: periodTarget };
+    });
+
     return (
        <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
-        <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <ComposedChart data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={xTickFormatter} tick={{ fontSize: 10 }} />
           <YAxis unit={displayUnit} tick={{ fontSize: 10 }} />
@@ -624,12 +635,22 @@ function TeamGoalTimeSeriesChart({
                 labelFormatter={(label) => {
                   try { return format(new Date(label), 'yyyy年M月d日'); } catch { return label; }
                 }}
-                formatter={(value) => [`${value} ${displayUnit}`, '実績']}
+                formatter={(value, name, item) => {
+                  const { actualValue } = item.payload as any;
+                  if (name === "実績") return `${actualValue} ${displayUnit}`;
+                  if (name === "超過達成") return `超過: ${value} ${displayUnit}`;
+                  return null;
+                }}
               />
             }
           />
-          <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} payload={[{ value: '期間実績', type: 'rect', id: 'actualValue', color: teamGoalChartConfig.actualValue.color }]}/>
-          <Bar dataKey="actualValue" fill="var(--color-actualValue)" />
+          <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} payload={[
+              { value: '実績', type: 'rect', id: 'base', color: teamGoalChartConfig.base.color },
+              { value: '超過達成', type: 'rect', id: 'over', color: teamGoalChartConfig.over.color },
+          ]}/>
+          <Bar dataKey="base" name="実績" fill="var(--color-base)" stackId="a" />
+          <Bar dataKey="over" name="超過達成" fill="var(--color-over)" stackId="a" />
+          <ReferenceLine y={widget.targetValue} label={{ value: "目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="var(--color-targetValue)" strokeDasharray="3 3" />
         </ComposedChart>
       </ChartContainer>
     )
@@ -652,14 +673,17 @@ function TeamGoalComposedChart({
   
   const processedData = useMemo(() => {
     let cumulativeActual = 0;
+    const numPeriods = chartData.length > 0 ? chartData.length : 1;
+    const periodTarget = widget.targetValue ? widget.targetValue / numPeriods : 0;
+
     return chartData.map(d => {
       cumulativeActual += d.actualValue;
       const achievementRate = widget.targetValue ? Math.round((cumulativeActual / widget.targetValue) * 100) : 0;
       return {
         ...d,
         base: d.actualValue,
-        over: 0, // Simplified for now
-        shortfall: 0, // Simplified for now
+        over: d.actualValue > periodTarget ? d.actualValue - periodTarget : 0,
+        shortfall: d.actualValue < periodTarget ? periodTarget - d.actualValue : 0,
         achievementRate: achievementRate,
       };
     });
@@ -692,7 +716,7 @@ function TeamGoalComposedChart({
         <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} payload={[{ value: '期間実績', type: 'rect', id: 'base', color: teamGoalChartConfig.base.color }, { value: '累計達成率', type: 'line', id: 'achievementRate', color: teamGoalChartConfig.achievementRate.color }]} />
         <Bar dataKey="base" name="実績" fill="var(--color-base)" yAxisId="left" />
         <Line dataKey="achievementRate" name="達成率" stroke="var(--color-achievementRate)" yAxisId="right" dot={false} />
-        <ReferenceLine y={widget.targetValue} yAxisId="left" label={{ value: "目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="var(--color-targetValue)" strokeDasharray="3 3" />
+        <ReferenceLine y={widget.targetValue} yAxisId="left" label={{ value: "期間目標", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} stroke="var(--color-targetValue)" strokeDasharray="3 3" />
       </ComposedChart>
     </ChartContainer>
   );
@@ -744,12 +768,12 @@ export default function WidgetPreview({ widget, chartData, granularity, isCumula
             case 'donut':
                 return <DonutChartWidget widget={widget} />;
             case 'bar':
-                return <TeamGoalTimeSeriesChart chartData={chartData} widget={widget} xTickFormatter={xTickFormatter} isCumulative={isCumulative} />;
+                 return <TeamGoalTimeSeriesChart chartData={chartData} widget={widget} xTickFormatter={xTickFormatter} isCumulative={isCumulative} />;
             case 'line':
-                return <TeamGoalTimeSeriesChart chartData={chartData} widget={widget} xTickFormatter={xTickFormatter} isCumulative={true} />;
+                return <TeamGoalTimeSeriesChart chartData={chartData} widget={widget} xTickFormatter={xTickFormatter} isCumulative={true} />; // Line chart is always cumulative
             case 'composed':
                  return <TeamGoalComposedChart chartData={chartData} widget={widget} xTickFormatter={xTickFormatter} />;
-            default: // bar, line, composed
+            default:
                 return <TeamGoalTimeSeriesChart chartData={chartData} widget={widget} xTickFormatter={xTickFormatter} isCumulative={isCumulative} />;
         }
     }
@@ -787,3 +811,5 @@ export default function WidgetPreview({ widget, chartData, granularity, isCumula
         default: return <BarChartPreview />;
       }
 }
+
+    
