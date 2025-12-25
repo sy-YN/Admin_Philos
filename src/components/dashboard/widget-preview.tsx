@@ -18,7 +18,7 @@ import * as RechartsPrimitive from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Goal } from '@/types/goal';
 import { cn } from '@/lib/utils';
-import { getWeek } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
 export type ChartData = {
@@ -66,7 +66,7 @@ const teamGoalChartConfig = {
   achievementRate: { label: '達成率', color: 'hsl(38 92% 50%)' },
 }
 
-function ActualSalesComposedChart({ chartData, unit }: { chartData: ChartData[], unit?:string }) {
+function ActualSalesComposedChart({ chartData, unit, granularity, xTickFormatter }: { chartData: ChartData[], unit?:string, granularity?: ChartGranularity, xTickFormatter?: (value: string, index: number) => string; }) {
     if (!chartData || chartData.length === 0) {
         return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
     }
@@ -108,7 +108,7 @@ function ActualSalesComposedChart({ chartData, unit }: { chartData: ChartData[],
         <ChartContainer config={salesChartConfig} className="h-full w-full">
             <ComposedChart accessibilityLayer data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={xTickFormatter || ((value) => `${new Date(value).getMonth() + 1}月`)} tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit={unit === '百万円' ? 'M' : unit} />
                 <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit="%" />
                 <Tooltip
@@ -179,7 +179,7 @@ function ActualSalesComposedChart({ chartData, unit }: { chartData: ChartData[],
     );
 }
 
-function ActualSalesBarChart({ chartData, unit }: { chartData: ChartData[], unit?: string }) {
+function ActualSalesBarChart({ chartData, unit, xTickFormatter }: { chartData: ChartData[], unit?: string, xTickFormatter?: (value: string, index: number) => string; }) {
     if (!chartData || chartData.length === 0) {
         return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
     }
@@ -198,7 +198,7 @@ function ActualSalesBarChart({ chartData, unit }: { chartData: ChartData[], unit
         <ChartContainer config={salesChartConfig} className="h-full w-full">
             <ComposedChart data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={xTickFormatter || ((value) => `${new Date(value).getMonth() + 1}月`)} tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--foreground))" tick={{ fontSize: 10 }} unit={unit === '百万円' ? 'M' : unit} />
                 <Tooltip
                   cursor={true}
@@ -248,7 +248,7 @@ function ActualSalesBarChart({ chartData, unit }: { chartData: ChartData[], unit
     );
 }
 
-function TargetAndActualLineChart({ chartData, unit }: { chartData: ChartData[], unit?: string }) {
+function TargetAndActualLineChart({ chartData, unit, xTickFormatter }: { chartData: ChartData[], unit?: string, xTickFormatter?: (value: string, index: number) => string; }) {
     if (!chartData || chartData.length === 0) {
         return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">データがありません</div>;
     }
@@ -271,7 +271,7 @@ function TargetAndActualLineChart({ chartData, unit }: { chartData: ChartData[],
         <ChartContainer config={lineChartConfig} className="h-full w-full">
             <ComposedChart data={processedData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={xTickFormatter || ((value) => `${new Date(value).getMonth() + 1}月`)} tick={{ fontSize: 10 }} />
                 <YAxis unit={displayUnit} tick={{ fontSize: 10 }} />
                 <Tooltip
                     content={
@@ -562,37 +562,6 @@ function DonutChartWidget({ widget }: { widget: Goal }) {
   );
 }
 
-function TeamGoalBarChart({ chartData, unit, granularity }: { chartData: ChartData[], unit?: string, granularity: ChartGranularity }) {
-  const formatXAxis = (value: string) => {
-    if (granularity === 'weekly') return value.replace(/.+-W/, 'W');
-    if (granularity === 'monthly') return `${new Date(value).getMonth() + 1}月`;
-    if (granularity === 'daily') return value.substring(5); // MM-DD
-    return value;
-  };
-  return <ActualSalesBarChart chartData={chartData} unit={unit} />;
-}
-
-function TeamGoalLineChart({ chartData, unit, granularity }: { chartData: ChartData[], unit?: string, granularity: ChartGranularity }) {
-  const formatXAxis = (value: string) => {
-    if (granularity === 'weekly') return value.replace(/.+-W/, 'W');
-    if (granularity === 'monthly') return `${new Date(value).getMonth() + 1}月`;
-    if (granularity === 'daily') return value.substring(5); // MM-DD
-    return value;
-  };
-  return <TargetAndActualLineChart chartData={chartData} unit={unit} />;
-}
-
-function TeamGoalComposedChart({ chartData, unit, granularity }: { chartData: ChartData[], unit?: string, granularity: ChartGranularity }) {
-  const formatXAxis = (value: string) => {
-    if (granularity === 'weekly') return value.replace(/.+-W/, 'W');
-    if (granularity === 'monthly') return `${new Date(value).getMonth() + 1}月`;
-    if (granularity === 'daily') return value.substring(5);
-    return value;
-  };
-  return <ActualSalesComposedChart chartData={chartData} unit={unit} />;
-}
-
-
 interface WidgetPreviewProps {
     widget: Goal;
     chartData: ChartData[];
@@ -601,16 +570,35 @@ interface WidgetPreviewProps {
 
 export default function WidgetPreview({ widget, chartData, granularity }: WidgetPreviewProps) {
 
+    const xTickFormatter = (value: string, index: number): string => {
+        if (granularity === 'monthly') {
+            return format(new Date(value), 'M月');
+        }
+        if (granularity === 'weekly') {
+            return format(new Date(value), 'M/d');
+        }
+        if (granularity === 'daily') {
+            if (!widget.startDate || !widget.endDate) return value;
+            const totalDays = differenceInDays(widget.endDate.toDate(), widget.startDate.toDate());
+            const tickInterval = totalDays > 30 ? 14 : totalDays > 14 ? 7 : 1;
+            if (index % tickInterval === 0) {
+                return format(new Date(value), 'M/d');
+            }
+            return '';
+        }
+        return value;
+    };
+
     if (widget.scope === 'team') {
         switch(widget.chartType) {
             case 'donut':
                 return <DonutChartWidget widget={widget} />;
             case 'bar':
-                return <TeamGoalBarChart chartData={chartData} unit={widget.unit} granularity={granularity} />;
+                return <ActualSalesBarChart chartData={chartData} unit={widget.unit} xTickFormatter={xTickFormatter}/>;
             case 'line':
-                return <TeamGoalLineChart chartData={chartData} unit={widget.unit} granularity={granularity} />;
+                return <TargetAndActualLineChart chartData={chartData} unit={widget.unit} xTickFormatter={xTickFormatter} />;
             case 'composed':
-                return <TeamGoalComposedChart chartData={chartData} unit={widget.unit} granularity={granularity} />;
+                return <ActualSalesComposedChart chartData={chartData} unit={widget.unit} granularity={granularity} xTickFormatter={xTickFormatter} />;
         }
     }
 

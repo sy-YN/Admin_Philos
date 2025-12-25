@@ -38,7 +38,7 @@ import type { PersonalGoal, GoalStatus } from '@/types/personal-goal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { format, startOfDay, getWeek, getMonth, getYear, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { format, startOfDay, getWeek, getMonth, getYear, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, differenceInDays } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Slider } from '@/components/ui/slider';
@@ -1242,49 +1242,49 @@ function WidgetCard({
     }
 
     if (widget.scope === 'team' && teamGoalRecords && widget.startDate && widget.endDate) {
-      const recordsByDate = new Map<string, GoalRecord>();
-      teamGoalRecords.forEach(r => recordsByDate.set(format(r.date.toDate(), 'yyyy-MM-dd'), r));
-      
-      const interval = { start: widget.startDate.toDate(), end: widget.endDate.toDate() };
-      
-      let groupedData: { [key: string]: { targets: number[], actuals: number[] } } = {};
-
-      eachDayOfInterval(interval).forEach(day => {
-        const dayString = format(day, 'yyyy-MM-dd');
-        const record = recordsByDate.get(dayString);
-        let key = '';
-
-        if (granularity === 'monthly') {
-          key = format(day, 'yyyy-MM');
-        } else if (granularity === 'weekly') {
-          const week = getWeek(day, { locale: ja, weekStartsOn: 1 });
-          const year = getYear(day);
-          key = `${year}-W${String(week).padStart(2, '0')}`;
-        } else { // daily
-          key = dayString;
-        }
-
-        if (!groupedData[key]) {
-          groupedData[key] = { targets: [], actuals: [] };
-        }
-        groupedData[key].targets.push(record?.targetValue || 0);
-        groupedData[key].actuals.push(record?.actualValue || 0);
-      });
-      
-      return Object.entries(groupedData).map(([key, { targets, actuals }]) => {
-          const totalTarget = targets.reduce((sum, val) => sum + val, 0);
-          const totalActual = actuals.reduce((sum, val) => sum + val, 0);
-          return {
-            month: key,
-            targetValue: totalTarget,
-            actualValue: totalActual,
-            achievementRate: calculateAchievementRate(totalActual, totalTarget),
-            salesActual: totalActual, // Use salesActual for team data too
-            salesTarget: totalTarget, // Use salesTarget for team data too
-            profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
-          };
-      }).sort((a, b) => a.month.localeCompare(b.month));
-    }
+        const recordsByDate = new Map<string, GoalRecord>();
+        teamGoalRecords.forEach(r => recordsByDate.set(format(r.date.toDate(), 'yyyy-MM-dd'), r));
+        
+        const interval = { start: widget.startDate.toDate(), end: widget.endDate.toDate() };
+        
+        let groupedData: { [key: string]: { targets: number[], actuals: number[], count: number } } = {};
+  
+        eachDayOfInterval(interval).forEach(day => {
+          const dayString = format(day, 'yyyy-MM-dd');
+          const record = recordsByDate.get(dayString);
+          let key = '';
+  
+          if (granularity === 'monthly') {
+            key = format(day, 'yyyy-MM');
+          } else if (granularity === 'weekly') {
+            const weekStart = startOfWeek(day, { weekStartsOn: 1 });
+            key = format(weekStart, 'yyyy-MM-dd');
+          } else { // daily
+            key = dayString;
+          }
+  
+          if (!groupedData[key]) {
+            groupedData[key] = { targets: [], actuals: [], count: 0 };
+          }
+          groupedData[key].targets.push(record?.targetValue || 0);
+          groupedData[key].actuals.push(record?.actualValue || 0);
+          groupedData[key].count += 1;
+        });
+        
+        return Object.entries(groupedData).map(([key, { targets, actuals }]) => {
+            const totalTarget = targets.reduce((sum, val) => sum + val, 0);
+            const totalActual = actuals.reduce((sum, val) => sum + val, 0);
+            return {
+              month: key, // Keep 'month' as the key for x-axis
+              targetValue: totalTarget,
+              actualValue: totalActual,
+              achievementRate: calculateAchievementRate(totalActual, totalTarget),
+              salesActual: totalActual,
+              salesTarget: totalTarget,
+              profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
+            };
+        }).sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
+      }
     
     return [];
   }, [widget, salesData, profitData, customerData, projectComplianceData, teamGoalRecords, granularity]);
