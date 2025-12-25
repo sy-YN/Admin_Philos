@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import dynamic from 'next/dynamic';
-import type { ChartData } from '@/components/dashboard/widget-preview';
+import type { ChartData, ChartGranularity } from '@/components/dashboard/widget-preview';
 import { cn } from '@/lib/utils';
 import {
   getFiscalYear,
@@ -97,7 +97,6 @@ export const kpiToChartMapping: Record<string, string[]> = {
 
 
 type WidgetScope = 'company' | 'team';
-type ChartGranularity = 'daily' | 'weekly' | 'monthly';
 
 const calculateAchievementRate = (actual: number, target: number) => {
   if (target === 0) return actual > 0 ? 100 : 0;
@@ -122,6 +121,9 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
   const [targetValue, setTargetValue] = useState(100);
   const [unit, setUnit] = useState('%');
   const [teamScopeId, setTeamScopeId] = useState('');
+  const [defaultGranularity, setDefaultGranularity] = useState<ChartGranularity>('monthly');
+  const [defaultIsCumulative, setDefaultIsCumulative] = useState(true);
+
   
   const handleKpiChange = (newKpi: string) => {
     setKpi(newKpi);
@@ -149,6 +151,8 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
       scope,
       scopeId,
       chartType,
+      defaultGranularity,
+      defaultIsCumulative,
     };
     
     if (scope === 'company') {
@@ -184,6 +188,8 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
       setTitle(widget?.title || '');
       setScope(initialScope);
       setChartType(widget?.chartType || '');
+      setDefaultGranularity(widget?.defaultGranularity || 'monthly');
+      setDefaultIsCumulative(widget?.defaultIsCumulative ?? true);
 
       if (initialScope === 'company') {
         setKpi(widget?.kpi || '');
@@ -208,6 +214,8 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
       setTargetValue(100);
       setUnit('%');
       setTeamScopeId('');
+      setDefaultGranularity('monthly');
+      setDefaultIsCumulative(true);
     }
   }, [widget, open, defaultScope]);
 
@@ -217,13 +225,13 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{widget ? 'ウィジェットを編集' : '新規ウィジェットを追加'}</DialogTitle>
             <DialogDescription>表示したい目標とグラフの種類を選択してください。</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
             <div className="grid gap-2">
               <Label htmlFor="widget-title">ウィジェットタイトル</Label>
               <Input id="widget-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="例: 四半期新規契約数" required />
@@ -344,6 +352,29 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                         </Select>
                     </div>
                 </div>
+                <div className="border-t pt-4 mt-2">
+                    <h4 className="text-sm font-medium mb-2">デフォルト表示設定</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label>時間軸</Label>
+                            <Select value={defaultGranularity} onValueChange={(v) => setDefaultGranularity(v as ChartGranularity)}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="monthly">月ごと</SelectItem>
+                                    <SelectItem value="weekly">週ごと</SelectItem>
+                                    <SelectItem value="daily">日ごと</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-col gap-2 pt-2">
+                             <Label>実績の積み上げ</Label>
+                            <div className="flex items-center space-x-2 mt-2">
+                                <Switch id="is-cumulative-switch" checked={defaultIsCumulative} onCheckedChange={setDefaultIsCumulative} />
+                                <Label htmlFor="is-cumulative-switch">{defaultIsCumulative ? 'ON' : 'OFF'}</Label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 </>
             )}
           </div>
@@ -421,12 +452,12 @@ function TeamGoalTimeSeriesDataDialog({
   children,
 }: {
   widget: Goal;
-  onSave: (records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' >[]) => void;
+  onSave: (records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' | 'targetValue'>[]) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  const { data: existingRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
+  const { data: existingRecords, isLoading: isLoadingRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
   const [records, setRecords] = useState<Map<string, { date: Timestamp; actualValue: number }>>(new Map());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [currentActual, setCurrentActual] = useState('');
@@ -457,7 +488,11 @@ function TeamGoalTimeSeriesDataDialog({
 
   const handleAddOrUpdateRecord = () => {
     if (!selectedDate) return;
-    const actual = parseFloat(currentActual) || 0;
+    const actual = parseFloat(currentActual);
+    if(isNaN(actual)) {
+       toast({ title: '入力エラー', description: '実績には数値を入力してください。', variant: 'destructive'});
+       return;
+    }
 
     const newRecords = new Map(records);
     newRecords.set(selectedDateString, {
@@ -503,8 +538,8 @@ function TeamGoalTimeSeriesDataDialog({
               onSelect={setSelectedDate}
               className="rounded-md border mx-auto"
               disabled={(date) =>
-                (widget.startDate && date < widget.startDate.toDate()) ||
-                (widget.endDate && date > widget.endDate.toDate()) ||
+                (widget.startDate && date < startOfDay(widget.startDate.toDate())) ||
+                (widget.endDate && date > startOfDay(widget.endDate.toDate())) ||
                 false
               }
               initialFocus
@@ -540,41 +575,47 @@ function TeamGoalTimeSeriesDataDialog({
           <div className="space-y-4">
             <h3 className="font-semibold">記録済みデータ</h3>
             <ScrollArea className="h-[450px] border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>日付</TableHead>
-                    <TableHead>実績</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedRecords.length > 0 ? (
-                    sortedRecords.map((rec) => (
-                      <TableRow
-                        key={rec.date.toMillis()}
-                        onClick={() => setSelectedDate(rec.date.toDate())}
-                        className="cursor-pointer"
-                      >
-                        <TableCell>
-                          {format(rec.date.toDate(), 'yy/MM/dd')}
-                        </TableCell>
-                        <TableCell>
-                          {rec.actualValue} {widget.unit}
+              {isLoadingRecords ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-6 w-6 animate-spin"/>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>日付</TableHead>
+                      <TableHead>実績</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedRecords.length > 0 ? (
+                      sortedRecords.map((rec) => (
+                        <TableRow
+                          key={rec.date.toMillis()}
+                          onClick={() => setSelectedDate(rec.date.toDate())}
+                          className="cursor-pointer"
+                        >
+                          <TableCell>
+                            {format(rec.date.toDate(), 'yy/MM/dd')}
+                          </TableCell>
+                          <TableCell>
+                            {rec.actualValue} {widget.unit}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={2}
+                          className="text-center text-muted-foreground h-24"
+                        >
+                          データがありません
                         </TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={3}
-                        className="text-center text-muted-foreground h-24"
-                      >
-                        データがありません
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </ScrollArea>
           </div>
         </div>
@@ -1113,6 +1154,7 @@ function WidgetCard({
   onSave,
   onDelete,
   onSetActive,
+  onSaveDisplaySettings,
   onSaveSalesRecords,
   onSaveProfitRecords,
   onSaveCustomerRecords,
@@ -1127,6 +1169,7 @@ function WidgetCard({
   onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
   onDelete: (id: string) => void;
   onSetActive: (id: string) => void;
+  onSaveDisplaySettings: (id: string, settings: { defaultGranularity: ChartGranularity, defaultIsCumulative: boolean }) => void;
   onSaveSalesRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
   onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
@@ -1134,14 +1177,14 @@ function WidgetCard({
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
   onSaveTeamGoalTimeSeriesData: (
     goalId: string,
-    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]
+    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' | 'targetValue'>[]
   ) => void;
   currentUser: Member | null;
   canEdit: boolean;
   organizations: Organization[];
 }) {
-  const [granularity, setGranularity] = useState<ChartGranularity>('monthly');
-  const [isCumulative, setIsCumulative] = useState(true);
+  const [granularity, setGranularity] = useState<ChartGranularity>(widget.defaultGranularity || 'monthly');
+  const [isCumulative, setIsCumulative] = useState(widget.defaultIsCumulative ?? true);
   const { data: salesData } = useSubCollection<SalesRecord>('goals', widget.id, 'salesRecords');
   const { data: profitData } = useSubCollection<ProfitRecord>('goals', widget.id, 'profitRecords');
   const { data: customerData } = useSubCollection<CustomerRecord>('goals', widget.id, 'customerRecords');
@@ -1151,6 +1194,16 @@ function WidgetCard({
     'projectComplianceRecords'
   );
   const { data: teamGoalRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
+
+  const handleGranularityChange = (value: ChartGranularity) => {
+    setGranularity(value);
+    onSaveDisplaySettings(widget.id, { defaultGranularity: value, defaultIsCumulative: isCumulative });
+  }
+
+  const handleCumulativeChange = (checked: boolean) => {
+    setIsCumulative(checked);
+    onSaveDisplaySettings(widget.id, { defaultGranularity: granularity, defaultIsCumulative: checked });
+  }
 
   const getChartDataForWidget = useCallback((): ChartData[] => {
     if (widget.scope === 'company') {
@@ -1176,39 +1229,35 @@ function WidgetCard({
         
         const interval = { start: widget.startDate.toDate(), end: widget.endDate.toDate() };
         
-        let groupedData: { [key: string]: { date: Date; actuals: number[] } } = {};
+        let groupedData: { [key: string]: { actuals: number[] } } = {};
   
         eachDayOfInterval(interval).forEach(day => {
           const dayString = format(day, 'yyyy-MM-dd');
           const record = recordsByDate.get(dayString);
           let key: string;
-          let groupDate: Date;
   
           if (granularity === 'monthly') {
-            groupDate = startOfMonth(day);
-            key = format(groupDate, 'yyyy-MM-dd');
+            key = format(startOfMonth(day), 'yyyy-MM-dd');
           } else if (granularity === 'weekly') {
-            groupDate = startOfWeek(day, { weekStartsOn: 1 }); // Monday
-            key = format(groupDate, 'yyyy-MM-dd');
+            key = format(startOfWeek(day, { weekStartsOn: 1 }), 'yyyy-MM-dd'); // Monday
           } else { // daily
-            groupDate = day;
             key = dayString;
           }
   
           if (!groupedData[key]) {
-            groupedData[key] = { date: groupDate, actuals: [] };
+            groupedData[key] = { actuals: [] };
           }
           groupedData[key].actuals.push(record?.actualValue || 0);
         });
         
         const sortedKeys = Object.keys(groupedData).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
-        const numDataPoints = sortedKeys.length;
-        const periodTarget = widget.targetValue ? widget.targetValue / numDataPoints : 0;
+        
+        const periodTarget = widget.targetValue ? widget.targetValue / sortedKeys.length : 0;
         
         let cumulativeActual = 0;
         return sortedKeys.map(key => {
             const { actuals } = groupedData[key];
-            const periodActual = (granularity === 'daily') ? actuals[0] || 0 : actuals.reduce((sum, val) => sum + val, 0);
+            const periodActual = actuals.reduce((sum, val) => sum + val, 0);
             cumulativeActual += periodActual;
             const cumulativeAchievementRate = widget.targetValue ? Math.round((cumulativeActual / widget.targetValue) * 100) : 0;
             return {
@@ -1224,7 +1273,7 @@ function WidgetCard({
     }
     
     return [];
-  }, [widget, salesData, profitData, customerData, projectComplianceData, teamGoalRecords, granularity, isCumulative]);
+  }, [widget, salesData, profitData, customerData, projectComplianceData, teamGoalRecords, granularity]);
 
   return (
     <Card className={cn('flex flex-col', widget.status === 'active' && 'ring-2 ring-primary')}>
@@ -1240,7 +1289,7 @@ function WidgetCard({
            {widget.scope === 'team' && widget.chartType !== 'donut' && (
              <div className="flex items-center gap-2">
                 <div className="flex items-center space-x-2">
-                  <Switch id={`cumulative-switch-${widget.id}`} checked={isCumulative} onCheckedChange={setIsCumulative} />
+                  <Switch id={`cumulative-switch-${widget.id}`} checked={isCumulative} onCheckedChange={handleCumulativeChange} />
                   <Label htmlFor={`cumulative-switch-${widget.id}`} className="text-xs font-normal">
                     実績を積上
                   </Label>
@@ -1253,9 +1302,9 @@ function WidgetCard({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => setGranularity('monthly')}>月ごと</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setGranularity('weekly')}>週ごと</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setGranularity('daily')}>日ごと</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleGranularityChange('monthly')}>月ごと</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleGranularityChange('weekly')}>週ごと</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleGranularityChange('daily')}>日ごと</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
             </div>
@@ -1386,6 +1435,7 @@ function WidgetList({
   onSave,
   onDelete,
   onSetActive,
+  onSaveDisplaySettings,
   onSaveSalesRecords,
   onSaveProfitRecords,
   onSaveCustomerRecords,
@@ -1401,12 +1451,13 @@ function WidgetList({
   onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
   onDelete: (id: string) => void;
   onSetActive: (id: string, scopeId: string) => void;
+  onSaveDisplaySettings: (id: string, settings: { defaultGranularity: ChartGranularity, defaultIsCumulative: boolean }) => void;
   onSaveSalesRecords: (goalId: string, records: Omit<SalesRecord, 'id'>[]) => void;
   onSaveProfitRecords: (goalId: string, records: Omit<ProfitRecord, 'id'>[]) => void;
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
-  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => void;
+  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt' |'targetValue'>[]) => void;
   currentUser: Member | null;
   canEdit: boolean;
   organizations: Organization[];
@@ -1429,6 +1480,7 @@ function WidgetList({
           onSave={onSave}
           onDelete={onDelete}
           onSetActive={() => onSetActive(widget.id, widget.scopeId)}
+          onSaveDisplaySettings={onSaveDisplaySettings}
           onSaveSalesRecords={onSaveSalesRecords}
           onSaveProfitRecords={onSaveProfitRecords}
           onSaveCustomerRecords={onSaveCustomerRecords}
@@ -1843,6 +1895,18 @@ export default function DashboardSettingsPage() {
         toast({ title: "エラー", description: "表示ウィジェットの更新に失敗しました。", variant: 'destructive' });
       }
     };
+    
+    const handleSaveDisplaySettings = async (id: string, settings: { defaultGranularity: ChartGranularity, defaultIsCumulative: boolean }) => {
+        if (!firestore) return;
+        try {
+            const widgetRef = doc(firestore, 'goals', id);
+            await updateDoc(widgetRef, { ...settings, updatedAt: serverTimestamp() });
+            toast({ title: "成功", description: "グラフの表示設定を保存しました。" });
+        } catch (error) {
+            console.error("Error saving display settings:", error);
+            toast({ title: "エラー", description: "表示設定の保存に失敗しました。", variant: 'destructive' });
+        }
+    };
 
     const handleSaveSalesRecords = async (goalId: string, newRecords: Omit<SalesRecord, 'id'>[]) => {
       if (!firestore || newRecords.length === 0) return;
@@ -1938,7 +2002,7 @@ export default function DashboardSettingsPage() {
       }
     };
 
-    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => {
+    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'|'targetValue'>[]) => {
       if (!firestore || !authUser) return;
       
       const batch = writeBatch(firestore);
@@ -2067,6 +2131,7 @@ export default function DashboardSettingsPage() {
                       onSave={handleSaveWidget} 
                       onDelete={handleDeleteWidget}
                       onSetActive={handleSetActiveWidget}
+                      onSaveDisplaySettings={handleSaveDisplaySettings}
                       onSaveSalesRecords={handleSaveSalesRecords}
                       onSaveProfitRecords={handleSaveProfitRecords}
                       onSaveCustomerRecords={handleSaveCustomerRecords}
@@ -2101,6 +2166,7 @@ export default function DashboardSettingsPage() {
                           onSave={handleSaveWidget} 
                           onDelete={handleDeleteWidget}
                           onSetActive={handleSetActiveWidget}
+                          onSaveDisplaySettings={handleSaveDisplaySettings}
                           onSaveSalesRecords={handleSaveSalesRecords}
                           onSaveProfitRecords={handleSaveProfitRecords}
                           onSaveCustomerRecords={handleSaveCustomerRecords}

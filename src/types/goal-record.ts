@@ -11,6 +11,11 @@ export type GoalRecord = {
    */
   date: Timestamp;
   /**
+   * The target value for this specific date/period.
+   * This field is often calculated on the fly in the component and may not be stored.
+   */
+  targetValue?: number;
+  /**
    * The actual achieved value for this specific date/period.
    */
   actualValue: number;

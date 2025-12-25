@@ -394,6 +394,8 @@
         "targetValue": { "type": "number", "description": "(Team goals - donut chart only) The overall target value for the period." },
         "currentValue": { "type": "number", "description": "(Team goals - donut chart only) The current progress value." },
         "unit": { "type": "string", "description": "(Team goals only) The unit for the goal values (e.g., '%', '件', '円')." },
+        "defaultGranularity": { "type": "string", "enum": ["daily", "weekly", "monthly"], "description": "Default time granularity for chart display." },
+        "defaultIsCumulative": { "type": "boolean", "description": "Default setting for cumulative view." },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -410,7 +412,7 @@
         "authorId": { "type": "string", "description": "UID of the user who last updated this record." },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of the last update." }
       },
-      "required": ["date", "targetValue", "actualValue", "authorId", "updatedAt"]
+      "required": ["date", "actualValue", "authorId", "updatedAt"]
     },
     "PersonalGoal": {
       "title": "Personal Goal",

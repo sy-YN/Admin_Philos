@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type Goal = {
@@ -20,6 +21,10 @@ export type Goal = {
   targetValue?: number;
   currentValue?: number;
   unit?: string;
+
+  // Display settings
+  defaultGranularity?: 'daily' | 'weekly' | 'monthly';
+  defaultIsCumulative?: boolean;
 
   createdAt: Timestamp;
   updatedAt: Timestamp;
