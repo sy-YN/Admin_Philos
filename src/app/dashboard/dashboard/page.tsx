@@ -352,29 +352,31 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                         </Select>
                     </div>
                 </div>
-                <div className="border-t pt-4 mt-2">
-                    <h4 className="text-sm font-medium mb-2">デフォルト表示設定</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label>時間軸</Label>
-                            <Select value={defaultGranularity} onValueChange={(v) => setDefaultGranularity(v as ChartGranularity)}>
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="monthly">月ごと</SelectItem>
-                                    <SelectItem value="weekly">週ごと</SelectItem>
-                                    <SelectItem value="daily">日ごと</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-2 pt-2">
-                             <Label>実績の積み上げ</Label>
-                            <div className="flex items-center space-x-2 mt-2">
-                                <Switch id="is-cumulative-switch" checked={defaultIsCumulative} onCheckedChange={setDefaultIsCumulative} />
-                                <Label htmlFor="is-cumulative-switch">{defaultIsCumulative ? 'ON' : 'OFF'}</Label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                {chartType !== 'donut' && (
+                  <div className="border-t pt-4 mt-2">
+                      <h4 className="text-sm font-medium mb-2">デフォルト表示設定</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                              <Label>時間軸</Label>
+                              <Select value={defaultGranularity} onValueChange={(v) => setDefaultGranularity(v as ChartGranularity)}>
+                                  <SelectTrigger><SelectValue/></SelectTrigger>
+                                  <SelectContent>
+                                      <SelectItem value="monthly">月ごと</SelectItem>
+                                      <SelectItem value="weekly">週ごと</SelectItem>
+                                      <SelectItem value="daily">日ごと</SelectItem>
+                                  </SelectContent>
+                              </Select>
+                          </div>
+                          <div className="flex flex-col gap-2 pt-2">
+                              <Label>実績の積み上げ</Label>
+                              <div className="flex items-center space-x-2 mt-2">
+                                  <Switch id="is-cumulative-switch" checked={defaultIsCumulative} onCheckedChange={setDefaultIsCumulative} />
+                                  <Label htmlFor="is-cumulative-switch">{defaultIsCumulative ? 'ON' : 'OFF'}</Label>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+                )}
                 </>
             )}
           </div>
@@ -452,7 +454,7 @@ function TeamGoalTimeSeriesDataDialog({
   children,
 }: {
   widget: Goal;
-  onSave: (records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' | 'targetValue'>[]) => void;
+  onSave: (records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' >[]) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -1177,7 +1179,7 @@ function WidgetCard({
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
   onSaveTeamGoalTimeSeriesData: (
     goalId: string,
-    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' | 'targetValue'>[]
+    records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]
   ) => void;
   currentUser: Member | null;
   canEdit: boolean;
@@ -1212,7 +1214,7 @@ function WidgetCard({
         const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
 
         return fiscalYearMonths.map(({ year, month }) => {
-            const entry: ChartData = { month: `${year}-${String(month).padStart(2, '0')}`, salesActual: 0, salesTarget: 0, achievementRate: 0, profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0, periodActual: 0, cumulativeActual: 0, periodTarget: 0, cumulativeAchievementRate: 0 };
+            const entry: ChartData = { month: `${year}-${String(month).padStart(2, '0')}`, salesActual: 0, salesTarget: 0, achievementRate: 0, profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0, periodActual: 0, periodTarget: 0, cumulativeActual: 0, cumulativeAchievementRate: 0 };
             if (widget.kpi === 'sales_revenue' && salesData) { const r = salesData.find(d => d.year === year && d.month === month); if (r) Object.assign(entry, { ...r, salesActual: r.salesActual, salesTarget: r.salesTarget }); }
             if (widget.kpi === 'profit_margin' && profitData) { const r = profitData.find(d => d.year === year && d.month === month); if (r) entry.profitMargin = r.profitMargin; }
             if (widget.kpi === 'new_customers' && customerData) { const r = customerData.find(d => d.year === year && d.month === month); if (r) entry.totalCustomers = r.totalCustomers; }
@@ -1252,7 +1254,7 @@ function WidgetCard({
         
         const sortedKeys = Object.keys(groupedData).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
         
-        const periodTarget = widget.targetValue ? widget.targetValue / sortedKeys.length : 0;
+        const periodTarget = widget.targetValue && sortedKeys.length > 0 ? widget.targetValue / sortedKeys.length : 0;
         
         let cumulativeActual = 0;
         return sortedKeys.map(key => {
@@ -1457,7 +1459,7 @@ function WidgetList({
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
-  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt' |'targetValue'>[]) => void;
+  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => void;
   currentUser: Member | null;
   canEdit: boolean;
   organizations: Organization[];
@@ -2002,7 +2004,7 @@ export default function DashboardSettingsPage() {
       }
     };
 
-    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'|'targetValue'>[]) => {
+    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => {
       if (!firestore || !authUser) return;
       
       const batch = writeBatch(firestore);
