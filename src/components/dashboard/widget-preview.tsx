@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -29,6 +30,8 @@ export type ChartData = {
     projectCompliant: number;
     projectMinorDelay: number;
     projectDelayed: number;
+    targetValue: number;
+    actualValue: number;
 }
 
 export const salesChartConfig = {
@@ -53,6 +56,12 @@ const projectComplianceChartConfig = {
   minor_delay: { label: "軽微な遅延", color: "hsl(180 80% 40%)" },
   delayed: { label: "遅延", color: "hsl(var(--destructive))" },
 };
+
+const teamGoalChartConfig = {
+  actualValue: { label: "実績", color: "hsl(var(--primary))" },
+  targetValue: { label: "目標", color: "hsl(var(--muted-foreground))" },
+  achievementRate: { label: '達成率', color: 'hsl(38 92% 50%)' },
+}
 
 function ActualSalesComposedChart({ chartData }: { chartData: ChartData[] }) {
     if (!chartData || chartData.length === 0) {
@@ -547,6 +556,55 @@ function DonutChartWidget({ widget }: { widget: Goal }) {
   );
 }
 
+function TeamGoalBarChart({ chartData, unit }: { chartData: ChartData[], unit?: string }) {
+  return (
+    <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
+      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <YAxis tick={{ fontSize: 10 }} unit={unit} />
+        <Tooltip content={<ChartTooltipContent />} />
+        <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+        <Bar dataKey="actualValue" name="実績" fill="var(--color-actualValue)" />
+        <Bar dataKey="targetValue" name="目標" fill="var(--color-targetValue)" />
+      </ComposedChart>
+    </ChartContainer>
+  );
+}
+
+function TeamGoalLineChart({ chartData, unit }: { chartData: ChartData[], unit?: string }) {
+  return (
+    <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
+      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <YAxis tick={{ fontSize: 10 }} unit={unit} />
+        <Tooltip content={<ChartTooltipContent />} />
+        <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+        <Line type="monotone" dataKey="actualValue" name="実績" stroke="var(--color-actualValue)" strokeWidth={2} dot={false} />
+      </ComposedChart>
+    </ChartContainer>
+  );
+}
+
+function TeamGoalComposedChart({ chartData, unit }: { chartData: ChartData[], unit?: string }) {
+  return (
+    <ChartContainer config={teamGoalChartConfig} className="h-full w-full">
+      <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => `${new Date(value).getMonth() + 1}月`} tick={{ fontSize: 10 }} />
+        <YAxis yAxisId="left" tick={{ fontSize: 10 }} unit={unit} />
+        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} unit="%" />
+        <Tooltip content={<ChartTooltipContent />} />
+        <ChartLegend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+        <Bar yAxisId="left" dataKey="actualValue" name="実績" fill="var(--color-actualValue)" />
+        <Bar yAxisId="left" dataKey="targetValue" name="目標" fill="var(--color-targetValue)" />
+        <Line yAxisId="right" type="monotone" dataKey="achievementRate" name="達成率" stroke="var(--color-achievementRate)" strokeWidth={2} dot={false} />
+      </ComposedChart>
+    </ChartContainer>
+  );
+}
+
 
 interface WidgetPreviewProps {
     widget: Goal;
@@ -559,7 +617,12 @@ export default function WidgetPreview({ widget, chartData }: WidgetPreviewProps)
         switch(widget.chartType) {
             case 'donut':
                 return <DonutChartWidget widget={widget} />;
-            // Add other team chart types here
+            case 'bar':
+                return <TeamGoalBarChart chartData={chartData} unit={widget.unit} />;
+            case 'line':
+                return <TeamGoalLineChart chartData={chartData} unit={widget.unit} />;
+            case 'composed':
+                return <TeamGoalComposedChart chartData={chartData} unit={widget.unit} />;
         }
     }
 

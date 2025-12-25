@@ -45,6 +45,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import type { Organization } from '@/types/organization';
 import { OrganizationPicker } from '@/components/organization/organization-picker';
+import type { GoalRecord } from '@/types/goal-record';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -415,6 +416,154 @@ function TeamGoalDataDialog({
     </Dialog>
   );
 }
+
+function TeamGoalTimeSeriesDataDialog({
+  widget,
+  onSave,
+  children
+}: {
+  widget: Goal;
+  onSave: (records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]) => void;
+  children: React.ReactNode;
+}) {
+    const [open, setOpen] = useState(false);
+    const { toast } = useToast();
+    const { user } = useUser();
+    const { data: existingRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
+    const [records, setRecords] = useState<Map<string, Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>>>(new Map());
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+    const [currentTarget, setCurrentTarget] = useState('');
+    const [currentActual, setCurrentActual] = useState('');
+
+    useEffect(() => {
+      if (open && existingRecords) {
+        const initialRecords = new Map();
+        existingRecords.forEach(rec => {
+          initialRecords.set(format(rec.date.toDate(), 'yyyy-MM-dd'), {
+            date: rec.date,
+            targetValue: rec.targetValue,
+            actualValue: rec.actualValue,
+          });
+        });
+        setRecords(initialRecords);
+      }
+    }, [open, existingRecords]);
+
+    const selectedDateString = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
+    const recordForSelectedDate = records.get(selectedDateString);
+    
+    useEffect(() => {
+        if(selectedDate && records.has(selectedDateString)) {
+            setCurrentTarget(recordForSelectedDate?.targetValue.toString() || '');
+            setCurrentActual(recordForSelectedDate?.actualValue.toString() || '');
+        } else {
+            setCurrentTarget('');
+            setCurrentActual('');
+        }
+    }, [selectedDate, records, selectedDateString, recordForSelectedDate]);
+
+
+    const handleAddOrUpdateRecord = () => {
+        if (!selectedDate) return;
+        const target = parseFloat(currentTarget) || 0;
+        const actual = parseFloat(currentActual) || 0;
+        
+        const newRecords = new Map(records);
+        newRecords.set(selectedDateString, {
+            date: Timestamp.fromDate(selectedDate),
+            targetValue: target,
+            actualValue: actual,
+        });
+        setRecords(newRecords);
+        toast({ title: '一時保存', description: `${selectedDateString}のデータを更新しました。最後に保存ボタンを押してください。`})
+    };
+    
+    const handleSaveAll = () => {
+        const recordsToSave = Array.from(records.values());
+        onSave(recordsToSave);
+        setOpen(false);
+    }
+    
+    const sortedRecords = useMemo(() => Array.from(records.values()).sort((a,b) => b.date.toMillis() - a.date.toMillis()), [records]);
+
+    return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>時系列データ編集: {widget.title}</DialogTitle>
+          <DialogDescription>カレンダーから日付を選択し、目標値と実績値を入力してください。</DialogDescription>
+        </DialogHeader>
+        <div className="grid md:grid-cols-2 gap-8 py-4">
+            <div className="flex flex-col gap-4">
+                <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    className="rounded-md border mx-auto"
+                    disabled={(date) => 
+                        (widget.startDate && date < widget.startDate.toDate()) || 
+                        (widget.endDate && date > widget.endDate.toDate()) ||
+                        false
+                    }
+                    initialFocus
+                />
+                 <div className="space-y-4 p-4 border rounded-md">
+                    <h3 className="font-semibold text-sm">
+                        {selectedDate ? format(selectedDate, 'yyyy年M月d日') : '日付を選択してください'}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="target-value">目標値 ({widget.unit})</Label>
+                            <Input id="target-value" type="number" value={currentTarget} onChange={e => setCurrentTarget(e.target.value)} disabled={!selectedDate} />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="actual-value">実績値 ({widget.unit})</Label>
+                            <Input id="actual-value" type="number" value={currentActual} onChange={e => setCurrentActual(e.target.value)} disabled={!selectedDate} />
+                        </div>
+                    </div>
+                     <Button onClick={handleAddOrUpdateRecord} disabled={!selectedDate} className="w-full">
+                       この日付のデータを追加/更新
+                    </Button>
+                </div>
+            </div>
+            <div className="space-y-4">
+                <h3 className="font-semibold">記録済みデータ</h3>
+                <ScrollArea className="h-[450px] border rounded-md">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>日付</TableHead>
+                                <TableHead>目標</TableHead>
+                                <TableHead>実績</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {sortedRecords.length > 0 ? sortedRecords.map(rec => (
+                                <TableRow key={rec.date.toMillis()} onClick={() => setSelectedDate(rec.date.toDate())} className="cursor-pointer">
+                                    <TableCell>{format(rec.date.toDate(), 'yy/MM/dd')}</TableCell>
+                                    <TableCell>{rec.targetValue} {widget.unit}</TableCell>
+                                    <TableCell>{rec.actualValue} {widget.unit}</TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center text-muted-foreground h-24">データがありません</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
+            </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
+          <Button onClick={handleSaveAll}>全ての変更を保存</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    )
+}
+
 
 function SalesDataManagementDialog({
   widget,
@@ -947,6 +1096,7 @@ function WidgetCard({
   onSaveCustomerRecords,
   onSaveProjectComplianceRecords,
   onSaveTeamGoalData,
+  onSaveTeamGoalTimeSeriesData,
   currentUser,
   canEdit,
   organizations,
@@ -960,6 +1110,7 @@ function WidgetCard({
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
+  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => void;
   currentUser: Member | null;
   canEdit: boolean;
   organizations: Organization[];
@@ -968,6 +1119,7 @@ function WidgetCard({
   const { data: profitData } = useSubCollection<ProfitRecord>('goals', widget.id, 'profitRecords');
   const { data: customerData } = useSubCollection<CustomerRecord>('goals', widget.id, 'customerRecords');
   const { data: projectComplianceData } = useSubCollection<ProjectComplianceRecord>('goals', widget.id, 'projectComplianceRecords');
+  const { data: teamGoalRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
 
   const getChartDataForWidget = useCallback((): ChartData[] => {
     if (widget.scope === 'company') {
@@ -982,6 +1134,7 @@ function WidgetCard({
                 profitMargin: 0,
                 totalCustomers: 0,
                 projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
+                targetValue: 0, actualValue: 0,
             };
             if (widget.kpi === 'sales_revenue' && salesData) {
                 const record = salesData.find(r => r.year === year && r.month === month);
@@ -1013,9 +1166,29 @@ function WidgetCard({
             }
             return chartEntry;
         }).sort((a, b) => a.month.localeCompare(b.month));
+    } else if (widget.scope === 'team' && teamGoalRecords && widget.startDate && widget.endDate) {
+      // Logic to aggregate daily/weekly data into monthly for chart display
+      const monthlyData = new Map<string, { target: number, actual: number, count: number }>();
+      teamGoalRecords.forEach(rec => {
+        const monthKey = format(rec.date.toDate(), 'yyyy-MM');
+        if (!monthlyData.has(monthKey)) {
+          monthlyData.set(monthKey, { target: 0, actual: 0, count: 0 });
+        }
+        const current = monthlyData.get(monthKey)!;
+        current.actual += rec.actualValue;
+        // Assuming target is cumulative or set per-entry. Let's sum it up for simplicity.
+        current.target += rec.targetValue;
+        current.count++;
+      });
+      return Array.from(monthlyData.entries()).map(([month, data]) => ({
+        month,
+        targetValue: data.target,
+        actualValue: data.actual,
+        achievementRate: calculateAchievementRate(data.actual, data.target),
+      }) as ChartData).sort((a, b) => a.month.localeCompare(b.month));
     }
-    return []; // Team and personal charts might not use this format
-  }, [salesData, profitData, customerData, projectComplianceData, widget]);
+    return [];
+  }, [salesData, profitData, customerData, projectComplianceData, teamGoalRecords, widget]);
 
   let kpiLabel = 'N/A';
   if(widget.scope === 'company' || widget.scope === 'personal') {
@@ -1061,11 +1234,11 @@ function WidgetCard({
                 </TeamGoalDataDialog>
             )
         }
-        // TODO: Add data entry for time-series team goals
+        // Time-series graphs for teams
         return (
-            <DropdownMenuItem onSelect={e => e.preventDefault()} disabled>
-                <Database className="mr-2 h-4 w-4"/>データ入力 (開発中)
-            </DropdownMenuItem>
+            <TeamGoalTimeSeriesDataDialog widget={widget} onSave={(records) => onSaveTeamGoalTimeSeriesData(widget.id, records)}>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Database className="mr-2 h-4 w-4"/>データ入力</DropdownMenuItem>
+            </TeamGoalTimeSeriesDataDialog>
         );
     }
     return null;
@@ -1164,6 +1337,7 @@ function WidgetList({
   onSaveCustomerRecords,
   onSaveProjectComplianceRecords,
   onSaveTeamGoalData,
+  onSaveTeamGoalTimeSeriesData,
   currentUser,
   canEdit,
   organizations,
@@ -1178,6 +1352,7 @@ function WidgetList({
   onSaveCustomerRecords: (goalId: string, records: Omit<CustomerRecord, 'id'>[]) => void;
   onSaveProjectComplianceRecords: (goalId: string, records: Omit<ProjectComplianceRecord, 'id'>[]) => void;
   onSaveTeamGoalData: (goalId: string, data: { currentValue: number }) => void;
+  onSaveTeamGoalTimeSeriesData: (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => void;
   currentUser: Member | null;
   canEdit: boolean;
   organizations: Organization[];
@@ -1205,6 +1380,7 @@ function WidgetList({
           onSaveCustomerRecords={onSaveCustomerRecords}
           onSaveProjectComplianceRecords={onSaveProjectComplianceRecords}
           onSaveTeamGoalData={onSaveTeamGoalData}
+          onSaveTeamGoalTimeSeriesData={onSaveTeamGoalTimeSeriesData}
           currentUser={currentUser}
           canEdit={canEdit}
           organizations={organizations}
@@ -1707,6 +1883,37 @@ export default function DashboardSettingsPage() {
         toast({ title: 'エラー', description: '進捗の更新に失敗しました。', variant: 'destructive' });
       }
     };
+
+    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => {
+      if (!firestore || !authUser) return;
+      
+      const batch = writeBatch(firestore);
+      const subCollectionRef = collection(firestore, 'goals', goalId, 'goalRecords');
+
+      // To keep it simple, we'll overwrite existing records for now.
+      // A more complex logic could be to only update changed records.
+      // First, let's get all existing docs to delete them.
+      const existingDocsSnapshot = await getDocs(subCollectionRef);
+      existingDocsSnapshot.forEach(doc => batch.delete(doc.ref));
+
+      records.forEach(record => {
+          // Use a new doc ref for each record to avoid ID collisions if dates change.
+          const recordRef = doc(subCollectionRef);
+          batch.set(recordRef, {
+            ...record,
+            authorId: authUser.uid,
+            updatedAt: serverTimestamp()
+          });
+      });
+      
+      try {
+        await batch.commit();
+        toast({ title: '成功', description: '時系列データを保存しました。' });
+      } catch (error) {
+        console.error("Error saving time series goal records:", error);
+        toast({ title: "エラー", description: "時系列データの保存に失敗しました。", variant: 'destructive' });
+      }
+    };
     
     const handleSavePersonalGoal = async (data: Partial<PersonalGoal>, id?: string) => {
       if (!firestore || !currentUserData) return;
@@ -1793,7 +2000,7 @@ export default function DashboardSettingsPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope)}>
-          <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-2" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1 max-w-[150px]" : "hidden")))}>
+          <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1 max-w-[150px]" : "hidden")))}>
               {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
               {canManageOrgPersonalGoals && (
                 <>
@@ -1815,6 +2022,7 @@ export default function DashboardSettingsPage() {
                       onSaveCustomerRecords={handleSaveCustomerRecords}
                       onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
                       onSaveTeamGoalData={handleSaveTeamGoalData}
+                      onSaveTeamGoalTimeSeriesData={handleSaveTeamGoalTimeSeriesData}
                       currentUser={currentUserData}
                       canEdit={canManageCompanyGoals}
                       organizations={allOrganizations || []}
@@ -1848,6 +2056,7 @@ export default function DashboardSettingsPage() {
                           onSaveCustomerRecords={handleSaveCustomerRecords}
                           onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
                           onSaveTeamGoalData={handleSaveTeamGoalData}
+                          onSaveTeamGoalTimeSeriesData={handleSaveTeamGoalTimeSeriesData}
                           currentUser={currentUserData}
                           canEdit={canManageOrgPersonalGoals}
                           organizations={allOrganizations || []}
@@ -1882,4 +2091,3 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
-

@@ -376,23 +376,41 @@
       "required": ["title", "content", "icon", "startDate", "endDate", "order", "authorId", "authorName", "createdAt", "updatedAt"]
     },
     "Goal": {
-        "title": "Goal",
-        "description": "Represents a goal for a company, team, or individual.",
-        "type": "object",
-        "properties": {
-          "title": { "type": "string" },
-          "scope": { "type": "string", "enum": ["company", "team", "personal"] },
-          "scopeId": { "type": "string", "description": "ID of the company, team, or user." },
-          "kpi": { "type": "string", "description": "Key Performance Indicator identifier." },
-          "chartType": { "type": "string", "enum": ["composed", "bar", "pie", "donut", "line"] },
-          "status": { "type": "string", "enum": ["active", "inactive"] },
-          "fiscalYear": { "type": "number", "description": "The fiscal year this goal applies to." },
-          "fiscalYearStartMonth": { "type": "number", "description": "The starting month of the fiscal year." },
-          "authorId": { "type": "string" },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
-        },
-        "required": ["title", "scope", "scopeId", "kpi", "chartType", "status", "authorId", "createdAt", "updatedAt"]
+      "title": "Goal",
+      "description": "Represents a goal for a company, team, or individual.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "scope": { "type": "string", "enum": ["company", "team", "personal"] },
+        "scopeId": { "type": "string", "description": "ID of the company, team, or user organization." },
+        "authorId": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "chartType": { "type": "string", "enum": ["composed", "bar", "pie", "donut", "line"] },
+        "kpi": { "type": "string", "description": "(Company goals only) Key Performance Indicator identifier." },
+        "fiscalYear": { "type": "number", "description": "(Company goals only) The fiscal year this goal applies to." },
+        "fiscalYearStartMonth": { "type": "number", "description": "(Company goals only) The starting month of the fiscal year." },
+        "startDate": { "type": "string", "format": "date-time", "description": "(Team goals only) The start date of the goal period." },
+        "endDate": { "type": "string", "format": "date-time", "description": "(Team goals only) The end date of the goal period." },
+        "targetValue": { "type": "number", "description": "(Team goals - donut chart only) The overall target value for the period." },
+        "currentValue": { "type": "number", "description": "(Team goals - donut chart only) The current progress value." },
+        "unit": { "type": "string", "description": "(Team goals only) The unit for the goal values (e.g., '%', '件', '円')." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "scope", "scopeId", "chartType", "status", "authorId", "createdAt", "updatedAt"]
+    },
+    "GoalRecord": {
+      "title": "Goal Record",
+      "description": "Stores a time-series data point for a team goal.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date-time", "description": "The specific date this record applies to." },
+        "targetValue": { "type": "number", "description": "The target value for this specific date/period." },
+        "actualValue": { "type": "number", "description": "The actual achieved value for this specific date/period." },
+        "authorId": { "type": "string", "description": "UID of the user who last updated this record." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of the last update." }
+      },
+      "required": ["date", "targetValue", "actualValue", "authorId", "updatedAt"]
     },
     "PersonalGoal": {
       "title": "Personal Goal",
@@ -618,6 +636,10 @@
     "/goals/{goalId}/projectComplianceRecords/{recordId}": {
       "schema": { "$ref": "#/entities/ProjectComplianceRecord" },
       "description": "Subcollection storing monthly project compliance records for a specific goal."
+    },
+    "/goals/{goalId}/goalRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/GoalRecord" },
+      "description": "Subcollection storing time-series records for a specific team goal."
     },
     "/roles/{roleId}": {
       "schema": {
