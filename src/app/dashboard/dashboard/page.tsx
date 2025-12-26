@@ -308,7 +308,7 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                       organizations={organizations}
                       value={teamScopeId}
                       onChange={setTeamScopeId}
-                      disabled={(org) => org.type === 'holding'}
+                      disabled={(org) => org.type === 'holding' || org.type === 'company'}
                     />
                 </div>
                 <div className="grid gap-2">
