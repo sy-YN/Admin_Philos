@@ -292,13 +292,15 @@ export default function PermissionsPage() {
         </TabsContent>
         <TabsContent value="users">
           <Card>
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle>ユーザー個別権限の管理</CardTitle>
-                        <CardDescription>役割の権限を基本とし、ユーザーごとに特定の権限をチェックでON/OFFします。</CardDescription>
-                    </div>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>ユーザー個別権限の管理</CardTitle>
+                    <CardDescription>役割の権限を基本とし、ユーザーごとに特定の権限をチェックでON/OFFします。</CardDescription>
                 </div>
+                <Button onClick={handleSaveIndividualPermissions} disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    個別権限を保存
+                </Button>
             </CardHeader>
             <CardContent>
                 {isLoading ? <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div> : (
@@ -326,14 +328,14 @@ export default function PermissionsPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {(usersData || []).filter(u => u.role !== 'admin').length === 0 && (
+                            {(usersData || []).length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={permissionColumns.length + 2} className="h-24 text-center text-muted-foreground">
                                     管理対象のユーザーがいません。
                                     </TableCell>
                                 </TableRow>
                             )}
-                            {(usersData || []).filter(u => u.role !== 'admin').map(user => {
+                            {(usersData || []).map(user => {
                                 const hasIndividualSetting = individualPermissions[user.uid] !== undefined;
                                 const effectivePerms = hasIndividualSetting
                                   ? individualPermissions[user.uid]
@@ -353,7 +355,7 @@ export default function PermissionsPage() {
                                                     <Checkbox
                                                         checked={effectivePerms.includes(col.id)}
                                                         onCheckedChange={(checked) => handleIndividualPermissionChange(user.uid, col.id, !!checked)}
-                                                        disabled={isSaving}
+                                                        disabled={isSaving || user.role === 'admin'}
                                                     />
                                                 </TableCell>
                                             )
@@ -361,7 +363,9 @@ export default function PermissionsPage() {
                                         <TableCell className="sticky right-0 bg-background z-10 px-2 text-center">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" disabled={!hasIndividualSetting}><MoreHorizontal className="h-4 w-4"/></Button>
+                                                    <Button variant="ghost" size="icon" disabled={!hasIndividualSetting || user.role === 'admin'}>
+                                                        <MoreHorizontal className="h-4 w-4"/>
+                                                    </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent>
                                                     <AlertDialog>
@@ -391,12 +395,6 @@ export default function PermissionsPage() {
                       </Table>
                       <ScrollBar orientation="horizontal" />
                     </ScrollArea>
-                    <div className="flex justify-end mt-4">
-                        <Button onClick={handleSaveIndividualPermissions} disabled={isSaving}>
-                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                            個別権限を保存
-                        </Button>
-                    </div>
                   </>
                 )}
             </CardContent>
@@ -405,72 +403,4 @@ export default function PermissionsPage() {
        </Tabs>
     </div>
   );
-}
-
-
-function AddIndividualPermissionDialog({
-    users,
-    onGrant,
-    existingUserPerms
-}: {
-    users: Member[],
-    onGrant: (userId: string) => void,
-    existingUserPerms: string[],
-}) {
-    const [open, setOpen] = useState(false);
-    const [userId, setUserId] = useState('');
-    
-    const availableUsers = useMemo(() => {
-        const grantedUserIds = new Set(existingUserPerms);
-        return users.filter(u => u.role !== 'admin' && !grantedUserIds.has(u.uid));
-    }, [users, existingUserPerms]);
-    
-    useEffect(() => {
-        if(open) {
-            setUserId('');
-        }
-    }, [open]);
-
-    const handleGrant = () => {
-        if(!userId) return;
-        onGrant(userId);
-        setOpen(false);
-    }
-
-    return (
-         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                    <UserCog className="mr-2 h-4 w-4" />
-                    個別権限を付与
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>ユーザー個別権限の対象を追加</DialogTitle>
-                    <DialogDescription>
-                        個別権限を設定したいユーザーを選択してください。
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Select value={userId} onValueChange={setUserId}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="ユーザーを選択..."/>
-                            </SelectTrigger>
-                            <SelectContent>
-                                {availableUsers.map(user => (
-                                    <SelectItem key={user.uid} value={user.uid}>{user.displayName} ({user.email})</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
-                    <Button onClick={handleGrant}>ユーザーを追加</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
 }
