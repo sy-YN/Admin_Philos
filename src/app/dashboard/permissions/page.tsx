@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, ShieldAlert, Loader2, User, UserCog, Sparkles, Edit } from 'lucide-react';
+import { PlusCircle, ShieldAlert, Loader2, User, UserCog, Sparkles, Edit, MoreHorizontal, CheckCircle2, XCircle, MinusCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -16,10 +16,11 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, doc, setDoc, getDocs, writeBatch, serverTimestamp, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import type { Role } from '@/types/role';
-import type { UserPermission } from '@/types/user-permission';
+import type { UserPermission, PermissionOverride } from '@/types/user-permission';
 import type { Member } from '@/types/member';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 const permissionGroups = [
@@ -56,6 +57,60 @@ const roleDefinitions: Omit<Role, 'id'>[] = [
 ];
 
 
+function PermissionStatusBadge({ status }: { status: 'granted' | 'denied' | 'inherited' }) {
+  if (status === 'granted') {
+    return <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto" title="許可" />;
+  }
+  if (status === 'denied') {
+    return <XCircle className="h-5 w-5 text-red-500 mx-auto" title="拒否" />;
+  }
+  return <MinusCircle className="h-5 w-5 text-muted-foreground mx-auto" title="役割に従う" />;
+}
+
+function PermissionEditCell({
+  userId,
+  permissionId,
+  overrides,
+  onOverrideChange,
+  isSaving,
+}: {
+  userId: string;
+  permissionId: string;
+  overrides: PermissionOverride[];
+  onOverrideChange: (userId: string, permissionId: string, status?: 'granted' | 'denied') => void;
+  isSaving: boolean;
+}) {
+  const currentOverride = overrides.find(o => o.id === permissionId);
+  const currentStatus = currentOverride?.status;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isSaving}>
+            {currentStatus === 'granted' && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+            {currentStatus === 'denied' && <XCircle className="h-5 w-5 text-red-500" />}
+            {currentStatus === undefined && <MinusCircle className="h-5 w-5 text-muted-foreground" />}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onSelect={() => onOverrideChange(userId, permissionId, undefined)}>
+          <MinusCircle className="mr-2 h-4 w-4 text-muted-foreground" />
+          役割に従う (デフォルト)
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onOverrideChange(userId, permissionId, 'granted')}>
+          <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+          許可
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onOverrideChange(userId, permissionId, 'denied')}>
+          <XCircle className="mr-2 h-4 w-4 text-red-500" />
+          拒否
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+
 export default function PermissionsPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -69,7 +124,8 @@ export default function PermissionsPage() {
   const { data: userPermsData, isLoading: isLoadingUserPerms } = useCollection<UserPermission>(userPermsQuery);
   const { data: usersData, isLoading: isLoadingUsers } = useCollection<Member>(usersQuery);
 
-  const [permissions, setPermissions] = useState<Record<string, string[]>>({});
+  const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({});
+  const [individualPermissions, setIndividualPermissions] = useState<Record<string, PermissionOverride[]>>({});
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -78,17 +134,47 @@ export default function PermissionsPage() {
       rolesData.forEach(role => {
         perms[role.id] = role.permissions;
       });
-      setPermissions(perms);
+      setRolePermissions(perms);
     }
   }, [rolesData]);
+  
+  useEffect(() => {
+    if (userPermsData) {
+        const perms: Record<string, PermissionOverride[]> = {};
+        userPermsData.forEach(userPerm => {
+            perms[userPerm.id] = userPerm.overrides || [];
+        });
+        setIndividualPermissions(perms);
+    }
+  }, [userPermsData]);
 
-  const handlePermissionChange = (roleId: string, permissionId: string, checked: boolean) => {
-    setPermissions(prev => {
+  const handleRolePermissionChange = (roleId: string, permissionId: string, checked: boolean) => {
+    setRolePermissions(prev => {
       const currentRolePermissions = prev[roleId] || [];
       const newPermissions = checked
         ? [...currentRolePermissions, permissionId]
         : currentRolePermissions.filter(p => p !== permissionId);
       return { ...prev, [roleId]: newPermissions };
+    });
+  };
+  
+  const handleIndividualPermissionChange = (userId: string, permissionId: string, status?: 'granted' | 'denied') => {
+    setIndividualPermissions(prev => {
+        const newIndividualPerms = { ...prev };
+        const currentUserOverrides = newIndividualPerms[userId] || [];
+        
+        // Remove existing override for this permission
+        const otherOverrides = currentUserOverrides.filter(o => o.id !== permissionId);
+
+        if (status) {
+            // Add new override if status is granted or denied
+            newIndividualPerms[userId] = [...otherOverrides, { id: permissionId, status }];
+        } else {
+            // If status is undefined (reset to default), just keep the other overrides
+            newIndividualPerms[userId] = otherOverrides;
+        }
+
+        return newIndividualPerms;
     });
   };
 
@@ -97,7 +183,7 @@ export default function PermissionsPage() {
     setIsSaving(true);
     const batch = writeBatch(firestore);
     
-    Object.entries(permissions).forEach(([roleId, perms]) => {
+    Object.entries(rolePermissions).forEach(([roleId, perms]) => {
       const roleRef = doc(firestore, 'roles', roleId);
       const roleData = rolesData?.find(r => r.id === roleId);
       if(roleData) {
@@ -116,6 +202,38 @@ export default function PermissionsPage() {
     }
   };
   
+  const handleSaveIndividualPermissions = async () => {
+    if (!firestore || !currentUser) return;
+    setIsSaving(true);
+    const batch = writeBatch(firestore);
+    
+    Object.entries(individualPermissions).forEach(([userId, overrides]) => {
+      const userPermRef = doc(firestore, 'user_permissions', userId);
+      if (overrides.length > 0) {
+        batch.set(userPermRef, { 
+            userId,
+            overrides,
+            updatedAt: serverTimestamp(),
+            updatedBy: currentUser.uid,
+         }, { merge: true });
+      } else {
+        // If all overrides are removed, delete the document
+        batch.delete(userPermRef);
+      }
+    });
+
+    try {
+      await batch.commit();
+      toast({ title: '成功', description: 'ユーザー個別権限を保存しました。' });
+    } catch (error) {
+      console.error("Error saving individual permissions:", error);
+      toast({ title: 'エラー', description: '個別権限の保存に失敗しました。', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  
   const handleSeedRoles = async () => {
     if (!firestore) return;
     setIsSaving(true);
@@ -133,36 +251,6 @@ export default function PermissionsPage() {
       toast({ title: 'エラー', description: '初期データの登録に失敗しました。', variant: 'destructive' });
     } finally {
       setIsSaving(false);
-    }
-  };
-  
-  const handleUpdateIndividualPermission = async (userId: string, permsToSet: string[]) => {
-    if (!firestore || !currentUser) return;
-    const userPermRef = doc(firestore, 'user_permissions', userId);
-    try {
-      // Use setDoc with merge:true to create or update the document.
-      // This is slightly safer than just setDoc as it won't overwrite other fields if any exist.
-      await setDoc(userPermRef, {
-        userId, // good practice to keep userId in the doc
-        permissions: permsToSet,
-        updatedAt: serverTimestamp(),
-        updatedBy: currentUser.uid,
-      }, { merge: true });
-      toast({ title: '成功', description: '個別のユーザー権限を更新しました。' });
-    } catch (error) {
-      console.error("Error updating individual permissions:", error);
-      toast({ title: 'エラー', description: '個別権限の更新に失敗しました。', variant: 'destructive' });
-    }
-  };
-
-  const handleRevokeIndividualPermission = async (userId: string) => {
-    if (!firestore) return;
-    try {
-      await deleteDoc(doc(firestore, 'user_permissions', userId));
-      toast({ title: '成功', description: '個別権限を取り消しました。' });
-    } catch (error) {
-      console.error("Error revoking individual permissions:", error);
-      toast({ title: 'エラー', description: '個別権限の取り消しに失敗しました。', variant: 'destructive' });
     }
   };
 
@@ -213,8 +301,8 @@ export default function PermissionsPage() {
                         return (
                         <TableCell key={col.id} className={`text-center p-1 ${isFirstInGroup && 'border-l'}`}>
                             <Checkbox
-                            checked={permissions[role.id]?.includes(col.id)}
-                            onCheckedChange={(checked) => handlePermissionChange(role.id, col.id, !!checked)}
+                            checked={rolePermissions[role.id]?.includes(col.id)}
+                            onCheckedChange={(checked) => handleRolePermissionChange(role.id, col.id, !!checked)}
                             disabled={role.id === 'admin' || isSaving}
                             aria-label={`${role.name} - ${col.name}`}
                             />
@@ -251,93 +339,83 @@ export default function PermissionsPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <CardTitle>ユーザー個別権限の管理</CardTitle>
-                    <CardDescription>役割の権限に加えて、特定のユーザーに追加の権限を付与します。</CardDescription>
+                    <CardDescription>役割の権限に加えて、特定のユーザーに権限を許可または拒否します。</CardDescription>
                 </div>
                 <AddIndividualPermissionDialog 
                     users={usersData || []}
-                    onGrant={handleUpdateIndividualPermission}
-                    existingUserPerms={userPermsData || []}
+                    onGrant={(userId, perms) => {
+                      setIndividualPermissions(prev => ({...prev, [userId]: perms.map(p => ({id: p, status: 'granted'}))}));
+                    }}
+                    existingUserPerms={Object.keys(individualPermissions)}
                 />
             </div>
         </CardHeader>
         <CardContent>
-             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ユーザー</TableHead>
-                  <TableHead>付与された追加権限</TableHead>
-                  <TableHead>最終更新者</TableHead>
-                  <TableHead>最終更新日時</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading && (
-                     <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
-                            <Loader2 className="mx-auto h-6 w-6 animate-spin" />
-                        </TableCell>
-                    </TableRow>
-                )}
-                {!isLoading && userPermsData?.length === 0 && (
-                    <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                            個別の権限が付与されたユーザーはいません。
-                        </TableCell>
-                    </TableRow>
-                )}
-                {!isLoading && userPermsData?.map(grant => {
-                    const user = usersData?.find(u => u.uid === grant.userId);
-                    const updater = usersData?.find(u => u.uid === grant.updatedBy);
-                    return (
-                        <TableRow key={grant.id}>
-                            <TableCell className="font-medium">{user?.displayName || grant.userId}</TableCell>
-                            <TableCell>
-                            <div className="flex flex-wrap gap-1 max-w-md">
-                                {grant.permissions.map(p => (
-                                <Badge key={p} variant="secondary" className="font-normal">
-                                    {allPermissionItems.find(m => m.id === p)?.name || p}
-                                </Badge>
-                                ))}
-                                {grant.permissions.length === 0 && <span className="text-xs text-muted-foreground">権限なし</span>}
-                            </div>
-                            </TableCell>
-                            <TableCell>{updater?.displayName || '不明'}</TableCell>
-                            <TableCell>
-                                {grant.updatedAt ? new Date(grant.updatedAt.seconds * 1000).toLocaleString('ja-JP') : 'N/A'}
-                            </TableCell>
-                            <TableCell className="text-right space-x-2">
-                                <EditIndividualPermissionDialog 
-                                  userPermission={grant}
-                                  user={user}
-                                  onUpdate={handleUpdateIndividualPermission}
-                                />
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="outline" size="sm">
-                                            <ShieldAlert className="mr-2 h-4 w-4" />
-                                            権限を取り消す
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>本当に取り消しますか？</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                {user?.displayName || 'このユーザー'}に付与された個別の追加権限をすべて取り消します。役割に基づく基本権限は維持されます。
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleRevokeIndividualPermission(grant.id)}>取り消す</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </TableCell>
-                        </TableRow>
-                    )
-                })}
-              </TableBody>
-            </Table>
+             {isLoading ? <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div> : (
+              <>
+                <ScrollArea>
+                  <Table className="min-w-[1200px]">
+                    <TableHeader>
+                      <TableRow>
+                          <TableHead rowSpan={2} className="w-[180px] sticky left-0 bg-background z-10 px-2 align-middle border-b">ユーザー</TableHead>
+                          {permissionGroups.map(group => (
+                              <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
+                          ))}
+                      </TableRow>
+                      <TableRow>
+                          {permissionColumns.map(col => {
+                            const group = permissionGroups.find(g => g.permissions.includes(col));
+                            const isFirstInGroup = group?.permissions[0].id === col.id;
+                            return (
+                              <TableHead key={col.id} className={`text-center px-1 text-xs text-muted-foreground font-normal ${isFirstInGroup && 'border-l'}`}>
+                                {col.name}
+                              </TableHead>
+                            )
+                          })}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {Object.keys(individualPermissions).length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={permissionColumns.length + 1} className="h-24 text-center text-muted-foreground">
+                                個別の権限が設定されたユーザーはいません。
+                                </TableCell>
+                            </TableRow>
+                        )}
+                        {usersData?.filter(u => individualPermissions[u.uid] !== undefined).map(user => (
+                            <TableRow key={user.uid}>
+                                <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">
+                                    {user.displayName}
+                                </TableCell>
+                                {permissionColumns.map(col => {
+                                     const group = permissionGroups.find(g => g.permissions.includes(col));
+                                     const isFirstInGroup = group?.permissions[0].id === col.id;
+                                     return (
+                                        <TableCell key={col.id} className={`text-center p-0 ${isFirstInGroup && 'border-l'}`}>
+                                            <PermissionEditCell 
+                                                userId={user.uid}
+                                                permissionId={col.id}
+                                                overrides={individualPermissions[user.uid] || []}
+                                                onOverrideChange={handleIndividualPermissionChange}
+                                                isSaving={isSaving}
+                                            />
+                                        </TableCell>
+                                     )
+                                })}
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+                <div className="flex justify-end mt-4">
+                    <Button onClick={handleSaveIndividualPermissions} disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        個別権限を保存
+                    </Button>
+                </div>
+              </>
+             )}
         </CardContent>
       </Card>
     </div>
@@ -352,14 +430,14 @@ function AddIndividualPermissionDialog({
 }: {
     users: Member[],
     onGrant: (userId: string, permissions: string[]) => void,
-    existingUserPerms: UserPermission[],
+    existingUserPerms: string[],
 }) {
     const [open, setOpen] = useState(false);
     const [userId, setUserId] = useState('');
     const [grantedPermissions, setGrantedPermissions] = useState<string[]>([]);
 
     const availableUsers = useMemo(() => {
-        const grantedUserIds = new Set(existingUserPerms.map(p => p.userId));
+        const grantedUserIds = new Set(existingUserPerms);
         return users.filter(u => u.role !== 'admin' && !grantedUserIds.has(u.uid));
     }, [users, existingUserPerms]);
     
@@ -430,80 +508,6 @@ function AddIndividualPermissionDialog({
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
                     <Button onClick={handleGrant}>権限を付与</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
-}
-
-function EditIndividualPermissionDialog({
-    userPermission,
-    user,
-    onUpdate,
-}: {
-    userPermission: UserPermission;
-    user?: Member;
-    onUpdate: (userId: string, permissions: string[]) => void;
-}) {
-    const [open, setOpen] = useState(false);
-    const [grantedPermissions, setGrantedPermissions] = useState<string[]>([]);
-
-    useEffect(() => {
-        if (open) {
-            setGrantedPermissions(userPermission.permissions || []);
-        }
-    }, [open, userPermission]);
-
-    const handlePermissionChange = (permissionId: string, checked: boolean) => {
-        setGrantedPermissions(prev =>
-            checked ? [...prev, permissionId] : prev.filter(p => p !== permissionId)
-        );
-    }
-
-    const handleUpdate = () => {
-        onUpdate(userPermission.userId, grantedPermissions);
-        setOpen(false);
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                    <Edit className="mr-2 h-4 w-4" />
-                    編集
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>個別権限を編集</DialogTitle>
-                    <DialogDescription>
-                        {user?.displayName || userPermission.userId} の追加権限を編集します。
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Label>対象ユーザー</Label>
-                        <Input value={user?.displayName || userPermission.userId} disabled />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>付与する権限</Label>
-                        <div className="grid grid-cols-2 gap-2 rounded-md border p-4 max-h-60 overflow-y-auto">
-                            {allPermissionItems.map(item => (
-                                <div key={item.id} className="flex items-center gap-2">
-                                    <Checkbox
-                                        id={`edit-perm-${item.id}`}
-                                        checked={grantedPermissions.includes(item.id)}
-                                        onCheckedChange={(checked) => handlePermissionChange(item.id, !!checked)}
-                                    />
-                                    <Label htmlFor={`edit-perm-${item.id}`} className="font-normal">{item.name}</Label>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
-                    <Button onClick={handleUpdate}>権限を更新</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
