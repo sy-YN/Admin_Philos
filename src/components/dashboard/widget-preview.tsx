@@ -727,8 +727,10 @@ export default function WidgetPreview({ widget, chartData, granularity, isCumula
           if (granularity === 'daily') {
               totalPeriods = differenceInDays(endDate, startDate) + 1;
           } else if (granularity === 'weekly') {
-              const totalDays = differenceInDays(endDate, startDate) + 1;
-              totalPeriods = Math.ceil(totalDays / 7);
+              const weekStartsOn = 1; // Monday
+              const startOfFirstWeek = startOfWeek(startDate, { weekStartsOn });
+              const endOfLastWeek = endOfWeek(endDate, { weekStartsOn });
+              totalPeriods = differenceInWeeks(endOfLastWeek, startOfFirstWeek, { weekStartsOn }) + 1;
           } else { // monthly
               totalPeriods = differenceInMonths(endDate, startDate) + 1;
           }
@@ -813,7 +815,3 @@ export default function WidgetPreview({ widget, chartData, granularity, isCumula
         default: return <BarChartPreview />;
       }
 }
-
-    
-
-    
