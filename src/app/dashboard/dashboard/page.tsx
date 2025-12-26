@@ -47,6 +47,7 @@ import type { Organization } from '@/types/organization';
 import { OrganizationPicker } from '@/components/organization/organization-picker';
 import type { GoalRecord } from '@/types/goal-record';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -454,26 +455,30 @@ function TeamGoalTimeSeriesDataDialog({
   children,
 }: {
   widget: Goal;
-  onSave: (records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt' >[]) => void;
+  onSave: (records: Omit<GoalRecord, 'authorId' | 'updatedAt' >[]) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const { data: existingRecords, isLoading: isLoadingRecords } = useSubCollection<GoalRecord>('goals', widget.id, 'goalRecords');
-  const [records, setRecords] = useState<Map<string, { date: Timestamp; actualValue: number }>>(new Map());
+  const [records, setRecords] = useState<Map<string, { id?: string; date: Timestamp; actualValue: number }>>(new Map());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [currentActual, setCurrentActual] = useState('');
+  const [selectedRecordKeys, setSelectedRecordKeys] = useState<string[]>([]);
+
 
   useEffect(() => {
     if (open && existingRecords) {
       const initialRecords = new Map();
       existingRecords.forEach((rec) => {
         initialRecords.set(format(rec.date.toDate(), 'yyyy-MM-dd'), {
+          id: rec.id,
           date: rec.date,
           actualValue: rec.actualValue,
         });
       });
       setRecords(initialRecords);
+      setSelectedRecordKeys([]);
     }
   }, [open, existingRecords]);
 
@@ -497,7 +502,10 @@ function TeamGoalTimeSeriesDataDialog({
     }
 
     const newRecords = new Map(records);
+    const existingRecord = newRecords.get(selectedDateString);
+
     newRecords.set(selectedDateString, {
+      id: existingRecord?.id,
       date: Timestamp.fromDate(selectedDate),
       actualValue: actual,
     });
@@ -508,19 +516,36 @@ function TeamGoalTimeSeriesDataDialog({
     });
   };
 
+  const handleDeleteSelected = () => {
+    if (selectedRecordKeys.length === 0) return;
+    const newRecords = new Map(records);
+    selectedRecordKeys.forEach(key => newRecords.delete(key));
+    setRecords(newRecords);
+    setSelectedRecordKeys([]);
+    toast({ title: '一時削除', description: `${selectedRecordKeys.length}件のデータを削除しました。最後に「全ての変更を保存」ボタンを押してください。`});
+  };
+
   const handleSaveAll = () => {
     const recordsToSave = Array.from(records.values());
     onSave(recordsToSave);
     setOpen(false);
   };
-
+  
   const sortedRecords = useMemo(
     () =>
-      Array.from(records.values()).sort(
+      Array.from(records.entries()).map(([key, value]) => ({ key, ...value })).sort(
         (a, b) => b.date.toMillis() - a.date.toMillis()
       ),
     [records]
   );
+  
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRecordKeys(sortedRecords.map(r => r.key));
+    } else {
+      setSelectedRecordKeys([]);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -575,7 +600,23 @@ function TeamGoalTimeSeriesDataDialog({
             </div>
           </div>
           <div className="space-y-4">
-            <h3 className="font-semibold">記録済みデータ</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="font-semibold">記録済みデータ</h3>
+              {selectedRecordKeys.length > 0 && (
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" className="h-8">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          選択した{selectedRecordKeys.length}件を削除
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader><AlertDialogTitle>選択項目を削除しますか？</AlertDialogTitle><AlertDialogDescription>この操作は、下の「全ての変更を保存」ボタンを押すまで確定されません。</AlertDialogDescription></AlertDialogHeader>
+                      <AlertDialogFooter><AlertDialogCancel>キャンセル</AlertDialogCancel><AlertDialogAction onClick={handleDeleteSelected}>削除</AlertDialogAction></AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+              )}
+            </div>
             <ScrollArea className="h-[450px] border rounded-md">
               {isLoadingRecords ? (
                 <div className="flex items-center justify-center h-full">
@@ -585,6 +626,9 @@ function TeamGoalTimeSeriesDataDialog({
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12 px-3">
+                        <Checkbox checked={selectedRecordKeys.length > 0 && selectedRecordKeys.length === sortedRecords.length} onCheckedChange={handleSelectAll} />
+                      </TableHead>
                       <TableHead>日付</TableHead>
                       <TableHead>実績</TableHead>
                     </TableRow>
@@ -593,10 +637,22 @@ function TeamGoalTimeSeriesDataDialog({
                     {sortedRecords.length > 0 ? (
                       sortedRecords.map((rec) => (
                         <TableRow
-                          key={rec.date.toMillis()}
+                          key={rec.key}
                           onClick={() => setSelectedDate(rec.date.toDate())}
                           className="cursor-pointer"
+                          data-state={selectedRecordKeys.includes(rec.key) ? 'selected' : ''}
                         >
+                           <TableCell className="px-3">
+                             <Checkbox 
+                               checked={selectedRecordKeys.includes(rec.key)}
+                               onCheckedChange={(checked) => {
+                                 setSelectedRecordKeys(prev => 
+                                   checked ? [...prev, rec.key] : prev.filter(k => k !== rec.key)
+                                 );
+                               }}
+                               onClick={(e) => e.stopPropagation()}
+                              />
+                           </TableCell>
                           <TableCell>
                             {format(rec.date.toDate(), 'yy/MM/dd')}
                           </TableCell>
@@ -608,7 +664,7 @@ function TeamGoalTimeSeriesDataDialog({
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={2}
+                          colSpan={3}
                           className="text-center text-muted-foreground h-24"
                         >
                           データがありません
@@ -2020,16 +2076,28 @@ export default function DashboardSettingsPage() {
       const subCollectionRef = collection(firestore, 'goals', goalId, 'goalRecords');
 
       const existingDocsSnapshot = await getDocs(subCollectionRef);
-      existingDocsSnapshot.forEach(doc => batch.delete(doc.ref));
+      const existingDocsMap = new Map(existingDocsSnapshot.docs.map(d => [format(d.data().date.toDate(), 'yyyy-MM-dd'), d.id]));
+      
+      const recordsToSaveMap = new Map(records.map(r => [format(r.date.toDate(), 'yyyy-MM-dd'), r]));
 
-      records.forEach(record => {
-          const recordRef = doc(subCollectionRef);
-          batch.set(recordRef, {
+      // Delete records that are no longer in the new set
+      for (const [dateStr, docId] of existingDocsMap.entries()) {
+        if (!recordsToSaveMap.has(dateStr)) {
+          batch.delete(doc(subCollectionRef, docId));
+        }
+      }
+      
+      // Add or update records
+      for (const record of records) {
+        const dateStr = format(record.date.toDate(), 'yyyy-MM-dd');
+        const existingDocId = existingDocsMap.get(dateStr);
+        const recordRef = existingDocId ? doc(subCollectionRef, existingDocId) : doc(subCollectionRef);
+        batch.set(recordRef, {
             ...record,
             authorId: authUser.uid,
             updatedAt: serverTimestamp()
-          });
-      });
+        }, { merge: true });
+      }
       
       try {
         await batch.commit();
