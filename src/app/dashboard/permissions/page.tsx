@@ -107,8 +107,15 @@ export default function PermissionsPage() {
         const user = usersData?.find(u => u.uid === userId);
         if(!user) return prev;
 
-        const basePermissions = prev[userId] !== undefined ? prev[userId] : (rolesMap.get(user.role) || []);
-        const newPermissions = checked ? [...basePermissions, permissionId] : basePermissions.filter(p => p !== permissionId);
+        // If a user doesn't have an individual setting yet, their base is their role's permissions.
+        // Once edited, their permissions become explicitly managed.
+        const basePermissions = prev[userId] !== undefined 
+          ? prev[userId] 
+          : (rolesMap.get(user.role) || []);
+
+        const newPermissions = checked 
+          ? [...basePermissions, permissionId] 
+          : basePermissions.filter(p => p !== permissionId);
         
         return { ...prev, [userId]: [...new Set(newPermissions)] };
     });
@@ -197,10 +204,6 @@ export default function PermissionsPage() {
     }
   };
   
-  const usersWithIndividualSettings = useMemo(() => {
-    return usersData?.filter(u => individualPermissions[u.uid] !== undefined) || [];
-  }, [usersData, individualPermissions]);
-
   const isLoading = isUserLoading || isLoadingRoles || isLoadingUserPerms || isLoadingUsers;
 
   return (
@@ -293,15 +296,8 @@ export default function PermissionsPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <CardTitle>ユーザー個別権限の管理</CardTitle>
-                        <CardDescription>役割の権限を基本とし、ユーザーごとに特定の権限をON/OFFします。</CardDescription>
+                        <CardDescription>役割の権限を基本とし、ユーザーごとに特定の権限をチェックでON/OFFします。</CardDescription>
                     </div>
-                    <AddIndividualPermissionDialog 
-                        users={usersData || []}
-                        onGrant={(userId) => {
-                            setIndividualPermissions(prev => ({...prev, [userId]: prev[userId] ?? []}));
-                        }}
-                        existingUserPerms={Object.keys(individualPermissions)}
-                    />
                 </div>
             </CardHeader>
             <CardContent>
@@ -330,16 +326,19 @@ export default function PermissionsPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {usersWithIndividualSettings.length === 0 && (
+                            {(usersData || []).filter(u => u.role !== 'admin').length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={permissionColumns.length + 2} className="h-24 text-center text-muted-foreground">
-                                    個別権限が設定されたユーザーはいません。「個別権限を付与」からユーザーを追加してください。
+                                    管理対象のユーザーがいません。
                                     </TableCell>
                                 </TableRow>
                             )}
-                            {usersWithIndividualSettings.map(user => {
-                                const userIndividualPerms = individualPermissions[user.uid];
-                                const effectivePerms = userIndividualPerms ?? (rolesMap.get(user.role) || []);
+                            {(usersData || []).filter(u => u.role !== 'admin').map(user => {
+                                const hasIndividualSetting = individualPermissions[user.uid] !== undefined;
+                                const effectivePerms = hasIndividualSetting
+                                  ? individualPermissions[user.uid]
+                                  : (rolesMap.get(user.role) || []);
+                                
                                 return (
                                     <TableRow key={user.uid}>
                                         <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">
@@ -362,7 +361,7 @@ export default function PermissionsPage() {
                                         <TableCell className="sticky right-0 bg-background z-10 px-2 text-center">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4"/></Button>
+                                                    <Button variant="ghost" size="icon" disabled={!hasIndividualSetting}><MoreHorizontal className="h-4 w-4"/></Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent>
                                                     <AlertDialog>
