@@ -21,6 +21,7 @@ import type { Goal } from '@/types/goal';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInWeeks, differenceInMonths } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { getMonthsForFiscalYear } from '@/lib/fiscal-year';
 
 export type ChartData = {
     month: string; // Represents the time-series key (e.g., '2024-08-01', '2024-W32')
@@ -815,3 +816,4 @@ export default function WidgetPreview({ widget, chartData, granularity, isCumula
     
 
     
+
