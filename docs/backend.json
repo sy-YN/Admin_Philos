@@ -508,30 +508,18 @@
     },
     "UserPermission": {
       "title": "User Permission",
-      "description": "Stores individual permission overrides (grants or denies) for a specific user.",
+      "description": "Stores a complete list of permissions for a specific user, which overrides any role-based permissions.",
       "type": "object",
       "properties": {
         "userId": {
           "type": "string",
           "description": "The UID of the user to whom the permissions are applied. This should match the document ID."
         },
-        "overrides": {
+        "permissions": {
           "type": "array",
-          "description": "A list of permission override rules for this user.",
+          "description": "A complete list of permission keys that this user has. If this document exists, their role permissions are ignored.",
           "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "description": "The permission key (e.g., 'video_management')."
-              },
-              "status": {
-                "type": "string",
-                "description": "Whether the permission is explicitly granted or denied.",
-                "enum": ["granted", "denied"]
-              }
-            },
-            "required": ["id", "status"]
+            "type": "string"
           }
         },
         "updatedAt": {
@@ -544,7 +532,7 @@
           "description": "The UID of the administrator who last updated these permissions."
         }
       },
-      "required": ["userId", "overrides", "updatedAt", "updatedBy"]
+      "required": ["userId", "permissions", "updatedAt", "updatedBy"]
     }
   },
   "auth": {
@@ -665,7 +653,7 @@
       "schema": {
         "$ref": "#/entities/UserPermission"
       },
-      "description": "Stores individual permission overrides for specific users, keyed by their UID."
+      "description": "Stores individual permission overrides for specific users, keyed by their UID. If a document exists for a user here, it completely overrides their role-based permissions."
     }
   }
 }

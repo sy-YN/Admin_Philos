@@ -1,12 +1,15 @@
+
 'use client';
 
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { Member } from '@/types/member';
 import type { Role } from '@/types/role';
+import type { UserPermission } from '@/types/user-permission';
+
 
 // This list should be kept in sync with the one in layout.tsx
 const allNavItems = [
@@ -29,23 +32,24 @@ export default function DashboardRedirectPage() {
   const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
     if (!firestore) return [];
     try {
+      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
+      const userPermsDoc = await getDoc(userPermsDocRef);
+
+      if (userPermsDoc.exists()) {
+        const individualPerms = userPermsDoc.data() as UserPermission;
+        return individualPerms.permissions || [];
+      }
+      
       const userDocRef = doc(firestore, 'users', userUid);
       const userDoc = await getDoc(userDocRef);
       if (!userDoc.exists()) return [];
       
       const userData = userDoc.data() as Member;
       const roleDocRef = doc(firestore, 'roles', userData.role);
-      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
 
-      const [roleDoc, userPermsDoc] = await Promise.all([
-        getDoc(roleDocRef),
-        getDoc(userPermsDocRef),
-      ]);
-      
-      const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
-      const individualPermissions = userPermsDoc.exists() ? userPermsDoc.data().permissions : [];
-      
-      return [...new Set([...rolePermissions, ...individualPermissions])];
+      const roleDoc = await getDoc(roleDocRef);
+      return roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
+
     } catch (error) {
       console.error("Error fetching permissions for redirect:", error);
       return [];

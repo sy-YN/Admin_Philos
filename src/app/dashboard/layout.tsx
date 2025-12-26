@@ -48,6 +48,16 @@ export default function DashboardLayout({
     if (!firestore) return [];
 
     try {
+      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
+      const userPermsDoc = await getDoc(userPermsDocRef);
+
+      // 1. Check for individual permissions first
+      if (userPermsDoc.exists()) {
+        const individualPerms = userPermsDoc.data() as UserPermission;
+        return individualPerms.permissions || [];
+      }
+      
+      // 2. If no individual permissions, fall back to role-based permissions
       const userDocRef = doc(firestore, 'users', userUid);
       const userDoc = await getDoc(userDocRef);
 
@@ -60,27 +70,9 @@ export default function DashboardLayout({
       const userRole = userData.role;
 
       const roleDocRef = doc(firestore, 'roles', userRole);
-      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
-
-      const [roleDoc, userPermsDoc] = await Promise.all([
-        getDoc(roleDocRef),
-        getDoc(userPermsDocRef),
-      ]);
+      const roleDoc = await getDoc(roleDocRef);
       
-      let finalPermissions = new Set(roleDoc.exists() ? (roleDoc.data() as Role).permissions : []);
-
-      if (userPermsDoc.exists()) {
-        const individualPerms = userPermsDoc.data() as UserPermission;
-        individualPerms.overrides?.forEach(override => {
-          if (override.status === 'granted') {
-            finalPermissions.add(override.id);
-          } else if (override.status === 'denied') {
-            finalPermissions.delete(override.id);
-          }
-        });
-      }
-      
-      return Array.from(finalPermissions);
+      return roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
 
     } catch (error) {
       console.error("Error fetching permissions:", error);

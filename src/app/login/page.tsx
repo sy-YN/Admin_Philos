@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Member } from '@/types/member';
 import type { Role } from '@/types/role';
+import type { UserPermission } from '@/types/user-permission';
 
 
 export default function LoginPage() {
@@ -34,6 +35,14 @@ export default function LoginPage() {
     if (!firestore) return [];
 
     try {
+      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
+      const userPermsDoc = await getDoc(userPermsDocRef);
+
+      if (userPermsDoc.exists()) {
+        const individualPerms = userPermsDoc.data() as UserPermission;
+        return individualPerms.permissions || [];
+      }
+      
       const userDocRef = doc(firestore, 'users', userUid);
       const userDoc = await getDoc(userDocRef);
 
@@ -46,17 +55,9 @@ export default function LoginPage() {
       const userRole = userData.role;
 
       const roleDocRef = doc(firestore, 'roles', userRole);
-      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
-
-      const [roleDoc, userPermsDoc] = await Promise.all([
-        getDoc(roleDocRef),
-        getDoc(userPermsDocRef),
-      ]);
+      const roleDoc = await getDoc(roleDocRef);
       
-      const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
-      const individualPermissions = userPermsDoc.exists() ? userPermsDoc.data().permissions : [];
-      
-      return [...new Set([...rolePermissions, ...individualPermissions])];
+      return roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
 
     } catch (error) {
       console.error("Error fetching permissions:", error);
