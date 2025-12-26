@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle, CalendarClock } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle, CalendarClock, Check } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -1304,9 +1304,18 @@ function WidgetCard({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => handleGranularityChange('monthly')}>月ごと</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => handleGranularityChange('weekly')}>週ごと</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => handleGranularityChange('daily')}>日ごと</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleGranularityChange('monthly')}>
+                      <Check className={cn('mr-2 h-4 w-4', granularity === 'monthly' ? 'opacity-100' : 'opacity-0')} />
+                      月ごと
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleGranularityChange('weekly')}>
+                      <Check className={cn('mr-2 h-4 w-4', granularity === 'weekly' ? 'opacity-100' : 'opacity-0')} />
+                      週ごと
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleGranularityChange('daily')}>
+                      <Check className={cn('mr-2 h-4 w-4', granularity === 'daily' ? 'opacity-100' : 'opacity-0')} />
+                      日ごと
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
             </div>
