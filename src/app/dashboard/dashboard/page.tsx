@@ -2210,7 +2210,7 @@ export default function DashboardSettingsPage() {
                       onSave={handleSaveWidget} 
                       onDelete={handleDeleteWidget}
                       onSetActive={handleSetActiveWidget}
-                      onSaveDisplaySettings={onSaveDisplaySettings}
+                      onSaveDisplaySettings={handleSaveDisplaySettings}
                       onSaveSalesRecords={handleSaveSalesRecords}
                       onSaveProfitRecords={handleSaveProfitRecords}
                       onSaveCustomerRecords={handleSaveCustomerRecords}
@@ -2245,7 +2245,7 @@ export default function DashboardSettingsPage() {
                           onSave={handleSaveWidget} 
                           onDelete={handleDeleteWidget}
                           onSetActive={handleSetActiveWidget}
-                          onSaveDisplaySettings={onSaveDisplaySettings}
+                          onSaveDisplaySettings={handleSaveDisplaySettings}
                           onSaveSalesRecords={handleSaveSalesRecords}
                           onSaveProfitRecords={handleSaveProfitRecords}
                           onSaveCustomerRecords={handleSaveCustomerRecords}
