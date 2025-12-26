@@ -191,7 +191,7 @@ export function OrganizationPicker({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-80 p-0">
         <div className="p-2 border-b">
             <Input 
                 placeholder={searchPlaceholder}
