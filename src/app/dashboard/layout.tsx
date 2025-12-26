@@ -10,11 +10,12 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import type { Member } from '@/types/member';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import type { Role } from '@/types/role';
+import type { UserPermission } from '@/types/user-permission';
 
 const allNavItems = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members' },
@@ -66,10 +67,20 @@ export default function DashboardLayout({
         getDoc(userPermsDocRef),
       ]);
       
-      const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
-      const individualPermissions = userPermsDoc.exists() ? userPermsDoc.data().permissions : [];
+      let finalPermissions = new Set(roleDoc.exists() ? (roleDoc.data() as Role).permissions : []);
+
+      if (userPermsDoc.exists()) {
+        const individualPerms = userPermsDoc.data() as UserPermission;
+        individualPerms.overrides?.forEach(override => {
+          if (override.status === 'granted') {
+            finalPermissions.add(override.id);
+          } else if (override.status === 'denied') {
+            finalPermissions.delete(override.id);
+          }
+        });
+      }
       
-      return [...new Set([...rolePermissions, ...individualPermissions])];
+      return Array.from(finalPermissions);
 
     } catch (error) {
       console.error("Error fetching permissions:", error);

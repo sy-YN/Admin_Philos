@@ -508,19 +508,31 @@
     },
     "UserPermission": {
       "title": "User Permission",
-      "description": "Grants specific, additional permissions to an individual user, overriding their role-based permissions.",
+      "description": "Stores individual permission overrides (grants or denies) for a specific user.",
       "type": "object",
       "properties": {
         "userId": {
           "type": "string",
-          "description": "The UID of the user to whom the permissions are granted. This should match the document ID."
+          "description": "The UID of the user to whom the permissions are applied. This should match the document ID."
         },
-        "permissions": {
+        "overrides": {
           "type": "array",
+          "description": "A list of permission override rules for this user.",
           "items": {
-            "type": "string"
-          },
-          "description": "A list of additional permission keys granted to this user."
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "The permission key (e.g., 'video_management')."
+              },
+              "status": {
+                "type": "string",
+                "description": "Whether the permission is explicitly granted or denied.",
+                "enum": ["granted", "denied"]
+              }
+            },
+            "required": ["id", "status"]
+          }
         },
         "updatedAt": {
           "type": "string",
@@ -532,7 +544,7 @@
           "description": "The UID of the administrator who last updated these permissions."
         }
       },
-      "required": ["userId", "permissions", "updatedAt", "updatedBy"]
+      "required": ["userId", "overrides", "updatedAt", "updatedBy"]
     }
   },
   "auth": {
