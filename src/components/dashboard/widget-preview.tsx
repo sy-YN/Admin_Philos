@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   ComposedChart,
   Bar,
@@ -19,7 +19,7 @@ import * as RechartsPrimitive from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { Goal } from '@/types/goal';
 import { cn } from '@/lib/utils';
-import { format, differenceInDays, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { format, differenceInDays, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInWeeks, differenceInMonths } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
 export type ChartData = {
@@ -700,6 +700,46 @@ interface WidgetPreviewProps {
 
 export default function WidgetPreview({ widget, chartData, granularity, isCumulative }: WidgetPreviewProps) {
 
+    const getChartDataForWidget = useCallback((): ChartData[] => {
+      if (widget.scope === 'company') {
+          if (!widget.fiscalYear) return [];
+          const startMonth = widget.fiscalYearStartMonth || 8;
+          const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
+  
+          return fiscalYearMonths.map(({ year, month }) => {
+              const entry: ChartData = { month: `${year}-${String(month).padStart(2, '0')}`, salesActual: 0, salesTarget: 0, achievementRate: 0, profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0, periodActual: 0, periodTarget: 0, cumulativeActual: 0, cumulativeAchievementRate: 0 };
+              if (widget.kpi === 'sales_revenue' && chartData) { const r = chartData.find(d => d.month === entry.month); if (r) Object.assign(entry, { ...r, salesActual: r.salesActual, salesTarget: r.salesTarget }); }
+              if (widget.kpi === 'profit_margin' && chartData) { const r = chartData.find(d => d.month === entry.month); if (r) entry.profitMargin = r.profitMargin; }
+              if (widget.kpi === 'new_customers' && chartData) { const r = chartData.find(d => d.month === entry.month); if (r) entry.totalCustomers = r.totalCustomers; }
+              if (widget.kpi === 'project_delivery_compliance' && chartData) { const r = chartData.find(d => d.month === entry.month); if (r) { entry.projectCompliant = r.projectCompliant; entry.projectMinorDelay = r.projectMinorDelay; entry.projectDelayed = r.projectDelayed; } }
+              return entry;
+          });
+      }
+  
+      if (widget.scope === 'team' && chartData && widget.startDate && widget.endDate) {
+          if (widget.chartType === 'donut') return [];
+          
+          const startDate = widget.startDate.toDate();
+          const endDate = widget.endDate.toDate();
+
+          let totalPeriods = 0;
+          if (granularity === 'daily') {
+              totalPeriods = differenceInDays(endDate, startDate) + 1;
+          } else if (granularity === 'weekly') {
+              totalPeriods = differenceInWeeks(endDate, startDate, { weekStartsOn: 1 }) + 1;
+          } else { // monthly
+              totalPeriods = differenceInMonths(endDate, startDate) + 1;
+          }
+          const periodTarget = widget.targetValue && totalPeriods > 0 ? widget.targetValue / totalPeriods : 0;
+          
+          return chartData.map(d => ({ ...d, periodTarget }));
+      }
+      
+      return [];
+    }, [widget, chartData, granularity]);
+    
+    const processedChartData = getChartDataForWidget();
+
     const xTickFormatter = (value: string, index: number): string => {
         try {
             const date = new Date(value);
@@ -732,30 +772,30 @@ export default function WidgetPreview({ widget, chartData, granularity, isCumula
         }
         
         if (isCumulative) {
-             return <TeamGoalCumulativeChart chartData={chartData} widget={widget} xTickFormatter={xTickFormatter} />;
+             return <TeamGoalCumulativeChart chartData={processedChartData} widget={widget} xTickFormatter={xTickFormatter} />;
         } else {
-             return <TeamGoalPeriodicBarChart chartData={chartData} widget={widget} xTickFormatter={xTickFormatter} />;
+             return <TeamGoalPeriodicBarChart chartData={processedChartData} widget={widget} xTickFormatter={xTickFormatter} />;
         }
     }
 
     if (widget.scope === 'company') {
         if (widget.kpi === 'sales_revenue') {
             switch (widget.chartType) {
-                case 'composed': return <ActualSalesComposedChart chartData={chartData} unit="百万円" />;
-                case 'bar': return <ActualSalesBarChart chartData={chartData} unit="百万円" />;
-                case 'line': return <TargetAndActualLineChart chartData={chartData} unit="百万円" />;
+                case 'composed': return <ActualSalesComposedChart chartData={processedChartData} unit="百万円" />;
+                case 'bar': return <ActualSalesBarChart chartData={processedChartData} unit="百万円" />;
+                case 'line': return <TargetAndActualLineChart chartData={processedChartData} unit="百万円" />;
             }
         }
         if (widget.kpi === 'profit_margin') {
-            if (widget.chartType === 'line') return <ProfitMarginLineChart chartData={chartData} />;
+            if (widget.chartType === 'line') return <ProfitMarginLineChart chartData={processedChartData} />;
         }
         if (widget.kpi === 'new_customers') {
-            if (widget.chartType === 'bar') return <CustomerBarChart chartData={chartData} />;
+            if (widget.chartType === 'bar') return <CustomerBarChart chartData={processedChartData} />;
         }
         if (widget.kpi === 'project_delivery_compliance') {
             switch (widget.chartType) {
-                case 'bar': return <ProjectComplianceBarChart chartData={chartData} />;
-                case 'pie': return <ProjectCompliancePieChart chartData={chartData} />;
+                case 'bar': return <ProjectComplianceBarChart chartData={processedChartData} />;
+                case 'pie': return <ProjectCompliancePieChart chartData={processedChartData} />;
             }
         }
     }
@@ -767,7 +807,7 @@ export default function WidgetPreview({ widget, chartData, granularity, isCumula
         case 'line': return <LineChartPreview />;
         case 'pie': return <PieChartPreview />;
         case 'donut': return <PieChartPreview isDonut />;
-        case 'composed': return <ActualSalesComposedChart chartData={chartData} />;
+        case 'composed': return <ActualSalesComposedChart chartData={processedChartData} />;
         default: return <BarChartPreview />;
       }
 }

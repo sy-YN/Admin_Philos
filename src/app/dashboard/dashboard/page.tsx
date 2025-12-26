@@ -1263,18 +1263,21 @@ function WidgetCard({
     onSaveDisplaySettings(widget.id, { defaultGranularity: granularity, defaultIsCumulative: checked });
   }
 
-  const getChartDataForWidget = useCallback((): ChartData[] => {
+  const chartData = useMemo(() => {
     if (widget.scope === 'company') {
         if (!widget.fiscalYear) return [];
         const startMonth = widget.fiscalYearStartMonth || 8;
         const fiscalYearMonths = getMonthsForFiscalYear(widget.fiscalYear, startMonth);
 
         return fiscalYearMonths.map(({ year, month }) => {
-            const entry: ChartData = { month: `${year}-${String(month).padStart(2, '0')}`, salesActual: 0, salesTarget: 0, achievementRate: 0, profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0, periodActual: 0, periodTarget: 0, cumulativeActual: 0, cumulativeAchievementRate: 0 };
-            if (widget.kpi === 'sales_revenue' && salesData) { const r = salesData.find(d => d.year === year && d.month === month); if (r) Object.assign(entry, { ...r, salesActual: r.salesActual, salesTarget: r.salesTarget }); }
+            const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+            const entry: ChartData = { month: monthStr, salesActual: 0, salesTarget: 0, achievementRate: 0, profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0, periodActual: 0, periodTarget: 0, cumulativeActual: 0, cumulativeAchievementRate: 0 };
+            
+            if (widget.kpi === 'sales_revenue' && salesData) { const r = salesData.find(d => d.year === year && d.month === month); if (r) Object.assign(entry, { salesActual: r.salesActual, salesTarget: r.salesTarget, achievementRate: r.achievementRate }); }
             if (widget.kpi === 'profit_margin' && profitData) { const r = profitData.find(d => d.year === year && d.month === month); if (r) entry.profitMargin = r.profitMargin; }
             if (widget.kpi === 'new_customers' && customerData) { const r = customerData.find(d => d.year === year && d.month === month); if (r) entry.totalCustomers = r.totalCustomers; }
             if (widget.kpi === 'project_delivery_compliance' && projectComplianceData) { const r = projectComplianceData.find(d => d.year === year && d.month === month); if (r) { entry.projectCompliant = r.counts.compliant; entry.projectMinorDelay = r.counts.minor_delay; entry.projectDelayed = r.counts.delayed; } }
+
             return entry;
         });
     }
@@ -1310,8 +1313,6 @@ function WidgetCard({
         
         const sortedKeys = Object.keys(groupedData).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
         
-        const periodTarget = widget.targetValue && sortedKeys.length > 0 ? widget.targetValue / sortedKeys.length : 0;
-        
         let cumulativeActual = 0;
         return sortedKeys.map(key => {
             const { actuals } = groupedData[key];
@@ -1322,7 +1323,7 @@ function WidgetCard({
                 month: key,
                 periodActual,
                 cumulativeActual,
-                periodTarget,
+                periodTarget: 0, // This will be calculated in the preview component
                 cumulativeAchievementRate,
                 // Compatibility fields
                 salesActual: 0, salesTarget: 0, achievementRate: 0, profitMargin: 0, totalCustomers: 0, projectCompliant: 0, projectMinorDelay: 0, projectDelayed: 0,
@@ -1332,6 +1333,7 @@ function WidgetCard({
     
     return [];
   }, [widget, salesData, profitData, customerData, projectComplianceData, teamGoalRecords, granularity]);
+
 
   return (
     <Card className={cn('flex flex-col', widget.status === 'active' && 'ring-2 ring-primary')}>
@@ -1490,7 +1492,7 @@ function WidgetCard({
       </CardHeader>
 
       <CardContent className="h-60">
-        <WidgetPreview widget={widget} chartData={getChartDataForWidget()} granularity={granularity} isCumulative={isCumulative} />
+        <WidgetPreview widget={widget} chartData={chartData} granularity={granularity} isCumulative={isCumulative} />
       </CardContent>
     </Card>
   );
