@@ -455,7 +455,7 @@ function TeamGoalTimeSeriesDataDialog({
   children,
 }: {
   widget: Goal;
-  onSave: (records: Omit<GoalRecord, 'authorId' | 'updatedAt' >[]) => void;
+  onSave: (records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]) => void;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -526,7 +526,7 @@ function TeamGoalTimeSeriesDataDialog({
   };
 
   const handleSaveAll = () => {
-    const recordsToSave = Array.from(records.values());
+    const recordsToSave = Array.from(records.values()).map(({id, ...rest}) => rest); // remove id property
     onSave(recordsToSave);
     setOpen(false);
   };
@@ -2069,7 +2069,7 @@ export default function DashboardSettingsPage() {
       }
     };
 
-    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id'|'authorId'|'updatedAt'>[]) => {
+    const handleSaveTeamGoalTimeSeriesData = async (goalId: string, records: Omit<GoalRecord, 'id' | 'authorId' | 'updatedAt'>[]) => {
       if (!firestore || !authUser) return;
       
       const batch = writeBatch(firestore);
@@ -2210,7 +2210,7 @@ export default function DashboardSettingsPage() {
                       onSave={handleSaveWidget} 
                       onDelete={handleDeleteWidget}
                       onSetActive={handleSetActiveWidget}
-                      onSaveDisplaySettings={handleSaveDisplaySettings}
+                      onSaveDisplaySettings={onSaveDisplaySettings}
                       onSaveSalesRecords={handleSaveSalesRecords}
                       onSaveProfitRecords={handleSaveProfitRecords}
                       onSaveCustomerRecords={handleSaveCustomerRecords}
@@ -2245,7 +2245,7 @@ export default function DashboardSettingsPage() {
                           onSave={handleSaveWidget} 
                           onDelete={handleDeleteWidget}
                           onSetActive={handleSetActiveWidget}
-                          onSaveDisplaySettings={handleSaveDisplaySettings}
+                          onSaveDisplaySettings={onSaveDisplaySettings}
                           onSaveSalesRecords={handleSaveSalesRecords}
                           onSaveProfitRecords={handleSaveProfitRecords}
                           onSaveCustomerRecords={handleSaveCustomerRecords}
@@ -2286,3 +2286,5 @@ export default function DashboardSettingsPage() {
     </div>
   );
 }
+
+    
