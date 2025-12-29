@@ -25,6 +25,8 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import type { ExecutiveMessage } from '@/types/executive-message';
+import type { Video } from '@/types/video';
 
 type ContentType = 'executiveMessages' | 'videos';
 
@@ -232,24 +234,36 @@ function CommentsList({
   contentId, 
   contentType, 
   onAddComment, 
-  onDeleteComment 
-}: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType' | 'onAddComment' | 'onDeleteComment'>) {
+  onDeleteComment,
+  parentContent,
+  userPermissions
+}: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType' | 'onAddComment' | 'onDeleteComment'> & { parentContent: ExecutiveMessage | Video | null, userPermissions: string[] }) {
   const { user } = useUser();
   const { data: comments, isLoading } = useSubCollection<Comment>(contentType, contentId, 'comments');
   const [replyToComment, setReplyToComment] = useState<WithId<Comment> | null>(null);
 
-  const firestore = useFirestore();
-  const currentUserDocRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user?.uid]);
-  const { data: currentUserMember } = useDoc<Member>(currentUserDocRef);
-  
   const canReply = useMemo(() => {
-    if (!currentUserMember) return false;
-    return currentUserMember.role === 'admin' || currentUserMember.role === 'executive';
-  }, [currentUserMember]);
-  
+    if (!user || !parentContent) return false;
+    
+    // Admins and executives can always reply.
+    if (userPermissions.includes('admin_equivalent_all_access_DONT_USE') || userPermissions.includes('executive')) { // This is a stand-in for checking role.
+      return true;
+    }
+    
+    // Check if the user is the author of the parent content.
+    const contentAuthorId = 'authorId' in parentContent ? parentContent.authorId : parentContent.uploaderId;
+    if (user.uid === contentAuthorId) {
+      if (contentType === 'videos' && userPermissions.includes('video_management')) {
+        return true;
+      }
+      if (contentType === 'executiveMessages' && userPermissions.includes('message_management')) {
+        return true;
+      }
+    }
+    
+    return false;
+  }, [user, parentContent, contentType, userPermissions]);
+
   const { topLevelComments, repliesMap } = useMemo(() => {
     if (!comments) {
       return { topLevelComments: [], repliesMap: new Map() };
@@ -361,6 +375,41 @@ export function ContentDetailsDialog({
   onAddComment,
   onDeleteComment
 }: ContentDetailsDialogProps) {
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  // Fetch the parent content document to get the authorId
+  const contentDocRef = useMemoFirebase(() => {
+    if (!firestore || !contentId || !contentType) return null;
+    return doc(firestore, contentType, contentId);
+  }, [firestore, contentType, contentId]);
+  const { data: parentContent } = useDoc<ExecutiveMessage | Video>(contentDocRef);
+  
+  // Fetch current user's full document to check role
+  const currentUserDocRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user?.uid]);
+  const { data: currentUserMember } = useDoc<Member>(currentUserDocRef);
+  
+  // This is a simplified permission check. A real app would use a more robust system.
+  const userPermissions = useMemo(() => {
+    if (!currentUserMember) return [];
+    // This is a placeholder for a real permission system.
+    // In a real app, you would fetch permissions from `roles` or `user_permissions`.
+    const perms = [];
+    if (currentUserMember.role === 'admin') perms.push('admin_equivalent_all_access_DONT_USE');
+    if (currentUserMember.role === 'executive') perms.push('executive');
+    
+    // In a real app, you'd fetch this from a permissions hook.
+    // For this change, we'll simulate it based on existing page logic.
+    if(contentType === 'videos') perms.push('video_management');
+    if(contentType === 'executiveMessages') perms.push('message_management');
+
+    return perms;
+  }, [currentUserMember, contentType]);
+
+
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -380,6 +429,8 @@ export function ContentDetailsDialog({
               contentType={contentType} 
               onAddComment={onAddComment}
               onDeleteComment={onDeleteComment}
+              parentContent={parentContent}
+              userPermissions={userPermissions}
             />
           </TabsContent>
           <TabsContent value="likes" className="m-0">
