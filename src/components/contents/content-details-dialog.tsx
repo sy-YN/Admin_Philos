@@ -116,12 +116,14 @@ const CommentItem = ({
   comment, 
   currentUserId,
   onDelete,
-  onReply
+  onReply,
+  canReply
 }: { 
   comment: WithId<Comment>, 
   currentUserId: string | undefined,
   onDelete: () => void,
-  onReply: (comment: WithId<Comment>) => void
+  onReply: (comment: WithId<Comment>) => void,
+  canReply: boolean
 }) => (
     <div className="flex items-start gap-3 group">
         <Avatar className="h-8 w-8">
@@ -135,9 +137,11 @@ const CommentItem = ({
             </div>
             <p className="text-sm mt-1 whitespace-pre-wrap">{comment.content}</p>
             <div className="flex items-center gap-2 mt-1 invisible group-hover:visible">
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onReply(comment)}>
-                <Reply className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+              {canReply && (
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onReply(comment)}>
+                  <Reply className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              )}
               {comment.authorId === currentUserId && (
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -170,9 +174,10 @@ interface CommentFormProps {
   replyToComment: WithId<Comment> | null;
   onCommentPosted: () => void;
   onAddComment: ContentDetailsDialogProps['onAddComment'];
+  canPost: boolean;
 }
 
-function CommentForm({ contentId, replyToComment, onCommentPosted, onAddComment }: CommentFormProps) {
+function CommentForm({ contentId, replyToComment, onCommentPosted, onAddComment, canPost }: CommentFormProps) {
   const [commentText, setCommentText] = useState('');
   const [isPosting, setIsPosting] = useState(false);
 
@@ -191,6 +196,11 @@ function CommentForm({ contentId, replyToComment, onCommentPosted, onAddComment 
     onCommentPosted();
     setIsPosting(false);
   };
+  
+  if (!canPost) {
+    return null; // Or some read-only message
+  }
+
 
   return (
     <div className="p-4 border-t">
@@ -227,6 +237,18 @@ function CommentsList({
   const { user } = useUser();
   const { data: comments, isLoading } = useSubCollection<Comment>(contentType, contentId, 'comments');
   const [replyToComment, setReplyToComment] = useState<WithId<Comment> | null>(null);
+
+  const firestore = useFirestore();
+  const currentUserDocRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user?.uid]);
+  const { data: currentUserMember } = useDoc<Member>(currentUserDocRef);
+  
+  const canReply = useMemo(() => {
+    if (!currentUserMember) return false;
+    return currentUserMember.role === 'admin' || currentUserMember.role === 'executive';
+  }, [currentUserMember]);
   
   const { topLevelComments, repliesMap } = useMemo(() => {
     if (!comments) {
@@ -267,6 +289,7 @@ function CommentsList({
           replyToComment={null} 
           onCommentPosted={() => setReplyToComment(null)}
           onAddComment={onAddComment}
+          canPost={true}
         />
       </div>
     );
@@ -284,6 +307,7 @@ function CommentsList({
                         currentUserId={user?.uid} 
                         onDelete={() => handleDelete(comment.id)} 
                         onReply={setReplyToComment}
+                        canReply={canReply}
                       />
                       {repliesMap.has(comment.id) && (
                           <div className="ml-8 mt-3 space-y-3 pl-4 border-l-2">
@@ -298,6 +322,7 @@ function CommentsList({
                                       currentUserId={user?.uid} 
                                       onDelete={() => handleDelete(reply.id)} 
                                       onReply={setReplyToComment}
+                                      canReply={canReply}
                                     />
                                   </div>
                               ))}
@@ -312,6 +337,7 @@ function CommentsList({
           replyToComment={replyToComment} 
           onCommentPosted={() => setReplyToComment(null)}
           onAddComment={onAddComment}
+          canPost={!replyToComment || canReply}
       />
     </>
   );
@@ -367,5 +393,3 @@ export function ContentDetailsDialog({
     </Dialog>
   );
 }
-
-    
