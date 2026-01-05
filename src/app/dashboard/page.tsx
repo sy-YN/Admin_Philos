@@ -16,7 +16,7 @@ const allNavItems = [
   { href: '/dashboard/members', id: 'members' },
   { href: '/dashboard/organization', id: 'organization' },
   { href: '/dashboard/permissions', id: 'permissions' },
-  { href: '/dashboard/contents', id: 'contents', requiredPermissions: ['video_management', 'message_management'] },
+  { href: '/dashboard/contents', id: 'contents', requiredPermissions: ['video_management', 'message_management', 'proxy_post'] },
   { href: '/dashboard/philosophy', id: 'philosophy' },
   { href: '/dashboard/calendar', id: 'calendar' },
   { href: '/dashboard/dashboard', id: 'dashboard', requiredPermissions: ['company_goal_setting', 'org_personal_goal_setting'] },

@@ -21,7 +21,7 @@ const allNavItems = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members' },
   { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization' },
   { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions' },
-  { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film, id: 'contents', requiredPermissions: ['video_management', 'message_management'] },
+  { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film, id: 'contents', requiredPermissions: ['video_management', 'message_management', 'proxy_post'] },
   { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen, id: 'philosophy' },
   { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays, id: 'calendar' },
   { href: '/dashboard/dashboard', label: '目標設定', icon: BarChart3, id: 'dashboard', requiredPermissions: ['company_goal_setting', 'org_personal_goal_setting'] },
