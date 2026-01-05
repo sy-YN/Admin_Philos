@@ -965,8 +965,8 @@ export default function ContentsPage() {
   console.log('[ContentsPage] Permission flags:', { canManageVideos, canProxyPostVideo, canManageMessages, canProxyPostMessage });
 
   const videosQuery = useMemoFirebase(() => {
-    if (isCheckingPermissions || !authUser || !firestore) {
-      console.log('[ContentsPage - videosQuery] Skipping query: Permissions or Firebase not ready.');
+    if (isCheckingPermissions || !authUser) {
+      console.log('[ContentsPage - videosQuery] Skipping query: Permissions or auth user not ready.');
       return null;
     }
     
@@ -983,14 +983,14 @@ export default function ContentsPage() {
 
     console.log('[ContentsPage - videosQuery] No permissions, returning null.');
     return null;
-  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageVideos, canProxyPostVideo]);
+  }, [firestore, authUser, isCheckingPermissions, userPermissions]);
   
 
   const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
   
   const messagesQuery = useMemoFirebase(() => {
-    if (isCheckingPermissions || !authUser || !firestore) {
-      console.log('[ContentsPage - messagesQuery] Skipping query: Permissions or Firebase not ready.');
+    if (isCheckingPermissions || !authUser) {
+      console.log('[ContentsPage - messagesQuery] Skipping query: Permissions or auth user not ready.');
       return null;
     }
     
@@ -1006,7 +1006,7 @@ export default function ContentsPage() {
     
     console.log('[ContentsPage - messagesQuery] No permissions, returning null.');
     return null;
-  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageMessages, canProxyPostMessage]);
+  }, [firestore, authUser, isCheckingPermissions, userPermissions]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ExecutiveMessage>(messagesQuery);
 
