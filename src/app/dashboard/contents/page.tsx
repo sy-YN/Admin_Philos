@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -49,9 +48,8 @@ function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessage
 
   const canProxyPost = useMemo(() => {
     if (!currentUser) return false;
-    const userRole = currentUser.role;
     // This is a simplified check. A full implementation would use the permissions system.
-    return userRole === 'admin' || userRole === 'executive';
+    return currentUser.role === 'admin' || currentUser.role === 'executive';
   }, [currentUser]);
 
 
@@ -969,11 +967,6 @@ export default function ContentsPage() {
 
   const memoizedUserPermissions = useMemo(() => userPermissions, [userPermissions]);
 
-  const canManageVideos = memoizedUserPermissions.includes('video_management');
-  const canProxyPostVideo = memoizedUserPermissions.includes('proxy_post_video');
-  const canManageMessages = memoizedUserPermissions.includes('message_management');
-  const canProxyPostMessage = memoizedUserPermissions.includes('proxy_post_message');
-
   const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
     if (!firestore) return [];
     try {
@@ -1014,34 +1007,61 @@ export default function ContentsPage() {
   }, [authUser, isUserLoading, fetchUserPermissions]);
 
 
+  const canManageVideos = memoizedUserPermissions.includes('video_management');
+  const canProxyPostVideo = memoizedUserPermissions.includes('proxy_post_video');
+  const canManageMessages = memoizedUserPermissions.includes('message_management');
+  const canProxyPostMessage = memoizedUserPermissions.includes('proxy_post_message');
+
+  console.log('[ContentsPage] Permissions Check:', {
+    userPermissions: memoizedUserPermissions,
+    canManageVideos,
+    canProxyPostVideo,
+    canManageMessages,
+    canProxyPostMessage,
+  });
+
   const videosQuery = useMemoFirebase(() => {
-    if (isCheckingPermissions || !authUser || !firestore) return null;
+    if (isCheckingPermissions || !authUser || !firestore) {
+      console.log('[ContentsPage] Videos query: Waiting for permissions or auth...');
+      return null;
+    }
     
     const collectionRef = collection(firestore, 'videos');
     if (canManageVideos) {
+      console.log('[ContentsPage] Videos query: Getting ALL videos (full admin).');
       return query(collectionRef, orderBy('uploadedAt', 'desc'));
     }
     if (canProxyPostVideo) {
+      console.log(`[ContentsPage] Videos query: Filtering by creatorId: ${authUser.uid}`);
       return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
     }
+
+    console.log('[ContentsPage] Videos query: No permissions, returning null.');
     return null;
-  }, [firestore, authUser, isCheckingPermissions, canManageVideos, canProxyPostVideo]);
+  }, [firestore, authUser, isCheckingPermissions, memoizedUserPermissions]);
   
 
   const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
   
   const messagesQuery = useMemoFirebase(() => {
-    if (isCheckingPermissions || !authUser || !firestore) return null;
+    if (isCheckingPermissions || !authUser || !firestore) {
+      console.log('[ContentsPage] Messages query: Waiting for permissions or auth...');
+      return null;
+    }
     
     const collectionRef = collection(firestore, 'executiveMessages');
     if (canManageMessages) {
+      console.log('[ContentsPage] Messages query: Getting ALL messages (full admin).');
         return query(collectionRef, orderBy('createdAt', 'desc'));
     }
     if (canProxyPostMessage) {
+      console.log(`[ContentsPage] Messages query: Filtering by creatorId: ${authUser.uid}`);
         return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
     }
+    
+    console.log('[ContentsPage] Messages query: No permissions, returning null.');
     return null;
-  }, [firestore, authUser, isCheckingPermissions, canManageMessages, canProxyPostMessage]);
+  }, [firestore, authUser, isCheckingPermissions, memoizedUserPermissions]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ExecutiveMessage>(messagesQuery);
 

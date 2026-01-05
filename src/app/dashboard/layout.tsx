@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -101,6 +100,7 @@ export default function DashboardLayout({
 
     // User is authenticated, fetch permissions.
     fetchUserPermissions(user.uid).then(perms => {
+      console.log('[Layout] Fetched permissions:', perms);
       setUserPermissions(perms);
       setIsCheckingPermissions(false);
 
