@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -45,11 +46,8 @@ function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessage
   const [tags, setTags] = useState<string[]>(Array(5).fill(''));
   const [authorId, setAuthorId] = useState(currentUser?.uid || '');
 
-  const canProxyPost = useMemo(() => {
-    if (!currentUser) return false;
-    // This is a simplified check. A full implementation would use the permissions system.
-    return currentUser.role === 'admin' || currentUser.role === 'executive';
-  }, [currentUser]);
+  const { userPermissions } = usePermissions();
+  const canProxyPost = userPermissions.includes('proxy_post_message');
 
 
   const handleTagChange = (index: number, value: string) => {
@@ -192,11 +190,8 @@ function EditMessageDialog({ message, onMessageUpdated, children, allUsers, curr
   const [priority, setPriority] = useState(message.priority);
   const [authorId, setAuthorId] = useState(message.authorId);
 
-  const canProxyPost = useMemo(() => {
-    if (!currentUser) return false;
-    const userRole = currentUser.role;
-    return userRole === 'admin' || userRole === 'executive';
-  }, [currentUser]);
+  const { userPermissions } = usePermissions();
+  const canProxyPost = userPermissions.includes('proxy_post_message');
 
   
   const initialTags = Array(5).fill('');
@@ -572,11 +567,8 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
   const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnailUrl || '');
   const [authorId, setAuthorId] = useState(video?.authorId || currentUser?.uid || '');
 
-  const canProxyPost = useMemo(() => {
-    if (!currentUser) return false;
-    const userRole = currentUser.role;
-    return userRole === 'admin' || userRole === 'executive';
-  }, [currentUser]);
+  const { userPermissions } = usePermissions();
+  const canProxyPost = userPermissions.includes('proxy_post_video');
   
   const initialTags = Array(5).fill('');
   if (video?.tags) {
@@ -960,6 +952,7 @@ export default function ContentsPage() {
   const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
 
   const { userPermissions, isCheckingPermissions } = usePermissions();
+  const userPermissionsString = useMemo(() => userPermissions.join(','), [userPermissions]);
 
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<Member>(useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]));
   const currentUser = useMemo(() => allUsers?.find(u => u.uid === authUser?.uid) || null, [allUsers, authUser]);
@@ -984,7 +977,7 @@ export default function ContentsPage() {
     }
 
     return null;
-  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageVideos, canProxyPostVideo]);
+  }, [firestore, authUser, isCheckingPermissions, userPermissionsString, canManageVideos, canProxyPostVideo]);
   
 
   const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
@@ -1003,7 +996,7 @@ export default function ContentsPage() {
     }
     
     return null;
-  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageMessages, canProxyPostMessage]);
+  }, [firestore, authUser, isCheckingPermissions, userPermissionsString, canManageMessages, canProxyPostMessage]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ExecutiveMessage>(messagesQuery);
 
