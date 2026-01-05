@@ -80,6 +80,14 @@ export default function DashboardLayout({
     }
   }, [firestore]);
   
+  const navItems = useMemo(() => {
+    return allNavItems.filter(item => {
+      if(!item.requiredPermissions) {
+          return userPermissions.includes(item.id);
+      }
+      return item.requiredPermissions?.some(p => userPermissions.includes(p))
+    });
+  }, [userPermissions]);
 
   useEffect(() => {
     if (isUserLoading) {
@@ -91,34 +99,28 @@ export default function DashboardLayout({
       return;
     }
 
+    // User is authenticated, fetch permissions.
     fetchUserPermissions(user.uid).then(perms => {
+      setUserPermissions(perms);
+      setIsCheckingPermissions(false);
+
+      const firstAllowedPage = allNavItems.find(item => {
+         if(!item.requiredPermissions) {
+          return perms.includes(item.id);
+        }
+        return item.requiredPermissions?.some(p => perms.includes(p))
+      });
+      
       const managementPermissions = perms.filter(p => p !== 'can_comment');
+
       if (managementPermissions.length === 0) {
-        // If no management permissions, sign out and redirect to login
         if(auth) auth.signOut();
         router.replace('/login');
-      } else {
-        setUserPermissions(perms);
-        setIsCheckingPermissions(false);
+      } else if (pathname === '/dashboard' && firstAllowedPage) {
+        router.replace(firstAllowedPage.href);
       }
     });
-  }, [user, isUserLoading, router, auth, fetchUserPermissions]);
-  
-  const navItems = useMemo(() => {
-    if (isCheckingPermissions) {
-      return [];
-    }
-    return allNavItems.filter(item => {
-      if(!item.requiredPermissions) {
-          // If the item doesn't require any specific permission, we assume it's a general one
-          // that should be checked by its ID. Example: 'members'
-          return userPermissions.includes(item.id);
-      }
-      // If it requires permissions, check if the user has at least one of them
-      return item.requiredPermissions?.some(p => userPermissions.includes(p))
-    });
-  }, [userPermissions, isCheckingPermissions]);
-
+  }, [user, isUserLoading, router, auth, fetchUserPermissions, pathname]);
 
   const handleLogout = async () => {
     if (auth) {
