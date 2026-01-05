@@ -15,7 +15,7 @@ import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Tr
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -71,6 +71,7 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
         priority,
         tags: tags.map(tag => tag.trim()).filter(tag => tag),
         authorId: user.uid,
+        creatorId: user.uid,
         authorName: user.displayName || '不明な作成者',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -451,6 +452,7 @@ function SeedMessagesButton() {
         batch.set(docRef, {
           ...msg,
           authorId: user.uid,
+          creatorId: user.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           likesCount: Math.floor(Math.random() * 50),
@@ -550,7 +552,8 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
     };
     
     if(mode === 'add') {
-      videoData.uploaderId = user.uid;
+      videoData.creatorId = user.uid;
+      videoData.authorId = user.uid; // Default to self
     }
 
     onSave(videoData);
@@ -815,7 +818,8 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         const docRef = doc(videosCollection);
         batch.set(docRef, {
           ...video,
-          uploaderId: user.uid,
+          authorId: user.uid,
+          creatorId: user.uid,
           uploadedAt: serverTimestamp(),
           likesCount: Math.floor(Math.random() * 50),
           commentsCount: Math.floor(Math.random() * 20),
@@ -849,7 +853,7 @@ export default function ContentsPage() {
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
+  const { user: authUser, isUserLoading } = useUser();
   const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
@@ -882,29 +886,48 @@ export default function ContentsPage() {
   
   useEffect(() => {
     if (isUserLoading) return;
-    if (user) {
+    if (authUser) {
       setIsCheckingPermissions(true);
-      fetchUserPermissions(user.uid).then(perms => {
+      fetchUserPermissions(authUser.uid).then(perms => {
         setUserPermissions(perms);
         setIsCheckingPermissions(false);
       });
     } else {
       setIsCheckingPermissions(false);
     }
-  }, [user, isUserLoading, fetchUserPermissions]);
+  }, [authUser, isUserLoading, fetchUserPermissions]);
 
+
+  const canManageVideos = useMemo(() => userPermissions.includes('video_management'), [userPermissions]);
+  const canProxyPostVideo = useMemo(() => userPermissions.includes('proxy_post_video'), [userPermissions]);
+  const canManageMessages = useMemo(() => userPermissions.includes('message_management'), [userPermissions]);
+  const canProxyPostMessage = useMemo(() => userPermissions.includes('proxy_post_message'), [userPermissions]);
 
   const videosQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading || isCheckingPermissions) return null;
-    return query(collection(firestore, 'videos'), orderBy('uploadedAt', 'desc'));
-  }, [firestore, isUserLoading, isCheckingPermissions]);
+    if (!firestore || !authUser || isCheckingPermissions) return null;
+    const collectionRef = collection(firestore, 'videos');
+    if (canManageVideos) {
+      return query(collectionRef, orderBy('uploadedAt', 'desc'));
+    }
+    if (canProxyPostVideo) {
+      return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
+    }
+    return null;
+  }, [firestore, authUser, isCheckingPermissions, canManageVideos, canProxyPostVideo]);
 
   const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
   
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading || isCheckingPermissions) return null;
-    return query(collection(firestore, 'executiveMessages'), orderBy('createdAt', 'desc'));
-  }, [firestore, isUserLoading, isCheckingPermissions]);
+    if (!firestore || !authUser || isCheckingPermissions) return null;
+    const collectionRef = collection(firestore, 'executiveMessages');
+    if (canManageMessages) {
+        return query(collectionRef, orderBy('createdAt', 'desc'));
+    }
+    if (canProxyPostMessage) {
+        return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
+    }
+    return null;
+  }, [firestore, authUser, isCheckingPermissions, canManageMessages, canProxyPostMessage]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ExecutiveMessage>(messagesQuery);
 
@@ -931,7 +954,7 @@ export default function ContentsPage() {
     contentId: string,
     commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>
   ) => {
-    if (!firestore || !user) {
+    if (!firestore || !authUser) {
       toast({ title: "エラー", description: "コメントするにはログインが必要です。", variant: "destructive" });
       return;
     }
@@ -940,9 +963,9 @@ export default function ContentsPage() {
       const commentsCollectionRef = collection(firestore, contentType, contentId, 'comments');
       await addDoc(commentsCollectionRef, {
         ...commentData,
-        authorId: user.uid,
-        authorName: user.displayName || '匿名ユーザー',
-        authorAvatarUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`,
+        authorId: authUser.uid,
+        authorName: authUser.displayName || '匿名ユーザー',
+        authorAvatarUrl: authUser.photoURL || `https://picsum.photos/seed/${authUser.uid}/100/100`,
         createdAt: serverTimestamp(),
       });
 
@@ -1015,11 +1038,6 @@ export default function ContentsPage() {
 
   const isLoading = isUserLoading || isCheckingPermissions;
 
-  const canManageVideos = userPermissions.includes('video_management');
-  const canManageMessages = userPermissions.includes('message_management');
-  const canProxyPostVideo = userPermissions.includes('proxy_post_video');
-  const canProxyPostMessage = userPermissions.includes('proxy_post_message');
-  
   const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
   
   const canAccessVideoTab = canManageVideos || canProxyPostVideo;
@@ -1035,7 +1053,6 @@ export default function ContentsPage() {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
   
-  const showTabs = canAccessVideoTab && canAccessMessageTab;
   const defaultTab = getDefaultTab();
 
   if (!defaultTab) {
@@ -1055,7 +1072,7 @@ export default function ContentsPage() {
         <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
       </div>
       <Tabs defaultValue={defaultTab}>
-        {showTabs && (
+        {(canAccessVideoTab && canAccessMessageTab) && (
           <TabsList className="grid w-full grid-cols-2 max-w-md">
             {canAccessVideoTab && <TabsTrigger value="videos"><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>}
             {canAccessMessageTab && <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>}
