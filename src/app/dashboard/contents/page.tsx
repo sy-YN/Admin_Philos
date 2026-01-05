@@ -1016,6 +1016,7 @@ export default function ContentsPage() {
 
   const videosQuery = useMemoFirebase(() => {
     if (isCheckingPermissions || !authUser || !firestore) return null;
+    
     const collectionRef = collection(firestore, 'videos');
     if (canManageVideos) {
       return query(collectionRef, orderBy('uploadedAt', 'desc'));
@@ -1031,6 +1032,7 @@ export default function ContentsPage() {
   
   const messagesQuery = useMemoFirebase(() => {
     if (isCheckingPermissions || !authUser || !firestore) return null;
+    
     const collectionRef = collection(firestore, 'executiveMessages');
     if (canManageMessages) {
         return query(collectionRef, orderBy('createdAt', 'desc'));
