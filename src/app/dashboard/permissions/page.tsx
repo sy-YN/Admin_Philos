@@ -32,6 +32,7 @@ const permissionGroups = [
       { id: 'proxy_post', name: '代理投稿' },
     ],
   },
+  { name: 'コメント', permissions: [{ id: 'can_comment', name: 'コメント投稿' }] },
   { name: '理念管理', permissions: [{ id: 'philosophy', name: '理念管理' }] },
   { name: 'カレンダー設定', permissions: [{ id: 'calendar', name: 'カレンダー設定' }] },
   {
@@ -42,7 +43,6 @@ const permissionGroups = [
     ],
   },
   { name: 'ランキング設定', permissions: [{ id: 'ranking', name: 'ランキング設定' }] },
-  { name: 'コメント', permissions: [{ id: 'can_comment', name: 'コメント投稿' }] },
 ];
 
 const permissionColumns = permissionGroups.flatMap(g => g.permissions);
