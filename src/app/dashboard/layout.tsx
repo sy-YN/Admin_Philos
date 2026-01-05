@@ -15,6 +15,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import type { Role } from '@/types/role';
 import type { UserPermission } from '@/types/user-permission';
+import { PermissionProvider, usePermissions } from '@/context/PermissionContext';
+
 
 const allNavItems = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members' },
@@ -27,58 +29,14 @@ const allNavItems = [
   { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy, id: 'ranking' },
 ];
 
-
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function DashboardNav() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { user } = useUser();
   const auth = useAuth();
-  const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
-  const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
+  const { userPermissions } = usePermissions();
 
-  const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
-    if (!firestore) return [];
-
-    try {
-      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
-      const userPermsDoc = await getDoc(userPermsDocRef);
-
-      // 1. Check for individual permissions first
-      if (userPermsDoc.exists()) {
-        const individualPerms = userPermsDoc.data() as UserPermission;
-        return individualPerms.permissions || [];
-      }
-      
-      // 2. If no individual permissions, fall back to role-based permissions
-      const userDocRef = doc(firestore, 'users', userUid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-        console.error("User document not found.");
-        return [];
-      }
-      
-      const userData = userDoc.data() as Member;
-      const userRole = userData.role;
-
-      const roleDocRef = doc(firestore, 'roles', userRole);
-      const roleDoc = await getDoc(roleDocRef);
-      
-      return roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
-
-    } catch (error) {
-      console.error("Error fetching permissions:", error);
-      return [];
-    }
-  }, [firestore]);
-  
   const navItems = useMemo(() => {
     return allNavItems.filter(item => {
       if(!item.requiredPermissions) {
@@ -88,46 +46,154 @@ export default function DashboardLayout({
     });
   }, [userPermissions]);
 
-  useEffect(() => {
-    if (isUserLoading) {
-      return; // Wait until Firebase Auth state is resolved.
-    }
-
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-
-    // User is authenticated, fetch permissions.
-    fetchUserPermissions(user.uid).then(perms => {
-      console.log('[Layout] Fetched permissions:', perms);
-      setUserPermissions(perms);
-      setIsCheckingPermissions(false);
-
-      const firstAllowedPage = allNavItems.find(item => {
-         if(!item.requiredPermissions) {
-          return perms.includes(item.id);
-        }
-        return item.requiredPermissions?.some(p => perms.includes(p))
-      });
-      
-      const managementPermissions = perms.filter(p => p !== 'can_comment');
-
-      if (managementPermissions.length === 0) {
-        if(auth) auth.signOut();
-        router.replace('/login');
-      } else if (pathname === '/dashboard' && firstAllowedPage) {
-        router.replace(firstAllowedPage.href);
-      }
-    });
-  }, [user, isUserLoading, router, auth, fetchUserPermissions, pathname]);
-
   const handleLogout = async () => {
     if (auth) {
       await auth.signOut();
     }
     router.push('/login');
   };
+  
+  return (
+      <aside className={cn(
+        "hidden md:flex flex-col border-r bg-background transition-all duration-300",
+          isCollapsed ? "w-20" : "w-72"
+      )}>
+          <div className={cn(
+            "flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 relative transition-all duration-300",
+              isCollapsed && "px-2 justify-center"
+            )}>
+            <Link href="/" className="flex items-center gap-2 font-semibold">
+              <Building2 className="h-6 w-6 text-primary" />
+              {!isCollapsed && <span className="">Philos Admin</span>}
+            </Link>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute -right-5 top-1/2 -translate-y-1/2 rounded-full h-10 w-10 border bg-background hover:bg-muted"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+            >
+              <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
+            </Button>
+          </div>
+          <nav className={cn(
+            "flex flex-col gap-1 py-4 text-sm font-medium transition-all duration-300 flex-grow",
+              isCollapsed ? "px-2" : "px-4"
+            )}>
+            {navItems.map((item) => (
+                  <Tooltip key={item.href} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                      <Link
+                        href={item.href}
+                          className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:text-primary",
+                          pathname.startsWith(item.href) && 'bg-muted text-primary',
+                          isCollapsed && "justify-center"
+                        )}
+                      >
+                        <item.icon className="h-5 w-5" />
+                        {!isCollapsed && <span>{item.label}</span>}
+                        <span className="sr-only">{item.label}</span>
+                      </Link>
+                  </TooltipTrigger>
+                    {isCollapsed && (
+                    <TooltipContent side="right">
+                      {item.label}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              ))}
+          </nav>
+          <div className={cn(
+            "mt-auto p-4 transition-all duration-300 space-y-4",
+            isCollapsed && "p-2"
+            )}>
+              
+            <Separator />
+
+            <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
+                <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={user?.photoURL || undefined} />
+                    <AvatarFallback>
+                      <User className="h-5 w-5"/>
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                  {isCollapsed && user && (
+                  <TooltipContent side="right">
+                      <p>{user.displayName}</p>
+                      <p className="text-muted-foreground">{user.email}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+                {!isCollapsed && user && (
+                  <div className="flex-1 overflow-hidden">
+                      <p className="text-sm font-semibold truncate">{user.displayName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  </div>
+                )}
+            </div>
+            
+            <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                    <Button 
+                      size={isCollapsed ? 'icon' : 'default'}
+                      className="w-full"
+                      variant="outline" 
+                      onClick={handleLogout}
+                    >
+                    <LogOut className="h-5 w-5" />
+                    {!isCollapsed && <span className="ml-2">ログアウト</span>}
+                      <span className="sr-only">ログアウト</span>
+                  </Button>
+                </TooltipTrigger>
+                  {isCollapsed && (
+                  <TooltipContent side="right">
+                    ログアウト
+                  </TooltipContent>
+                )}
+            </Tooltip>
+          </div>
+      </aside>
+  )
+}
+
+function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const { userPermissions, isCheckingPermissions } = usePermissions();
+
+  useEffect(() => {
+    if (isUserLoading || isCheckingPermissions) {
+      return;
+    }
+
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    
+    const managementPermissions = userPermissions.filter(p => p !== 'can_comment');
+
+    if (managementPermissions.length === 0) {
+      if (auth) auth.signOut();
+      router.replace('/login');
+    } else {
+      const firstAllowedPage = allNavItems.find(item => {
+        if (!item.requiredPermissions) {
+          return userPermissions.includes(item.id);
+        }
+        return item.requiredPermissions.some(p => userPermissions.includes(p));
+      });
+
+      if (pathname === '/dashboard' && firstAllowedPage) {
+        router.replace(firstAllowedPage.href);
+      }
+    }
+  }, [user, isUserLoading, isCheckingPermissions, userPermissions, router, auth, pathname]);
 
   if (isUserLoading || isCheckingPermissions) {
     return (
@@ -136,114 +202,11 @@ export default function DashboardLayout({
       </div>
     );
   }
-  
-  return (
-    <TooltipProvider>
-      <div className="flex h-screen w-full bg-muted/40">
-        <aside className={cn(
-          "hidden md:flex flex-col border-r bg-background transition-all duration-300",
-           isCollapsed ? "w-20" : "w-72"
-        )}>
-           <div className={cn(
-              "flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 relative transition-all duration-300",
-               isCollapsed && "px-2 justify-center"
-              )}>
-              <Link href="/" className="flex items-center gap-2 font-semibold">
-                <Building2 className="h-6 w-6 text-primary" />
-                {!isCollapsed && <span className="">Philos Admin</span>}
-              </Link>
-               <Button 
-                variant="ghost" 
-                size="icon" 
-                className="absolute -right-5 top-1/2 -translate-y-1/2 rounded-full h-10 w-10 border bg-background hover:bg-muted"
-                onClick={() => setIsCollapsed(!isCollapsed)}
-               >
-                <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
-              </Button>
-            </div>
-            <nav className={cn(
-              "flex flex-col gap-1 py-4 text-sm font-medium transition-all duration-300 flex-grow",
-                isCollapsed ? "px-2" : "px-4"
-              )}>
-              {navItems.map((item) => (
-                   <Tooltip key={item.href} delayDuration={0}>
-                    <TooltipTrigger asChild>
-                       <Link
-                          href={item.href}
-                           className={cn(
-                            "flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:text-primary",
-                            pathname.startsWith(item.href) && 'bg-muted text-primary',
-                            isCollapsed && "justify-center"
-                          )}
-                        >
-                          <item.icon className="h-5 w-5" />
-                          {!isCollapsed && <span>{item.label}</span>}
-                          <span className="sr-only">{item.label}</span>
-                        </Link>
-                    </TooltipTrigger>
-                     {isCollapsed && (
-                      <TooltipContent side="right">
-                        {item.label}
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                ))}
-            </nav>
-            <div className={cn(
-              "mt-auto p-4 transition-all duration-300 space-y-4",
-              isCollapsed && "p-2"
-              )}>
-                
-              <Separator />
 
-              <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
-                 <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={user?.photoURL || undefined} />
-                      <AvatarFallback>
-                        <User className="h-5 w-5"/>
-                      </AvatarFallback>
-                    </Avatar>
-                  </TooltipTrigger>
-                   {isCollapsed && user && (
-                    <TooltipContent side="right">
-                       <p>{user.displayName}</p>
-                       <p className="text-muted-foreground">{user.email}</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-                 {!isCollapsed && user && (
-                    <div className="flex-1 overflow-hidden">
-                        <p className="text-sm font-semibold truncate">{user.displayName}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                    </div>
-                 )}
-              </div>
-              
-              <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                     <Button 
-                        size={isCollapsed ? 'icon' : 'default'}
-                        className="w-full"
-                        variant="outline" 
-                        onClick={handleLogout}
-                      >
-                      <LogOut className="h-5 w-5" />
-                      {!isCollapsed && <span className="ml-2">ログアウト</span>}
-                       <span className="sr-only">ログアウト</span>
-                    </Button>
-                  </TooltipTrigger>
-                   {isCollapsed && (
-                    <TooltipContent side="right">
-                      ログアウト
-                    </TooltipContent>
-                  )}
-              </Tooltip>
-            </div>
-        </aside>
+  return (
+      <div className="flex h-screen w-full bg-muted/40">
+        <DashboardNav />
         <div className="flex flex-col flex-1 overflow-hidden">
-          {/* Mobile Header will go here */}
           <main className="flex-1 overflow-y-auto p-4 lg:p-6">
             <div className="mx-auto w-full">
               {children}
@@ -251,6 +214,22 @@ export default function DashboardLayout({
           </main>
         </div>
       </div>
+  );
+}
+
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <TooltipProvider>
+      <PermissionProvider>
+        <LayoutAuthWrapper>
+          {children}
+        </LayoutAuthWrapper>
+      </PermissionProvider>
     </TooltipProvider>
   );
 }

@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -26,8 +26,7 @@ import type { Video as VideoType } from '@/types/video';
 import { ContentDetailsDialog } from '@/components/contents/content-details-dialog';
 import type { Comment } from '@/types/comment';
 import type { Member } from '@/types/member';
-import type { Role } from '@/types/role';
-import type { UserPermission } from '@/types/user-permission';
+import { usePermissions } from '@/context/PermissionContext';
 
 
 // --- Message Section (Firestore) ---
@@ -959,109 +958,52 @@ export default function ContentsPage() {
   const firestore = useFirestore();
   const { user: authUser, isUserLoading } = useUser();
   const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
-  const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
-  
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+
+  const { userPermissions, isCheckingPermissions } = usePermissions();
+
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<Member>(useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]));
   const currentUser = useMemo(() => allUsers?.find(u => u.uid === authUser?.uid) || null, [allUsers, authUser]);
 
-  const memoizedUserPermissions = useMemo(() => userPermissions, [userPermissions]);
-
-  const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
-    if (!firestore) return [];
-    try {
-      const userDocRef = doc(firestore, 'users', userUid);
-      const userDoc = await getDoc(userDocRef);
-      if (!userDoc.exists()) return [];
-      
-      const userData = userDoc.data() as Member;
-      const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
-      const userPermsDoc = await getDoc(userPermsDocRef);
-
-      if (userPermsDoc.exists()) {
-        const individualPerms = userPermsDoc.data() as UserPermission;
-        return individualPerms.permissions || [];
-      }
-
-      const roleDocRef = doc(firestore, 'roles', userData.role);
-      const roleDoc = await getDoc(roleDocRef);
-      
-      return roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
-    } catch (error) {
-      console.error("Error fetching permissions:", error);
-      return [];
-    }
-  }, [firestore]);
-  
-  useEffect(() => {
-    if (isUserLoading) return;
-    if (authUser) {
-      setIsCheckingPermissions(true);
-      fetchUserPermissions(authUser.uid).then(perms => {
-        setUserPermissions(perms);
-        setIsCheckingPermissions(false);
-      });
-    } else {
-      setIsCheckingPermissions(false);
-    }
-  }, [authUser, isUserLoading, fetchUserPermissions]);
-
-
-  const canManageVideos = memoizedUserPermissions.includes('video_management');
-  const canProxyPostVideo = memoizedUserPermissions.includes('proxy_post_video');
-  const canManageMessages = memoizedUserPermissions.includes('message_management');
-  const canProxyPostMessage = memoizedUserPermissions.includes('proxy_post_message');
-
-  console.log('[ContentsPage] Permissions Check:', {
-    userPermissions: memoizedUserPermissions,
-    canManageVideos,
-    canProxyPostVideo,
-    canManageMessages,
-    canProxyPostMessage,
-  });
+  const canManageVideos = userPermissions.includes('video_management');
+  const canProxyPostVideo = userPermissions.includes('proxy_post_video');
+  const canManageMessages = userPermissions.includes('message_management');
+  const canProxyPostMessage = userPermissions.includes('proxy_post_message');
 
   const videosQuery = useMemoFirebase(() => {
     if (isCheckingPermissions || !authUser || !firestore) {
-      console.log('[ContentsPage] Videos query: Waiting for permissions or auth...');
       return null;
     }
     
     const collectionRef = collection(firestore, 'videos');
+    
     if (canManageVideos) {
-      console.log('[ContentsPage] Videos query: Getting ALL videos (full admin).');
       return query(collectionRef, orderBy('uploadedAt', 'desc'));
     }
     if (canProxyPostVideo) {
-      console.log(`[ContentsPage] Videos query: Filtering by creatorId: ${authUser.uid}`);
       return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
     }
 
-    console.log('[ContentsPage] Videos query: No permissions, returning null.');
     return null;
-  }, [firestore, authUser, isCheckingPermissions, memoizedUserPermissions]);
+  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageVideos, canProxyPostVideo]);
   
 
   const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
   
   const messagesQuery = useMemoFirebase(() => {
     if (isCheckingPermissions || !authUser || !firestore) {
-      console.log('[ContentsPage] Messages query: Waiting for permissions or auth...');
       return null;
     }
     
     const collectionRef = collection(firestore, 'executiveMessages');
     if (canManageMessages) {
-      console.log('[ContentsPage] Messages query: Getting ALL messages (full admin).');
         return query(collectionRef, orderBy('createdAt', 'desc'));
     }
     if (canProxyPostMessage) {
-      console.log(`[ContentsPage] Messages query: Filtering by creatorId: ${authUser.uid}`);
         return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
     }
     
-    console.log('[ContentsPage] Messages query: No permissions, returning null.');
     return null;
-  }, [firestore, authUser, isCheckingPermissions, memoizedUserPermissions]);
+  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageMessages, canProxyPostMessage]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ExecutiveMessage>(messagesQuery);
 
