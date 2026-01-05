@@ -29,6 +29,7 @@ const permissionGroups = [
     permissions: [
       { id: 'video_management', name: 'ビデオ' },
       { id: 'message_management', name: 'メッセージ' },
+      { id: 'proxy_post', name: '代理投稿' },
     ],
   },
   { name: '理念管理', permissions: [{ id: 'philosophy', name: '理念管理' }] },
@@ -41,6 +42,7 @@ const permissionGroups = [
     ],
   },
   { name: 'ランキング設定', permissions: [{ id: 'ranking', name: 'ランキング設定' }] },
+  { name: 'コメント', permissions: [{ id: 'can_comment', name: 'コメント投稿' }] },
 ];
 
 const permissionColumns = permissionGroups.flatMap(g => g.permissions);
@@ -48,9 +50,9 @@ const allPermissionItems = permissionColumns.map(p => ({ id: p.id, name: p.name 
 
 const roleDefinitions: Omit<Role, 'id'>[] = [
   { id: 'admin', name: '管理者', permissions: allPermissionItems.map(p => p.id) },
-  { id: 'executive', name: '経営層', permissions: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting', 'org_personal_goal_setting', 'ranking'] },
-  { id: 'manager', name: 'マネージャー', permissions: ['org_personal_goal_setting'] },
-  { id: 'employee', name: '従業員', permissions: [] },
+  { id: 'executive', name: '経営層', permissions: ['video_management', 'message_management', 'philosophy', 'calendar', 'company_goal_setting', 'org_personal_goal_setting', 'ranking', 'can_comment'] },
+  { id: 'manager', name: 'マネージャー', permissions: ['org_personal_goal_setting', 'can_comment'] },
+  { id: 'employee', name: '従業員', permissions: ['can_comment'] },
 ];
 
 export default function PermissionsPage() {
