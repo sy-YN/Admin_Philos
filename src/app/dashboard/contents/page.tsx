@@ -974,16 +974,20 @@ export default function ContentsPage() {
     
     if (canManageVideos) {
       console.log('[ContentsPage - videosQuery] Using full management query.');
-      return query(collectionRef, orderBy('uploadedAt', 'desc'));
+      const q = query(collectionRef, orderBy('uploadedAt', 'desc'));
+      console.log(`[ContentsPage] videosQuery shape: Querying collection: videos with NO filters`);
+      return q;
     }
     if (canProxyPostVideo) {
       console.log('[ContentsPage - videosQuery] Using proxy post query for user:', authUser.uid);
-      return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
+      const q = query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
+      console.log(`[ContentsPage] videosQuery shape: Querying collection: videos with filter: creatorId == ${authUser.uid}`);
+      return q;
     }
 
     console.log('[ContentsPage - videosQuery] No permissions, returning null.');
     return null;
-  }, [firestore, authUser, isCheckingPermissions, userPermissions]);
+  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageVideos, canProxyPostVideo]);
   
 
   const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
@@ -997,16 +1001,20 @@ export default function ContentsPage() {
     const collectionRef = collection(firestore, 'executiveMessages');
     if (canManageMessages) {
       console.log('[ContentsPage - messagesQuery] Using full management query.');
-      return query(collectionRef, orderBy('createdAt', 'desc'));
+       const q = query(collectionRef, orderBy('createdAt', 'desc'));
+       console.log(`[ContentsPage] messagesQuery shape: Querying collection: executiveMessages with NO filters`);
+       return q;
     }
     if (canProxyPostMessage) {
       console.log('[ContentsPage - messagesQuery] Using proxy post query for user:', authUser.uid);
-      return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
+       const q = query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
+       console.log(`[ContentsPage] messagesQuery shape: Querying collection: executiveMessages with filter: creatorId == ${authUser.uid}`);
+       return q;
     }
     
     console.log('[ContentsPage - messagesQuery] No permissions, returning null.');
     return null;
-  }, [firestore, authUser, isCheckingPermissions, userPermissions]);
+  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageMessages, canProxyPostMessage]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ExecutiveMessage>(messagesQuery);
 
