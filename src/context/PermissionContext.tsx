@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
@@ -29,40 +30,51 @@ export const PermissionProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
     if (!firestore) return [];
+    console.log(`[PermissionContext] Fetching permissions for UID: ${userUid}`);
     try {
       const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
       const userPermsDoc = await getDoc(userPermsDocRef);
       if (userPermsDoc.exists()) {
         const individualPerms = userPermsDoc.data() as UserPermission;
+        console.log('[PermissionContext] Found individual permissions:', individualPerms.permissions);
         return individualPerms.permissions || [];
       }
       
       const userDocRef = doc(firestore, 'users', userUid);
       const userDoc = await getDoc(userDocRef);
-      if (!userDoc.exists()) return [];
+      if (!userDoc.exists()) {
+        console.log('[PermissionContext] User document not found.');
+        return [];
+      }
       
       const userData = userDoc.data() as Member;
       const roleDocRef = doc(firestore, 'roles', userData.role);
       const roleDoc = await getDoc(roleDocRef);
       
-      return roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
+      const rolePerms = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
+      console.log(`[PermissionContext] Found role '${userData.role}' with permissions:`, rolePerms);
+      return rolePerms;
     } catch (error) {
-      console.error("Error fetching permissions:", error);
+      console.error("[PermissionContext] Error fetching permissions:", error);
       return [];
     }
   }, [firestore]);
 
   useEffect(() => {
     if (isUserLoading) {
+      console.log('[PermissionContext] Waiting for user loading to finish...');
       return;
     }
     if (user) {
+      console.log('[PermissionContext] User is authenticated, fetching permissions.');
       setIsCheckingPermissions(true);
       fetchUserPermissions(user.uid).then(perms => {
+        console.log('[PermissionContext] Permissions fetched, updating state.');
         setUserPermissions(perms);
         setIsCheckingPermissions(false);
       });
     } else {
+      console.log('[PermissionContext] No user, clearing permissions.');
       setUserPermissions([]);
       setIsCheckingPermissions(false);
     }

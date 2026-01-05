@@ -952,7 +952,7 @@ export default function ContentsPage() {
   const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
 
   const { userPermissions, isCheckingPermissions } = usePermissions();
-  const userPermissionsString = useMemo(() => userPermissions.join(','), [userPermissions]);
+  console.log('[ContentsPage] Received permissions:', userPermissions, 'isChecking:', isCheckingPermissions);
 
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<Member>(useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]));
   const currentUser = useMemo(() => allUsers?.find(u => u.uid === authUser?.uid) || null, [allUsers, authUser]);
@@ -962,41 +962,51 @@ export default function ContentsPage() {
   const canManageMessages = userPermissions.includes('message_management');
   const canProxyPostMessage = userPermissions.includes('proxy_post_message');
 
+  console.log('[ContentsPage] Permission flags:', { canManageVideos, canProxyPostVideo, canManageMessages, canProxyPostMessage });
+
   const videosQuery = useMemoFirebase(() => {
     if (isCheckingPermissions || !authUser || !firestore) {
+      console.log('[ContentsPage - videosQuery] Skipping query: Permissions or Firebase not ready.');
       return null;
     }
     
     const collectionRef = collection(firestore, 'videos');
     
     if (canManageVideos) {
+      console.log('[ContentsPage - videosQuery] Using full management query.');
       return query(collectionRef, orderBy('uploadedAt', 'desc'));
     }
     if (canProxyPostVideo) {
+      console.log('[ContentsPage - videosQuery] Using proxy post query for user:', authUser.uid);
       return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
     }
 
+    console.log('[ContentsPage - videosQuery] No permissions, returning null.');
     return null;
-  }, [firestore, authUser, isCheckingPermissions, userPermissionsString, canManageVideos, canProxyPostVideo]);
+  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageVideos, canProxyPostVideo]);
   
 
   const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
   
   const messagesQuery = useMemoFirebase(() => {
     if (isCheckingPermissions || !authUser || !firestore) {
+      console.log('[ContentsPage - messagesQuery] Skipping query: Permissions or Firebase not ready.');
       return null;
     }
     
     const collectionRef = collection(firestore, 'executiveMessages');
     if (canManageMessages) {
-        return query(collectionRef, orderBy('createdAt', 'desc'));
+      console.log('[ContentsPage - messagesQuery] Using full management query.');
+      return query(collectionRef, orderBy('createdAt', 'desc'));
     }
     if (canProxyPostMessage) {
-        return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
+      console.log('[ContentsPage - messagesQuery] Using proxy post query for user:', authUser.uid);
+      return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
     }
     
+    console.log('[ContentsPage - messagesQuery] No permissions, returning null.');
     return null;
-  }, [firestore, authUser, isCheckingPermissions, userPermissionsString, canManageMessages, canProxyPostMessage]);
+  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageMessages, canProxyPostMessage]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ExecutiveMessage>(messagesQuery);
 

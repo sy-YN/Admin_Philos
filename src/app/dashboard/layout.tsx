@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -166,12 +167,18 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const { userPermissions, isCheckingPermissions } = usePermissions();
 
+  console.log('[LayoutAuthWrapper] Permissions:', userPermissions, 'isChecking:', isCheckingPermissions);
+
   useEffect(() => {
     if (isUserLoading || isCheckingPermissions) {
+      console.log('[LayoutAuthWrapper] Waiting for auth/permissions check...');
       return;
     }
 
+    console.log('[LayoutAuthWrapper] Auth/Permissions check finished.');
+
     if (!user) {
+      console.log('[LayoutAuthWrapper] No user found, redirecting to /login.');
       router.replace('/login');
       return;
     }
@@ -179,6 +186,7 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
     const managementPermissions = userPermissions.filter(p => p !== 'can_comment');
 
     if (managementPermissions.length === 0) {
+      console.log('[LayoutAuthWrapper] No management permissions, signing out and redirecting to /login.');
       if (auth) auth.signOut();
       router.replace('/login');
     } else {
@@ -190,6 +198,7 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
       });
 
       if (pathname === '/dashboard' && firstAllowedPage) {
+        console.log(`[LayoutAuthWrapper] Redirecting from /dashboard to first allowed page: ${firstAllowedPage.href}`);
         router.replace(firstAllowedPage.href);
       }
     }
