@@ -92,8 +92,9 @@ export default function DashboardLayout({
     }
 
     fetchUserPermissions(user.uid).then(perms => {
-      if (perms.length === 0) {
-        // If no permissions, sign out and redirect to login
+      const managementPermissions = perms.filter(p => p !== 'can_comment');
+      if (managementPermissions.length === 0) {
+        // If no management permissions, sign out and redirect to login
         if(auth) auth.signOut();
         router.replace('/login');
       } else {

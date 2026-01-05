@@ -861,18 +861,20 @@ export default function ContentsPage() {
       if (!userDoc.exists()) return [];
       
       const userData = userDoc.data() as Member;
-      const roleDocRef = doc(firestore, 'roles', userData.role);
       const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
+      const userPermsDoc = await getDoc(userPermsDocRef);
 
-      const [roleDoc, userPermsDoc] = await Promise.all([
-        getDoc(roleDocRef),
-        getDoc(userPermsDocRef),
-      ]);
+      // 1. Check for individual permissions first
+      if (userPermsDoc.exists()) {
+        const individualPerms = userPermsDoc.data() as UserPermission;
+        return individualPerms.permissions || [];
+      }
+
+      // 2. If no individual permissions, fall back to role-based permissions
+      const roleDocRef = doc(firestore, 'roles', userData.role);
+      const roleDoc = await getDoc(roleDocRef);
       
-      const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
-      const individualPermissions = userPermsDoc.exists() ? userPermsDoc.data().permissions : [];
-      
-      return [...new Set([...rolePermissions, ...individualPermissions])];
+      return roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
     } catch (error) {
       console.error("Error fetching permissions:", error);
       return [];
@@ -1020,12 +1022,14 @@ export default function ContentsPage() {
 
   const canManageVideos = userPermissions.includes('video_management');
   const canManageMessages = userPermissions.includes('message_management');
+  const canProxyPost = userPermissions.includes('proxy_post');
   
   const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
   
   const getDefaultTab = () => {
     if (canManageVideos) return 'videos';
     if (canManageMessages) return 'messages';
+    if (canProxyPost) return 'videos'; // Default to videos if only proxy posting
     return '';
   }
 
@@ -1033,7 +1037,7 @@ export default function ContentsPage() {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
   
-  const showTabs = canManageVideos && canManageMessages;
+  const showTabs = (canManageVideos || canProxyPost) && canManageMessages;
   const defaultTab = getDefaultTab();
 
   if (!defaultTab) {
@@ -1055,13 +1059,13 @@ export default function ContentsPage() {
       <Tabs defaultValue={defaultTab}>
         {showTabs && (
           <TabsList className="grid w-full grid-cols-2 max-w-md">
-            {canManageVideos && <TabsTrigger value="videos"><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>}
-            {canManageMessages && <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>}
+            {(canManageVideos || canProxyPost) && <TabsTrigger value="videos"><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>}
+            {(canManageMessages || canProxyPost) && <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>}
           </TabsList>
         )}
 
         {/* ビデオ管理タブ */}
-        {canManageVideos && (
+        {(canManageVideos || canProxyPost) && (
           <TabsContent value="videos">
             <Card>
               <CardHeader>
@@ -1070,7 +1074,7 @@ export default function ContentsPage() {
                   全社に共有するビデオコンテンツを管理します。
                 </CardDescription>
                 <div className="flex justify-end items-center gap-2">
-                  {selectedVideos.length > 0 && (
+                  {selectedVideos.length > 0 && canManageVideos && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedVideos.length}件を削除</Button>
@@ -1089,33 +1093,35 @@ export default function ContentsPage() {
                       </AlertDialogContent>
                     </AlertDialog>
                   )}
-                  {showSeedButton && <SeedInitialVideosButton onSeeded={() => setInitialVideosSeeded(true)} />}
+                  {showSeedButton && canManageVideos && <SeedInitialVideosButton onSeeded={() => setInitialVideosSeeded(true)} />}
                   <VideoDialog mode="add" onSave={handleAddVideo} />
                 </div>
               </CardHeader>
               <CardContent>
-                <VideosTable 
-                  selected={selectedVideos} 
-                  onSelectedChange={setSelectedVideos} 
-                  videos={videos} 
-                  isLoading={videosLoading} 
-                  onAddComment={(contentId, commentData) => handleAddComment('videos', contentId, commentData)}
-                  onDeleteComment={(contentId, commentId) => handleDeleteComment('videos', contentId, commentId)}
-                />
+                {canManageVideos ? (
+                  <VideosTable 
+                    selected={selectedVideos} 
+                    onSelectedChange={setSelectedVideos} 
+                    videos={videos} 
+                    isLoading={videosLoading} 
+                    onAddComment={(contentId, commentData) => handleAddComment('videos', contentId, commentData)}
+                    onDeleteComment={(contentId, commentId) => handleDeleteComment('videos', contentId, commentId)}
+                  />
+                ) : <p className="text-muted-foreground text-sm">ビデオの閲覧・編集権限がありません。</p>}
               </CardContent>
             </Card>
           </TabsContent>
         )}
 
         {/* メッセージ管理タブ */}
-        {canManageMessages && (
+        {(canManageMessages || canProxyPost) && (
           <TabsContent value="messages">
             <Card>
               <CardHeader>
                 <CardTitle>メッセージ一覧</CardTitle>
                 <CardDescription>経営層からのメッセージを管理します。</CardDescription>
                 <div className="flex justify-end items-center gap-2">
-                  {selectedMessages.length > 0 && (
+                  {selectedMessages.length > 0 && canManageMessages && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedMessages.length}件を削除</Button>
@@ -1134,19 +1140,21 @@ export default function ContentsPage() {
                         </AlertDialogContent>
                       </AlertDialog>
                     )}
-                  <SeedMessagesButton />
+                  {canManageMessages && <SeedMessagesButton />}
                   <AddMessageDialog />
                 </div>
               </CardHeader>
               <CardContent>
-                <MessagesTable 
-                  selected={selectedMessages} 
-                  onSelectedChange={setSelectedMessages}
-                  messages={messages}
-                  isLoading={messagesLoading}
-                  onAddComment={(contentId, commentData) => handleAddComment('executiveMessages', contentId, commentData)}
-                  onDeleteComment={(contentId, commentId) => handleDeleteComment('executiveMessages', contentId, commentId)}
-                />
+                {canManageMessages ? (
+                  <MessagesTable 
+                    selected={selectedMessages} 
+                    onSelectedChange={setSelectedMessages}
+                    messages={messages}
+                    isLoading={messagesLoading}
+                    onAddComment={(contentId, commentData) => handleAddComment('executiveMessages', contentId, commentData)}
+                    onDeleteComment={(contentId, commentId) => handleDeleteComment('executiveMessages', contentId, commentId)}
+                  />
+                ) : <p className="text-muted-foreground text-sm">メッセージの閲覧・編集権限がありません。</p>}
               </CardContent>
             </Card>
           </TabsContent>
