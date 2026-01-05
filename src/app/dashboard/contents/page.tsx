@@ -34,7 +34,7 @@ import type { UserPermission } from '@/types/user-permission';
 // --- Message Section (Firestore) ---
 
 // 新規メッセージ追加用ダイアログ
-function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
+function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessageAdded?: () => void, allUsers: Member[], currentUser: Member | null }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -45,6 +45,15 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
   const [content, setContent] = useState('');
   const [priority, setPriority] = useState<'normal' | 'high'>('normal');
   const [tags, setTags] = useState<string[]>(Array(5).fill(''));
+  const [authorId, setAuthorId] = useState(currentUser?.uid || '');
+
+  const canProxyPost = useMemo(() => {
+    if (!currentUser) return false;
+    const userRole = currentUser.role;
+    // This is a simplified check. A full implementation would use the permissions system.
+    return userRole === 'admin' || userRole === 'executive';
+  }, [currentUser]);
+
 
   const handleTagChange = (index: number, value: string) => {
     const newTags = [...tags];
@@ -57,12 +66,15 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
     setContent('');
     setPriority('normal');
     setTags(Array(5).fill(''));
+    setAuthorId(currentUser?.uid || '');
   }
 
   const handleAddMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firestore || !user) return;
     setIsLoading(true);
+    
+    const selectedAuthor = allUsers.find(u => u.uid === authorId);
 
     try {
       await addDoc(collection(firestore, 'executiveMessages'), {
@@ -70,9 +82,9 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
         content,
         priority,
         tags: tags.map(tag => tag.trim()).filter(tag => tag),
-        authorId: user.uid,
-        creatorId: user.uid,
-        authorName: user.displayName || '不明な作成者',
+        authorId: authorId,
+        authorName: selectedAuthor?.displayName || '不明な作成者',
+        creatorId: user.uid, // Always log who actually created it
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         likesCount: 0,
@@ -108,6 +120,21 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
             <DialogTitle>新規メッセージ追加</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+             {canProxyPost && (
+                <div className="grid gap-2">
+                    <Label htmlFor="msg-author">発信者</Label>
+                     <Select value={authorId} onValueChange={setAuthorId}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="発信者を選択" />
+                        </SelectTrigger>
+                        <SelectContent>
+                             {allUsers.filter(u => u.role === 'executive' || u.role === 'admin').map(u => (
+                                <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="msg-title">タイトル (30文字以内)</Label>
               <Input id="msg-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="来期の事業戦略について" required disabled={isLoading} maxLength={30} />
@@ -157,7 +184,7 @@ function AddMessageDialog({ onMessageAdded }: { onMessageAdded?: () => void }) {
 }
 
 // 既存メッセージ編集用ダイアログ
-function EditMessageDialog({ message, onMessageUpdated, children }: { message: ExecutiveMessage, onMessageUpdated?: () => void, children: React.ReactNode }) {
+function EditMessageDialog({ message, onMessageUpdated, children, allUsers, currentUser }: { message: ExecutiveMessage, onMessageUpdated?: () => void, children: React.ReactNode, allUsers: Member[], currentUser: Member | null }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -166,6 +193,14 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
   const [title, setTitle] = useState(message.title);
   const [content, setContent] = useState(message.content);
   const [priority, setPriority] = useState(message.priority);
+  const [authorId, setAuthorId] = useState(message.authorId);
+
+  const canProxyPost = useMemo(() => {
+    if (!currentUser) return false;
+    const userRole = currentUser.role;
+    return userRole === 'admin' || userRole === 'executive';
+  }, [currentUser]);
+
   
   const initialTags = Array(5).fill('');
   if (message.tags) {
@@ -188,12 +223,15 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
     setIsLoading(true);
 
     const messageRef = doc(firestore, 'executiveMessages', message.id);
+    const selectedAuthor = allUsers.find(u => u.uid === authorId);
 
     try {
       await updateDoc(messageRef, {
         title,
         content,
         priority,
+        authorId,
+        authorName: selectedAuthor?.displayName || message.authorName,
         tags: tags.map(tag => tag.trim()).filter(tag => tag),
         updatedAt: serverTimestamp(),
       });
@@ -208,6 +246,22 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
       setIsLoading(false);
     }
   };
+  
+  useEffect(() => {
+    if(open) {
+      setTitle(message.title);
+      setContent(message.content);
+      setPriority(message.priority);
+      setAuthorId(message.authorId);
+       const newInitialTags = Array(5).fill('');
+      if (message.tags) {
+        for (let i = 0; i < Math.min(message.tags.length, 5); i++) {
+          newInitialTags[i] = message.tags[i];
+        }
+      }
+      setTags(newInitialTags);
+    }
+  }, [open, message])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -220,6 +274,19 @@ function EditMessageDialog({ message, onMessageUpdated, children }: { message: E
             <DialogTitle>メッセージを編集</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+             {canProxyPost && (
+                <div className="grid gap-2">
+                    <Label htmlFor="edit-msg-author">発信者</Label>
+                    <Select value={authorId} onValueChange={setAuthorId}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {allUsers.filter(u => u.role === 'executive' || u.role === 'admin').map(u => (
+                                <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="edit-msg-title">タイトル (30文字以内)</Label>
               <Input id="edit-msg-title" value={title} onChange={e => setTitle(e.target.value)} required disabled={isLoading} maxLength={30} />
@@ -273,14 +340,18 @@ function MessagesTable({
   messages,
   isLoading,
   onAddComment,
-  onDeleteComment
+  onDeleteComment,
+  allUsers,
+  currentUser,
 }: { 
   selected: string[], 
   onSelectedChange: (ids: string[]) => void,
   messages: ExecutiveMessage[] | null,
   isLoading: boolean,
   onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>,
-  onDeleteComment: (contentId: string, commentId: string) => Promise<void>
+  onDeleteComment: (contentId: string, commentId: string) => Promise<void>,
+  allUsers: Member[],
+  currentUser: Member | null,
 }) {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -372,7 +443,7 @@ function MessagesTable({
                   <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <EditMessageDialog message={msg}>
+                  <EditMessageDialog message={msg} allUsers={allUsers} currentUser={currentUser}>
                      <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
                   </EditMessageDialog>
                   <AlertDialog>
@@ -405,7 +476,7 @@ function MessagesTable({
 }
 
 // サンプルメッセージ生成コンポーネント
-function SeedMessagesButton() {
+function SeedMessagesButton({ allUsers }: { allUsers: Member[] }) {
   const [isSeeding, setIsSeeding] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const firestore = useFirestore();
@@ -419,27 +490,33 @@ function SeedMessagesButton() {
     }
     setIsSeeding(true);
 
+    const executive = allUsers.find(u => u.role === 'executive');
+    const author = executive || user;
+
     const sampleMessages = [
       {
         title: "2024年下期 事業戦略について",
         content: "CEOの山田です。2024年下期の全社事業戦略についてご説明します。今期は「顧客中心主義の徹底」と「データ駆動型経営へのシフト」を二本柱とし、全社一丸となって取り組みます...",
         priority: 'high',
         tags: ['全社', '経営方針', '戦略'],
-        authorName: "山田 太郎 (CEO)",
+        authorId: author.uid,
+        authorName: author.displayName,
       },
       {
         title: "新技術スタック導入に関する技術戦略説明会",
         content: "CTOの佐藤です。来月より、開発部門全体で新しい技術スタックを導入します。この変更は、我々の開発速度とプロダクト品質を飛躍的に向上させるものです。詳細は添付資料をご確認ください。",
         priority: 'normal',
         tags: ['開発部', '技術', 'DX'],
-        authorName: "佐藤 花子 (CTO)",
+        authorId: author.uid,
+        authorName: author.displayName,
       },
       {
         title: "新しい人事評価制度の導入について",
         content: "人事部長の鈴木です。従業員の皆様の成長と公正な評価を実現するため、来期より新しい人事評価制度を導入いたします。新制度の目的は、透明性の高い評価プロセスと、個人の目標達成への手厚いサポートです。",
         priority: 'normal',
         tags: ['人事', '制度', '全社'],
-        authorName: "鈴木 一郎 (人事部長)",
+        authorId: author.uid,
+        authorName: author.displayName,
       },
     ];
 
@@ -451,7 +528,6 @@ function SeedMessagesButton() {
         const docRef = doc(messagesCollection); 
         batch.set(docRef, {
           ...msg,
-          authorId: user.uid,
           creatorId: user.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -488,7 +564,7 @@ function SeedMessagesButton() {
 
 // --- Video Section (Firestore) ---
 
-function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onSave: (video: Partial<VideoType>) => void, children?: React.ReactNode, mode: 'add' | 'edit' }) {
+function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: { video?: VideoType, onSave: (video: Partial<VideoType>) => void, children?: React.ReactNode, mode: 'add' | 'edit', allUsers: Member[], currentUser: Member | null }) {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -497,6 +573,13 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
   const [description, setDescription] = useState(video?.description || '');
   const [src, setSrc] = useState(video?.src || '');
   const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnailUrl || '');
+  const [authorId, setAuthorId] = useState(video?.authorId || currentUser?.uid || '');
+
+  const canProxyPost = useMemo(() => {
+    if (!currentUser) return false;
+    const userRole = currentUser.role;
+    return userRole === 'admin' || userRole === 'executive';
+  }, [currentUser]);
   
   const initialTags = Array(5).fill('');
   if (video?.tags) {
@@ -518,14 +601,16 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
     setSrc('');
     setThumbnailUrl('');
     setTags(Array(5).fill(''));
+    setAuthorId(currentUser?.uid || '');
   };
 
-  useMemo(() => {
+  useEffect(() => {
     if (open) {
       setTitle(video?.title || '');
       setDescription(video?.description || '');
       setSrc(video?.src || '');
       setThumbnailUrl(video?.thumbnailUrl || '');
+      setAuthorId(video?.authorId || currentUser?.uid || '');
       
       const newInitialTags = Array(5).fill('');
       if (video?.tags) {
@@ -535,7 +620,7 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
       }
       setTags(newInitialTags);
     }
-  }, [video, open]);
+  }, [video, open, currentUser]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -543,22 +628,24 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
     
     setIsLoading(true);
     
+    const selectedAuthor = allUsers.find(u => u.uid === authorId);
+
     const videoData: Partial<VideoType> = {
       title,
       description,
       src,
       thumbnailUrl,
       tags: tags.map(tag => tag.trim()).filter(tag => tag),
+      authorId: authorId,
+      // authorName is not a field on the Video type, but we should handle it gracefully
     };
     
     if(mode === 'add') {
       videoData.creatorId = user.uid;
-      videoData.authorId = user.uid; // Default to self
     }
 
     onSave(videoData);
 
-    // This is handled by the parent now, we just close the dialog.
     setIsLoading(false);
     setOpen(false);
     if(mode === 'add') {
@@ -582,6 +669,21 @@ function VideoDialog({ video, onSave, children, mode }: { video?: VideoType, onS
             <DialogTitle>{dialogTitle}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+             {canProxyPost && (
+                <div className="grid gap-2">
+                    <Label htmlFor="video-author">発信者</Label>
+                     <Select value={authorId} onValueChange={setAuthorId}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="発信者を選択" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {allUsers.filter(u => u.role === 'executive' || u.role === 'admin').map(u => (
+                                <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="video-title">タイトル (30文字以内)</Label>
               <Input id="video-title" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={30} disabled={isLoading} />
@@ -632,14 +734,18 @@ function VideosTable({
   videos, 
   isLoading,
   onAddComment,
-  onDeleteComment
+  onDeleteComment,
+  allUsers,
+  currentUser
 }: { 
   selected: string[], 
   onSelectedChange: (ids: string[]) => void, 
   videos: VideoType[] | null, 
   isLoading: boolean,
   onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>,
-  onDeleteComment: (contentId: string, commentId: string) => Promise<void>
+  onDeleteComment: (contentId: string, commentId: string) => Promise<void>,
+  allUsers: Member[],
+  currentUser: Member | null,
 }) {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -743,7 +849,7 @@ function VideosTable({
                   <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <VideoDialog mode="edit" video={video} onSave={(data) => handleUpdateVideo(video.id, data)}>
+                  <VideoDialog mode="edit" video={video} onSave={(data) => handleUpdateVideo(video.id, data)} allUsers={allUsers} currentUser={currentUser}>
                     <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
                   </VideoDialog>
                   <AlertDialog>
@@ -855,9 +961,19 @@ export default function ContentsPage() {
   const firestore = useFirestore();
   const { user: authUser, isUserLoading } = useUser();
   const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
   
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<Member>(useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]));
+  const currentUser = useMemo(() => allUsers?.find(u => u.uid === authUser?.uid) || null, [allUsers, authUser]);
+
+  const memoizedUserPermissions = useMemo(() => userPermissions, [userPermissions]);
+
+  const canManageVideos = memoizedUserPermissions.includes('video_management');
+  const canProxyPostVideo = memoizedUserPermissions.includes('proxy_post_video');
+  const canManageMessages = memoizedUserPermissions.includes('message_management');
+  const canProxyPostMessage = memoizedUserPermissions.includes('proxy_post_message');
+
   const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
     if (!firestore) return [];
     try {
@@ -898,13 +1014,8 @@ export default function ContentsPage() {
   }, [authUser, isUserLoading, fetchUserPermissions]);
 
 
-  const canManageVideos = useMemo(() => userPermissions.includes('video_management'), [userPermissions]);
-  const canProxyPostVideo = useMemo(() => userPermissions.includes('proxy_post_video'), [userPermissions]);
-  const canManageMessages = useMemo(() => userPermissions.includes('message_management'), [userPermissions]);
-  const canProxyPostMessage = useMemo(() => userPermissions.includes('proxy_post_message'), [userPermissions]);
-
   const videosQuery = useMemoFirebase(() => {
-    if (!firestore || !authUser || isCheckingPermissions) return null;
+    if (isCheckingPermissions || !authUser || !firestore) return null;
     const collectionRef = collection(firestore, 'videos');
     if (canManageVideos) {
       return query(collectionRef, orderBy('uploadedAt', 'desc'));
@@ -914,11 +1025,12 @@ export default function ContentsPage() {
     }
     return null;
   }, [firestore, authUser, isCheckingPermissions, canManageVideos, canProxyPostVideo]);
+  
 
   const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
   
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !authUser || isCheckingPermissions) return null;
+    if (isCheckingPermissions || !authUser || !firestore) return null;
     const collectionRef = collection(firestore, 'executiveMessages');
     if (canManageMessages) {
         return query(collectionRef, orderBy('createdAt', 'desc'));
@@ -938,6 +1050,7 @@ export default function ContentsPage() {
       await addDoc(collection(firestore, 'videos'), {
         ...videoData,
         uploadedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         likesCount: 0,
         commentsCount: 0,
         viewsCount: 0,
@@ -1036,7 +1149,7 @@ export default function ContentsPage() {
     }
   };
 
-  const isLoading = isUserLoading || isCheckingPermissions;
+  const isLoading = isUserLoading || isCheckingPermissions || isLoadingUsers;
 
   const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
   
@@ -1109,7 +1222,7 @@ export default function ContentsPage() {
                     </AlertDialog>
                   )}
                   {showSeedButton && canManageVideos && <SeedInitialVideosButton onSeeded={() => setInitialVideosSeeded(true)} />}
-                  {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} />}
+                  {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} allUsers={allUsers || []} currentUser={currentUser}/>}
                 </div>
               </CardHeader>
               <CardContent>
@@ -1120,6 +1233,8 @@ export default function ContentsPage() {
                     isLoading={videosLoading} 
                     onAddComment={(contentId, commentData) => handleAddComment('videos', contentId, commentData)}
                     onDeleteComment={(contentId, commentId) => handleDeleteComment('videos', contentId, commentId)}
+                    allUsers={allUsers || []}
+                    currentUser={currentUser}
                 />
               </CardContent>
             </Card>
@@ -1153,8 +1268,8 @@ export default function ContentsPage() {
                         </AlertDialogContent>
                       </AlertDialog>
                     )}
-                  {canManageMessages && <SeedMessagesButton />}
-                  {(canManageMessages || canProxyPostMessage) && <AddMessageDialog />}
+                  {canManageMessages && <SeedMessagesButton allUsers={allUsers || []} />}
+                  {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} />}
                 </div>
               </CardHeader>
               <CardContent>
@@ -1165,6 +1280,8 @@ export default function ContentsPage() {
                     isLoading={messagesLoading}
                     onAddComment={(contentId, commentData) => handleAddComment('executiveMessages', contentId, commentData)}
                     onDeleteComment={(contentId, commentId) => handleDeleteComment('executiveMessages', contentId, commentId)}
+                    allUsers={allUsers || []}
+                    currentUser={currentUser}
                   />
               </CardContent>
             </Card>
