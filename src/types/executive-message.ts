@@ -4,6 +4,7 @@ import type { Timestamp } from 'firebase/firestore';
 export type ExecutiveMessage = {
   id: string;
   authorId: string;
+  creatorId: string;
   authorName: string;
   title: string;
   content: string;

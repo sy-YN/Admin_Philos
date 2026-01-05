@@ -118,7 +118,11 @@
       "properties": {
         "authorId": {
           "type": "string",
-          "description": "The UID of the author."
+          "description": "The UID of the user displayed as the author."
+        },
+        "creatorId": {
+          "type": "string",
+          "description": "The UID of the user who actually created the content (for proxy posting)."
         },
         "authorName": {
           "type": "string",
@@ -166,6 +170,7 @@
       },
       "required": [
         "authorId",
+        "creatorId",
         "authorName",
         "title",
         "content",
@@ -256,8 +261,13 @@
             "type": "string"
           }
         },
-        "uploaderId": {
-          "type": "string"
+        "authorId": {
+          "type": "string",
+          "description": "The UID of the user displayed as the author of the video."
+        },
+        "creatorId": {
+          "type": "string",
+          "description": "The UID of the user who actually uploaded the video (for proxy posting)."
         },
         "uploadedAt": {
           "type": "string",
@@ -280,7 +290,8 @@
         "description",
         "src",
         "thumbnailUrl",
-        "uploaderId",
+        "authorId",
+        "creatorId",
         "uploadedAt",
         "likesCount",
         "commentsCount",
