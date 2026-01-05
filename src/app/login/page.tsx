@@ -80,10 +80,12 @@ export default function LoginPage() {
       
       // User is authenticated, check for permissions.
       const permissions = await fetchUserPermissions(user.uid);
-      if (permissions.length > 0) {
+      const managementPermissions = permissions.filter(p => p !== 'can_comment');
+
+      if (managementPermissions.length > 0) {
         router.replace('/dashboard');
       } else {
-        // User has no permissions, sign them out and show an error.
+        // User has no management permissions, sign them out and show an error.
         if (auth) {
           await auth.signOut();
         }
@@ -116,7 +118,7 @@ export default function LoginPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       
-      // The useEffect will handle the redirection.
+      // The useEffect will handle the redirection after state update.
       toast({
         title: 'ログイン成功',
         description: 'ダッシュボードへようこそ！',
