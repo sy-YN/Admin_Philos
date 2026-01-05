@@ -28,6 +28,7 @@ import { ContentDetailsDialog } from '@/components/contents/content-details-dial
 import type { Comment } from '@/types/comment';
 import type { Member } from '@/types/member';
 import type { Role } from '@/types/role';
+import type { UserPermission } from '@/types/user-permission';
 
 
 // --- Message Section (Firestore) ---
@@ -864,13 +865,11 @@ export default function ContentsPage() {
       const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
       const userPermsDoc = await getDoc(userPermsDocRef);
 
-      // 1. Check for individual permissions first
       if (userPermsDoc.exists()) {
         const individualPerms = userPermsDoc.data() as UserPermission;
         return individualPerms.permissions || [];
       }
 
-      // 2. If no individual permissions, fall back to role-based permissions
       const roleDocRef = doc(firestore, 'roles', userData.role);
       const roleDoc = await getDoc(roleDocRef);
       
@@ -938,7 +937,6 @@ export default function ContentsPage() {
     }
 
     try {
-      // 1. コメントをサブコレクションに追加
       const commentsCollectionRef = collection(firestore, contentType, contentId, 'comments');
       await addDoc(commentsCollectionRef, {
         ...commentData,
@@ -948,7 +946,6 @@ export default function ContentsPage() {
         createdAt: serverTimestamp(),
       });
 
-      // 2. 親ドキュメントのcommentsCountを+1する
       const contentRef = doc(firestore, contentType, contentId);
       await updateDoc(contentRef, {
         commentsCount: increment(1)
@@ -965,11 +962,9 @@ export default function ContentsPage() {
   const handleDeleteComment = async (contentType: 'videos' | 'executiveMessages', contentId: string, commentId: string) => {
     if (!firestore) return;
     try {
-      // 1. コメントをサブコレクションから削除
       const commentRef = doc(firestore, contentType, contentId, 'comments', commentId);
       await deleteDoc(commentRef);
 
-      // 2. 親ドキュメントのcommentsCountを-1する
       const contentRef = doc(firestore, contentType, contentId);
       await updateDoc(contentRef, {
         commentsCount: increment(-1)
@@ -1022,14 +1017,17 @@ export default function ContentsPage() {
 
   const canManageVideos = userPermissions.includes('video_management');
   const canManageMessages = userPermissions.includes('message_management');
-  const canProxyPost = userPermissions.includes('proxy_post');
+  const canProxyPostVideo = userPermissions.includes('proxy_post_video');
+  const canProxyPostMessage = userPermissions.includes('proxy_post_message');
   
   const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
   
+  const canAccessVideoTab = canManageVideos || canProxyPostVideo;
+  const canAccessMessageTab = canManageMessages || canProxyPostMessage;
+
   const getDefaultTab = () => {
-    if (canManageVideos) return 'videos';
-    if (canManageMessages) return 'messages';
-    if (canProxyPost) return 'videos'; // Default to videos if only proxy posting
+    if (canAccessVideoTab) return 'videos';
+    if (canAccessMessageTab) return 'messages';
     return '';
   }
 
@@ -1037,7 +1035,7 @@ export default function ContentsPage() {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
   
-  const showTabs = (canManageVideos || canProxyPost) && canManageMessages;
+  const showTabs = canAccessVideoTab && canAccessMessageTab;
   const defaultTab = getDefaultTab();
 
   if (!defaultTab) {
@@ -1059,13 +1057,13 @@ export default function ContentsPage() {
       <Tabs defaultValue={defaultTab}>
         {showTabs && (
           <TabsList className="grid w-full grid-cols-2 max-w-md">
-            {(canManageVideos || canProxyPost) && <TabsTrigger value="videos"><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>}
-            {(canManageMessages || canProxyPost) && <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>}
+            {canAccessVideoTab && <TabsTrigger value="videos"><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>}
+            {canAccessMessageTab && <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>}
           </TabsList>
         )}
 
         {/* ビデオ管理タブ */}
-        {(canManageVideos || canProxyPost) && (
+        {canAccessVideoTab && (
           <TabsContent value="videos">
             <Card>
               <CardHeader>
@@ -1094,27 +1092,25 @@ export default function ContentsPage() {
                     </AlertDialog>
                   )}
                   {showSeedButton && canManageVideos && <SeedInitialVideosButton onSeeded={() => setInitialVideosSeeded(true)} />}
-                  <VideoDialog mode="add" onSave={handleAddVideo} />
+                  {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} />}
                 </div>
               </CardHeader>
               <CardContent>
-                {canManageVideos ? (
-                  <VideosTable 
+                <VideosTable 
                     selected={selectedVideos} 
                     onSelectedChange={setSelectedVideos} 
                     videos={videos} 
                     isLoading={videosLoading} 
                     onAddComment={(contentId, commentData) => handleAddComment('videos', contentId, commentData)}
                     onDeleteComment={(contentId, commentId) => handleDeleteComment('videos', contentId, commentId)}
-                  />
-                ) : <p className="text-muted-foreground text-sm">ビデオの閲覧・編集権限がありません。</p>}
+                />
               </CardContent>
             </Card>
           </TabsContent>
         )}
 
         {/* メッセージ管理タブ */}
-        {(canManageMessages || canProxyPost) && (
+        {canAccessMessageTab && (
           <TabsContent value="messages">
             <Card>
               <CardHeader>
@@ -1141,12 +1137,11 @@ export default function ContentsPage() {
                       </AlertDialog>
                     )}
                   {canManageMessages && <SeedMessagesButton />}
-                  <AddMessageDialog />
+                  {(canManageMessages || canProxyPostMessage) && <AddMessageDialog />}
                 </div>
               </CardHeader>
               <CardContent>
-                {canManageMessages ? (
-                  <MessagesTable 
+                 <MessagesTable 
                     selected={selectedMessages} 
                     onSelectedChange={setSelectedMessages}
                     messages={messages}
@@ -1154,7 +1149,6 @@ export default function ContentsPage() {
                     onAddComment={(contentId, commentData) => handleAddComment('executiveMessages', contentId, commentData)}
                     onDeleteComment={(contentId, commentId) => handleDeleteComment('executiveMessages', contentId, commentId)}
                   />
-                ) : <p className="text-muted-foreground text-sm">メッセージの閲覧・編集権限がありません。</p>}
               </CardContent>
             </Card>
           </TabsContent>
