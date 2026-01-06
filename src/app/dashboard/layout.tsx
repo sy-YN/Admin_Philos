@@ -44,13 +44,12 @@ function DashboardNav() {
   }, [userPermissions]);
 
   const handleLogout = async () => {
-    // First, redirect to the login page.
-    router.push('/login');
-    // Then, sign out. This ensures that any cleanup and state changes
-    // happen after the user is already on a page that doesn't require authentication.
     if (auth) {
       await auth.signOut();
     }
+    // After signOut, the auth state change will trigger the effect in
+    // LayoutAuthWrapper, which will handle the redirection.
+    router.push('/login');
   };
   
   return (
@@ -178,12 +177,19 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
       return;
     }
     
+    // This part runs only when user is authenticated and permissions are checked.
     const managementPermissions = userPermissions.filter(p => p !== 'can_comment');
 
     if (managementPermissions.length === 0) {
-      if (auth) auth.signOut();
-      router.replace('/login');
+      if (auth) {
+        auth.signOut().then(() => {
+          router.replace('/login');
+        });
+      } else {
+        router.replace('/login');
+      }
     } else {
+      // Redirect from /dashboard to the first accessible page
       const firstAllowedPage = allNavItems.find(item => {
         if (!item.requiredPermissions) {
           return userPermissions.includes(item.id);
@@ -204,10 +210,21 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+  
+  // If user is null and we are not on login page, we are in a redirecting state.
+  // The loading spinner above should cover this, but as a fallback:
+  if (!user && pathname !== '/login') {
+      return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
+  // Render children (the actual page) only when checks are complete
   return (
       <div className="flex h-screen w-full bg-muted/40">
-        <DashboardNav />
+        {pathname !== '/login' && <DashboardNav />}
         <div className="flex flex-col flex-1 overflow-hidden">
           <main className="flex-1 overflow-y-auto p-4 lg:p-6">
             <div className="mx-auto w-full">
