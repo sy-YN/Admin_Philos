@@ -333,6 +333,8 @@ function MessagesTable({
   isLoading,
   allUsers,
   currentUser,
+  onAddComment,
+  onDeleteComment,
 }: { 
   selected: string[], 
   onSelectedChange: (ids: string[]) => void,
@@ -340,6 +342,8 @@ function MessagesTable({
   isLoading: boolean,
   allUsers: Member[],
   currentUser: Member | null,
+  onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
+  onDeleteComment: (contentId: string, commentId: string) => Promise<void>;
 }) {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -386,70 +390,82 @@ function MessagesTable({
           <TableHead>タイトル</TableHead>
           <TableHead className="hidden md:table-cell">タグ</TableHead>
           <TableHead className="w-[120px]">重要度</TableHead>
-          <TableHead className="hidden sm:table-cell w-[200px]">作成者 / 作成日</TableHead>
+          <TableHead className="hidden sm:table-cell w-[200px]">投稿者 / 作成者 / 作成日</TableHead>
           <TableHead className="hidden lg:table-cell">Counts</TableHead>
           <TableHead><span className="sr-only">Actions</span></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {messages && messages.map((msg) => (
-          <TableRow key={msg.id} data-state={selected.includes(msg.id) && "selected"}>
-            <TableCell><Checkbox checked={selected.includes(msg.id)} onCheckedChange={(checked) => handleSelectRow(msg.id, !!checked)} /></TableCell>
-            <TableCell className="font-medium">{msg.title}</TableCell>
-            <TableCell className="hidden md:table-cell">
-              <div className="flex flex-wrap gap-1">
-                {(msg.tags || []).map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
-              </div>
-            </TableCell>
-            <TableCell>
-              <Badge variant={msg.priority === 'high' ? 'destructive' : 'secondary'}>
-                {msg.priority === 'high' ? '高' : '通常'}
-              </Badge>
-            </TableCell>
-            <TableCell className="hidden sm:table-cell">
-              <div>{msg.authorName || '不明'}</div>
-              <div className="text-xs text-muted-foreground">{formatDate(msg.createdAt)}</div>
-            </TableCell>
-            <TableCell className="hidden lg:table-cell">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{msg.likesCount ?? 0}</div>
-                  <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{msg.commentsCount ?? 0}</div>
-                  <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{msg.viewsCount ?? 0}</div>
+        {messages && messages.map((msg) => {
+           const creator = allUsers.find(u => u.uid === msg.creatorId);
+          return (
+            <TableRow key={msg.id} data-state={selected.includes(msg.id) && "selected"}>
+              <TableCell><Checkbox checked={selected.includes(msg.id)} onCheckedChange={(checked) => handleSelectRow(msg.id, !!checked)} /></TableCell>
+              <TableCell className="font-medium">{msg.title}</TableCell>
+              <TableCell className="hidden md:table-cell">
+                <div className="flex flex-wrap gap-1">
+                  {(msg.tags || []).map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
                 </div>
-            </TableCell>
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <EditMessageDialog message={msg} allUsers={allUsers} currentUser={currentUser}>
-                     <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
-                  </EditMessageDialog>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                        削除
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          メッセージ「{msg.title}」を削除します。この操作は元に戻せません。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(msg.id)}>削除</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
-        ))}
+              </TableCell>
+              <TableCell>
+                <Badge variant={msg.priority === 'high' ? 'destructive' : 'secondary'}>
+                  {msg.priority === 'high' ? '高' : '通常'}
+                </Badge>
+              </TableCell>
+              <TableCell className="hidden sm:table-cell">
+                <div>投稿: {msg.authorName || '不明'}</div>
+                <div className="text-xs text-muted-foreground">作成: {creator?.displayName || '不明'}</div>
+                <div className="text-xs text-muted-foreground">{formatDate(msg.createdAt)}</div>
+              </TableCell>
+              <TableCell className="hidden lg:table-cell">
+                <ContentDetailsDialog 
+                    contentId={msg.id} 
+                    contentType="executiveMessages" 
+                    contentTitle={msg.title}
+                    onAddComment={onAddComment}
+                    onDeleteComment={onDeleteComment}
+                >
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                    <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{msg.likesCount ?? 0}</div>
+                    <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{msg.commentsCount ?? 0}</div>
+                    <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{msg.viewsCount ?? 0}</div>
+                  </div>
+                </ContentDetailsDialog>
+              </TableCell>
+              <TableCell>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <EditMessageDialog message={msg} allUsers={allUsers} currentUser={currentUser}>
+                       <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
+                    </EditMessageDialog>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                          削除
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            メッセージ「{msg.title}」を削除します。この操作は元に戻せません。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(msg.id)}>削除</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          )
+        })}
       </TableBody>
     </Table>
   );
@@ -614,7 +630,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
       thumbnailUrl,
       tags: tags.map(tag => tag.trim()).filter(tag => tag),
       authorId: authorId,
-      // authorName is not a field on the Video type, but we should handle it gracefully
+      authorName: selectedAuthor?.displayName || '不明な投稿者',
     };
     
     if(mode === 'add') {
@@ -711,7 +727,9 @@ function VideosTable({
   videos, 
   isLoading,
   allUsers,
-  currentUser
+  currentUser,
+  onAddComment,
+  onDeleteComment,
 }: { 
   selected: string[], 
   onSelectedChange: (ids: string[]) => void, 
@@ -719,6 +737,8 @@ function VideosTable({
   isLoading: boolean,
   allUsers: Member[],
   currentUser: Member | null,
+  onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
+  onDeleteComment: (contentId: string, commentId: string) => Promise<void>;
 }) {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -780,67 +800,82 @@ function VideosTable({
           <TableHead>タイトル</TableHead>
           <TableHead className="hidden sm:table-cell">タグ</TableHead>
           <TableHead className="hidden lg:table-cell">Counts</TableHead>
-          <TableHead className="hidden md:table-cell">アップロード日</TableHead>
+          <TableHead className="hidden md:table-cell">投稿者 / 作成者 / 作成日</TableHead>
           <TableHead><span className="sr-only">Actions</span></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {videos && videos.map((video) => (
-          <TableRow key={video.id} data-state={selected.includes(video.id) && "selected"}>
-            <TableCell><Checkbox checked={selected.includes(video.id)} onCheckedChange={(checked) => handleSelectRow(video.id, !!checked)} /></TableCell>
-            <TableCell>
-              <Image src={video.thumbnailUrl} alt={video.title} width={120} height={90} className="rounded-md object-cover" />
-            </TableCell>
-            <TableCell>
-              <div className="font-medium">{video.title}</div>
-              <div className="text-sm text-muted-foreground hidden md:inline">{video.description}</div>
-            </TableCell>
-            <TableCell className="hidden sm:table-cell">
-              <div className="flex flex-wrap gap-1">
-                {video.tags.map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
-              </div>
-            </TableCell>
-            <TableCell className="hidden lg:table-cell">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
-                  <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
-                  <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{video.viewsCount ?? 0}</div>
+        {videos && videos.map((video) => {
+          const creator = allUsers.find(u => u.uid === video.creatorId);
+          return (
+            <TableRow key={video.id} data-state={selected.includes(video.id) && "selected"}>
+              <TableCell><Checkbox checked={selected.includes(video.id)} onCheckedChange={(checked) => handleSelectRow(video.id, !!checked)} /></TableCell>
+              <TableCell>
+                <Image src={video.thumbnailUrl} alt={video.title} width={120} height={90} className="rounded-md object-cover" />
+              </TableCell>
+              <TableCell>
+                <div className="font-medium">{video.title}</div>
+                <div className="text-sm text-muted-foreground hidden md:inline">{video.description}</div>
+              </TableCell>
+              <TableCell className="hidden sm:table-cell">
+                <div className="flex flex-wrap gap-1">
+                  {video.tags.map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
                 </div>
-            </TableCell>
-            <TableCell className="hidden md:table-cell">{formatDate(video.uploadedAt)}</TableCell>
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <VideoDialog mode="edit" video={video} onSave={(data) => handleUpdateVideo(video.id, data)} allUsers={allUsers} currentUser={currentUser}>
-                    <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
-                  </VideoDialog>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                        削除
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          ビデオ「{video.title}」を削除します。この操作は元に戻せません。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(video.id)}>削除</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
-        ))}
+              </TableCell>
+              <TableCell className="hidden lg:table-cell">
+                  <ContentDetailsDialog 
+                    contentId={video.id} 
+                    contentType="videos" 
+                    contentTitle={video.title}
+                    onAddComment={onAddComment}
+                    onDeleteComment={onDeleteComment}
+                  >
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                      <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
+                      <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
+                      <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{video.viewsCount ?? 0}</div>
+                    </div>
+                  </ContentDetailsDialog>
+              </TableCell>
+              <TableCell className="hidden md:table-cell">
+                <div>投稿: {video.authorName || '不明'}</div>
+                <div className="text-xs text-muted-foreground">作成: {creator?.displayName || '不明'}</div>
+                <div className="text-xs text-muted-foreground">{formatDate(video.uploadedAt)}</div>
+              </TableCell>
+              <TableCell>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <VideoDialog mode="edit" video={video} onSave={(data) => handleUpdateVideo(video.id, data)} allUsers={allUsers} currentUser={currentUser}>
+                      <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
+                    </VideoDialog>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                          削除
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            ビデオ「{video.title}」を削除します。この操作は元に戻せません。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(video.id)}>削除</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          )
+        })}
       </TableBody>
     </Table>
   );
@@ -890,6 +925,7 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         batch.set(docRef, {
           ...video,
           authorId: user.uid,
+          authorName: user.displayName,
           creatorId: user.uid,
           uploadedAt: serverTimestamp(),
           likesCount: Math.floor(Math.random() * 50),
@@ -928,9 +964,13 @@ export default function ContentsPage() {
   const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
 
   const { userPermissions, isCheckingPermissions } = usePermissions();
-  console.log('[ContentsPage] Received permissions:', userPermissions, 'isChecking:', isCheckingPermissions);
+  
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore || isUserLoading || isCheckingPermissions) return null;
+    return query(collection(firestore, 'users'));
+  }, [firestore, isUserLoading, isCheckingPermissions]);
 
-  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<Member>(useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]));
+  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<Member>(usersQuery);
   const currentUser = useMemo(() => allUsers?.find(u => u.uid === authUser?.uid) || null, [allUsers, authUser]);
 
   const canManageVideos = userPermissions.includes('video_management');
@@ -938,29 +978,22 @@ export default function ContentsPage() {
   const canManageMessages = userPermissions.includes('message_management');
   const canProxyPostMessage = userPermissions.includes('proxy_post_message');
 
-  console.log('[ContentsPage] Permission flags:', { canManageVideos, canProxyPostVideo, canManageMessages, canProxyPostMessage });
 
   const videosQuery = useMemoFirebase(() => {
     if (isCheckingPermissions || !authUser || !firestore) {
-        console.log('[ContentsPage] videosQuery: Skipping, dependencies not ready.');
         return null;
     }
     
     const collectionRef = collection(firestore, 'videos');
-    console.log('[ContentsPage] videosQuery: Creating query...');
-
+    
     if (canManageVideos) {
-        console.log('[ContentsPage] videosQuery shape: Querying collection: videos with NO filters');
         return query(collectionRef);
     }
 
     if (canProxyPostVideo) {
-        console.log(`[ContentsPage] videosQuery shape: Querying collection: videos with filter: creatorId == ${authUser.uid}`);
         return query(collectionRef, where('creatorId', '==', authUser.uid));
     }
     
-    console.log('[ContentsPage] videosQuery shape: No permissions. Returning empty query.');
-    // Return a query that is guaranteed to be empty but does not require special permissions.
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
 
   }, [firestore, authUser, isCheckingPermissions, canManageVideos, canProxyPostVideo]);
@@ -970,31 +1003,25 @@ export default function ContentsPage() {
   
   const messagesQuery = useMemoFirebase(() => {
      if (isCheckingPermissions || !authUser || !firestore) {
-        console.log('[ContentsPage] messagesQuery: Skipping, dependencies not ready.');
         return null;
     }
 
     const collectionRef = collection(firestore, 'executiveMessages');
-    console.log('[ContentsPage] messagesQuery: Creating query...');
-
+    
     if (canManageMessages) {
-       console.log(`[ContentsPage] messagesQuery shape: Querying collection: executiveMessages with NO filters`);
        return query(collectionRef);
     }
 
     if (canProxyPostMessage) {
-       console.log(`[ContentsPage] messagesQuery shape: Querying collection: executiveMessages with filter: creatorId == ${authUser.uid}`);
        return query(collectionRef, where('creatorId', '==', authUser.uid));
     }
     
-    console.log('[ContentsPage] messagesQuery shape: No permissions. Returning empty query.');
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
 
   }, [firestore, authUser, isCheckingPermissions, canManageMessages, canProxyPostMessage]);
 
   const { data: messages, isLoading: messagesLoading, error: messagesError } = useCollection<ExecutiveMessage>(messagesQuery);
-  const { data: usersData, isLoading: usersLoading, error: usersError } = useCollection<Member>(useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]));
-
+  
   useEffect(() => {
     if (videosError) console.error("[videosError]", videosError);
   }, [videosError]);
@@ -1003,34 +1030,6 @@ export default function ContentsPage() {
     if (messagesError) console.error("[messagesError]", messagesError);
   }, [messagesError]);
 
-  useEffect(() => {
-    if (usersError) console.error("[usersError]", usersError);
-  }, [usersError]);
-  
-   useEffect(() => {
-    const run = async () => {
-      if (!firestore || !authUser) return;
-
-      try {
-        const snap = await getDocs(collection(firestore, "users"));
-        console.log("[Debug] users OK size:", snap.size);
-      } catch (e: any) {
-        console.error("code:", e?.code);
-        console.error("message:", e?.message);
-        console.error(e);
-      }
-      
-       try {
-        const snap = await getDocs(collection(firestore, "executiveMessages"));
-        console.log("[Debug Query] Success! Found", snap.size, "documents in executiveMessages.");
-      } catch (e: any) {
-        console.error("code:", e?.code);
-        console.error("message:", e?.message);
-        console.error(e);
-      }
-    };
-    run();
-  }, [firestore, authUser]);
 
   const handleAddVideo = async (videoData: Partial<VideoType>) => {
     if (!firestore) return;
@@ -1084,6 +1083,54 @@ export default function ContentsPage() {
       toast({ title: 'エラー', description: `${itemLabel}の一括削除に失敗しました。`, variant: 'destructive' });
     }
   };
+
+  const handleAddComment = useCallback(async (
+    contentId: string,
+    commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>
+  ) => {
+    if (!firestore || !authUser) return;
+
+    const contentType = 'executiveMessages'; // Assuming this for now, needs to be dynamic
+    const contentRef = doc(firestore, contentType, contentId);
+    const commentsColRef = collection(contentRef, 'comments');
+    
+    const batch = writeBatch(firestore);
+    batch.set(doc(commentsColRef), {
+      ...commentData,
+      authorId: authUser.uid,
+      authorName: authUser.displayName || '不明',
+      authorAvatarUrl: authUser.photoURL || '',
+      createdAt: serverTimestamp()
+    });
+    batch.update(contentRef, { commentsCount: increment(1) });
+    
+    try {
+      await batch.commit();
+    } catch (error) {
+      console.error("Error adding comment: ", error);
+      toast({ title: "エラー", description: "コメントの追加に失敗しました。", variant: "destructive" });
+    }
+  }, [firestore, authUser, toast]);
+
+  const handleDeleteComment = useCallback(async (contentId: string, commentId: string) => {
+    if (!firestore) return;
+    
+    const contentType = 'executiveMessages'; // This should also be dynamic
+    const contentRef = doc(firestore, contentType, contentId);
+    const commentRef = doc(contentRef, 'comments', commentId);
+
+    const batch = writeBatch(firestore);
+    batch.delete(commentRef);
+    batch.update(contentRef, { commentsCount: increment(-1) });
+
+    try {
+      await batch.commit();
+    } catch (error) {
+      console.error("Error deleting comment: ", error);
+      toast({ title: "エラー", description: "コメントの削除に失敗しました。", variant: "destructive" });
+    }
+  }, [firestore, toast]);
+
 
   const isLoading = isUserLoading || isCheckingPermissions || isLoadingUsers;
 
@@ -1169,6 +1216,8 @@ export default function ContentsPage() {
                     isLoading={videosLoading} 
                     allUsers={allUsers || []}
                     currentUser={currentUser}
+                    onAddComment={handleAddComment}
+                    onDeleteComment={onDeleteComment}
                 />
               </CardContent>
             </Card>
@@ -1214,6 +1263,8 @@ export default function ContentsPage() {
                     isLoading={messagesLoading}
                     allUsers={allUsers || []}
                     currentUser={currentUser}
+                    onAddComment={handleAddComment}
+                    onDeleteComment={onDeleteComment}
                   />
               </CardContent>
             </Card>

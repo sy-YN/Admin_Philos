@@ -9,6 +9,7 @@ export type Video = {
   thumbnailUrl: string;
   tags: string[];
   authorId: string;
+  authorName: string;
   creatorId: string;
   uploadedAt: Timestamp;
   likesCount: number;

@@ -20,7 +20,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ScrollArea } from '../ui/scroll-area';
 import { doc, collection, addDoc, serverTimestamp, updateDoc, increment, deleteDoc } from 'firebase/firestore';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
@@ -251,7 +251,7 @@ function CommentsList({
     }
     
     // Check if the user is the author of the parent content.
-    const contentAuthorId = 'authorId' in parentContent ? parentContent.authorId : parentContent.uploaderId;
+    const contentAuthorId = 'authorId' in parentContent ? parentContent.authorId : ('uploaderId' in parentContent ? parentContent.uploaderId : undefined);
     if (user.uid === contentAuthorId) {
       if (contentType === 'videos' && userPermissions.includes('video_management')) {
         return true;
@@ -268,7 +268,7 @@ function CommentsList({
     if (!comments) {
       return { topLevelComments: [], repliesMap: new Map() };
     }
-    const topLevelComments = comments.filter(c => !c.parentCommentId).sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    const topLevelComments = comments.filter(c => !c.parentCommentId).sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
     const repliesMap = new Map<string, WithId<Comment>[]>();
     comments.forEach(c => {
       if (c.parentCommentId) {
@@ -279,7 +279,7 @@ function CommentsList({
       }
     });
      // Sort replies within each parent
-    repliesMap.forEach(replies => replies.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis()));
+    repliesMap.forEach(replies => replies.sort((a, b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0)));
     
     return { topLevelComments, repliesMap };
   }, [comments]);
@@ -377,19 +377,20 @@ export function ContentDetailsDialog({
 }: ContentDetailsDialogProps) {
   const { user } = useUser();
   const firestore = useFirestore();
+  const [isOpen, setIsOpen] = useState(false);
 
   // Fetch the parent content document to get the authorId
   const contentDocRef = useMemoFirebase(() => {
-    if (!firestore || !contentId || !contentType) return null;
+    if (!firestore || !contentId || !contentType || !isOpen) return null;
     return doc(firestore, contentType, contentId);
-  }, [firestore, contentType, contentId]);
+  }, [firestore, contentType, contentId, isOpen]);
   const { data: parentContent } = useDoc<ExecutiveMessage | Video>(contentDocRef);
   
   // Fetch current user's full document to check role
   const currentUserDocRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
+    if (!firestore || !user?.uid || !isOpen) return null;
     return doc(firestore, 'users', user.uid);
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, isOpen]);
   const { data: currentUserMember } = useDoc<Member>(currentUserDocRef);
   
   // This is a simplified permission check. A real app would use a more robust system.
@@ -411,35 +412,37 @@ export function ContentDetailsDialog({
 
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl p-0 gap-0">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="truncate pr-8">「{contentTitle}」の詳細</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="comments" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 border-b rounded-none px-0">
-            <TabsTrigger value="comments" className="rounded-none"><MessageCircle className="mr-2 h-4 w-4" />コメント</TabsTrigger>
-            <TabsTrigger value="likes" className="rounded-none"><Heart className="mr-2 h-4 w-4" />いいね</TabsTrigger>
-            <TabsTrigger value="views" className="rounded-none"><Eye className="mr-2 h-4 w-4" />既読</TabsTrigger>
-          </TabsList>
-          <TabsContent value="comments" className="m-0">
-            <CommentsList 
-              contentId={contentId} 
-              contentType={contentType} 
-              onAddComment={onAddComment}
-              onDeleteComment={onDeleteComment}
-              parentContent={parentContent}
-              userPermissions={userPermissions}
-            />
-          </TabsContent>
-          <TabsContent value="likes" className="m-0">
-            <LikesList contentId={contentId} contentType={contentType} />
-          </TabsContent>
-          <TabsContent value="views" className="m-0">
-            <ViewsList />
-          </TabsContent>
-        </Tabs>
+        {isOpen && ( // Only render tabs and their content when the dialog is open
+          <Tabs defaultValue="comments" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 border-b rounded-none px-0">
+              <TabsTrigger value="comments" className="rounded-none"><MessageCircle className="mr-2 h-4 w-4" />コメント</TabsTrigger>
+              <TabsTrigger value="likes" className="rounded-none"><Heart className="mr-2 h-4 w-4" />いいね</TabsTrigger>
+              <TabsTrigger value="views" className="rounded-none"><Eye className="mr-2 h-4 w-4" />既読</TabsTrigger>
+            </TabsList>
+            <TabsContent value="comments" className="m-0">
+              <CommentsList 
+                contentId={contentId} 
+                contentType={contentType} 
+                onAddComment={onAddComment}
+                onDeleteComment={onDeleteComment}
+                parentContent={parentContent}
+                userPermissions={userPermissions}
+              />
+            </TabsContent>
+            <TabsContent value="likes" className="m-0">
+              <LikesList contentId={contentId} contentType={contentType} />
+            </TabsContent>
+            <TabsContent value="views" className="m-0">
+              <ViewsList />
+            </TabsContent>
+          </Tabs>
+        )}
       </DialogContent>
     </Dialog>
   );
