@@ -5,17 +5,13 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft, CalendarDays, User, Network, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth, useUser, useFirestore } from '@/firebase';
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useAuth, useUser } from '@/firebase';
+import { useState, useMemo, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { doc, getDoc } from 'firebase/firestore';
-import type { Member } from '@/types/member';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import type { Role } from '@/types/role';
-import type { UserPermission } from '@/types/user-permission';
 import { PermissionProvider, usePermissions } from '@/context/PermissionContext';
 
 
@@ -48,10 +44,13 @@ function DashboardNav() {
   }, [userPermissions]);
 
   const handleLogout = async () => {
+    // First, redirect to the login page.
+    router.push('/login');
+    // Then, sign out. This ensures that any cleanup and state changes
+    // happen after the user is already on a page that doesn't require authentication.
     if (auth) {
       await auth.signOut();
     }
-    router.push('/login');
   };
   
   return (
@@ -166,27 +165,22 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const { userPermissions, isCheckingPermissions } = usePermissions();
-
-  console.log('[LayoutAuthWrapper] Permissions:', userPermissions, 'isChecking:', isCheckingPermissions);
-
+  
   useEffect(() => {
     if (isUserLoading || isCheckingPermissions) {
-      console.log('[LayoutAuthWrapper] Waiting for auth/permissions check...');
       return;
     }
 
-    console.log('[LayoutAuthWrapper] Auth/Permissions check finished.');
-
     if (!user) {
-      console.log('[LayoutAuthWrapper] No user found, redirecting to /login.');
-      router.replace('/login');
+      if (pathname !== '/login') {
+          router.replace('/login');
+      }
       return;
     }
     
     const managementPermissions = userPermissions.filter(p => p !== 'can_comment');
 
     if (managementPermissions.length === 0) {
-      console.log('[LayoutAuthWrapper] No management permissions, signing out and redirecting to /login.');
       if (auth) auth.signOut();
       router.replace('/login');
     } else {
@@ -198,7 +192,6 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
       });
 
       if (pathname === '/dashboard' && firstAllowedPage) {
-        console.log(`[LayoutAuthWrapper] Redirecting from /dashboard to first allowed page: ${firstAllowedPage.href}`);
         router.replace(firstAllowedPage.href);
       }
     }
