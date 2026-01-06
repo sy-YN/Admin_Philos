@@ -67,6 +67,12 @@ function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessage
   const handleAddMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firestore || !user) return;
+    
+    if (!authorId) {
+        toast({ title: "エラー", description: "発信者を選択してください。", variant: 'destructive' });
+        return;
+    }
+
     setIsLoading(true);
     
     const selectedAuthor = allUsers.find(u => u.uid === authorId);
@@ -118,7 +124,7 @@ function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessage
              {canProxyPost && (
                 <div className="grid gap-2">
                     <Label htmlFor="msg-author">発信者</Label>
-                     <Select value={authorId} onValueChange={setAuthorId}>
+                     <Select value={authorId} onValueChange={setAuthorId} required>
                         <SelectTrigger>
                             <SelectValue placeholder="発信者を選択" />
                         </SelectTrigger>
@@ -212,6 +218,12 @@ function EditMessageDialog({ message, onMessageUpdated, children, allUsers, curr
   const handleEditMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firestore) return;
+    
+    if (!authorId) {
+        toast({ title: "エラー", description: "発信者を選択してください。", variant: 'destructive' });
+        return;
+    }
+
     setIsLoading(true);
 
     const messageRef = doc(firestore, 'executiveMessages', message.id);
@@ -269,7 +281,7 @@ function EditMessageDialog({ message, onMessageUpdated, children, allUsers, curr
              {canProxyPost && (
                 <div className="grid gap-2">
                     <Label htmlFor="edit-msg-author">発信者</Label>
-                    <Select value={authorId} onValueChange={setAuthorId}>
+                    <Select value={authorId} onValueChange={setAuthorId} required>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                             {allUsers.filter(u => u.role === 'executive' || u.role === 'admin').map(u => (
@@ -564,6 +576,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
   
   const [title, setTitle] = useState(video?.title || '');
   const [description, setDescription] = useState(video?.description || '');
@@ -619,6 +632,11 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
     e.preventDefault();
     if (!user) return;
     
+    if (!authorId) {
+        toast({ title: "エラー", description: "発信者を選択してください。", variant: 'destructive' });
+        return;
+    }
+
     setIsLoading(true);
     
     const selectedAuthor = allUsers.find(u => u.uid === authorId);
@@ -665,7 +683,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
              {canProxyPost && (
                 <div className="grid gap-2">
                     <Label htmlFor="video-author">発信者</Label>
-                     <Select value={authorId} onValueChange={setAuthorId}>
+                     <Select value={authorId} onValueChange={setAuthorId} required>
                         <SelectTrigger>
                             <SelectValue placeholder="発信者を選択" />
                         </SelectTrigger>
@@ -987,7 +1005,7 @@ export default function ContentsPage() {
     const collectionRef = collection(firestore, 'videos');
     
     if (canManageVideos) {
-        return query(collectionRef, orderBy('uploadedAt', 'desc'));
+        return query(collectionRef);
     }
 
     if (canProxyPostVideo) {
@@ -1011,7 +1029,7 @@ export default function ContentsPage() {
     const collectionRef = collection(firestore, 'executiveMessages');
     
     if (canManageMessages) {
-       return query(collectionRef, orderBy('createdAt', 'desc'));
+       return query(collectionRef);
     }
 
     if (canProxyPostMessage) {
