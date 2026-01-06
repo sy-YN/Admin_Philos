@@ -55,7 +55,73 @@ service cloud.firestore {
 
 目標管理機能では、おそらくUIの構造上、VIPルーム（サブコレクション）に入る前に、必ずリストバンドの確認作業が終わるような流れになっていました。つまり、「リストバンドを受け取る → VIPルームへ向かう」という正しい順序が守られていたため、エラーが発生しなかったのです。
 
-### 4. 解決策
+---
+
+## 4. コードのどの部分で問題が起きていたか？
+
+この「処理の競争」は、以下のファイル（コンポーネント）間の連携と、処理が実行されるタイミングのズレが原因で発生していました。
+
+1.  **`src/app/dashboard/layout.tsx` (全体の設計図)**
+    *   **役割:** 管理画面全体のレイアウトを定義します。
+    *   **コード:**
+        ```tsx
+        <PermissionProvider>
+          <LayoutAuthWrapper>
+            {children}
+          </LayoutAuthWrapper>
+        </PermissionProvider>
+        ```
+    *   **解説:** ここで呼び出される `<PermissionProvider>` が、「権限の確認係」を起動するスイッチの役割を果たしています。
+
+2.  **`src/context/PermissionContext.tsx` (権限の確認係)**
+    *   **役割:** ユーザーの権限をデータベースに問い合わせ、その結果をアプリ全体で共有します。
+    *   **コード:**
+        ```tsx
+        useEffect(() => {
+          // ...
+          // 権限取得は非同期（時間がかかる）
+          fetchUserPermissions(user.uid).then(perms => {
+            setUserPermissions(perms); // ← 結果がセットされるまでタイムラグがある
+            setIsCheckingPermissions(false);
+          });
+          // ...
+        }, [user, ...]);
+        ```
+    *   **解説:** `fetchUserPermissions` はデータベースと通信するため、完了するまでにわずかな時間がかかります。この「確認中」の状態がエラーの温床となります。
+
+3.  **`src/app/dashboard/contents/page.tsx` (コンテンツ管理ページ)**
+    *   **役割:** ビデオやメッセージの一覧を表示するメインページです。
+    *   **コード:**
+        ```tsx
+        // ...
+        <MessagesTable 
+          messages={messages}
+          // ...
+        />
+        // ...
+        ```
+    *   **解説:** このページが表示されると、Reactは権限チェックの完了を待たずに、子コンポーネントである `MessagesTable` の描画を開始します。
+
+4.  **`src/components/contents/content-details-dialog.tsx` (詳細ダイアログ)**
+    *   **役割:** いいねやコメントの詳細を表示するコンポーネントで、今回の**直接的なエラーの引き金**です。
+    *   **問題のコード:**
+        ```tsx
+        // ContentDetailsDialog の内部にある CommentsList コンポーネントより
+
+        function CommentsList({ contentId, contentType, ... }) {
+          // ...
+          // このフックが、権限チェックの完了を待たずに実行されてしまう！
+          const { data: comments, isLoading } = useSubCollection<Comment>(
+            contentType, 
+            contentId, 
+            'comments'
+          );
+          // ...
+        }
+        ```
+    *   **解説:** `ContentsPage` が `MessagesTable` を描画し、その結果 `ContentDetailsDialog` が（まだ画面には見えていなくても）Reactの描画ツリーに組み込まれます。その瞬間に、内部の `useSubCollection` フックが実行され、Firestoreに「`comments`のデータをください！」というリクエストを送信してしまいます。これは、`PermissionContext`が権限の確認を終えるよりも前のタイミングであるため、権限情報が不完全なリクエストとなり、エラーが発生していました。
+
+## 5. 解決策
 
 この問題を解決するには、アプリケーションのルールを以下のように変更する必要があります。
 
