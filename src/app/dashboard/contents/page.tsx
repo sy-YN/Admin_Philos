@@ -422,8 +422,8 @@ function MessagesTable({
                     contentId={msg.id} 
                     contentType="executiveMessages" 
                     contentTitle={msg.title}
-                    onAddComment={onAddComment}
-                    onDeleteComment={onDeleteComment}
+                    onAddComment={(contentId, commentData) => onAddComment('executiveMessages', contentId, commentData)}
+                    onDeleteComment={(contentId, commentId) => onDeleteComment('executiveMessages', contentId, commentId)}
                 >
                   <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground">
                     <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{msg.likesCount ?? 0}</div>
@@ -827,8 +827,8 @@ function VideosTable({
                     contentId={video.id} 
                     contentType="videos" 
                     contentTitle={video.title}
-                    onAddComment={onAddComment}
-                    onDeleteComment={onDeleteComment}
+                    onAddComment={(contentId, commentData) => onAddComment('videos', contentId, commentData)}
+                    onDeleteComment={(contentId, commentId) => onDeleteComment('videos', contentId, commentId)}
                   >
                     <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground">
                       <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
@@ -991,9 +991,11 @@ export default function ContentsPage() {
     }
 
     if (canProxyPostVideo) {
-        return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
+        // This query requires a composite index on (creatorId, uploadedAt)
+        return query(collectionRef, where('creatorId', '==', authUser.uid));
     }
     
+    // Return a query that is guaranteed to be empty if user has no permissions
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
 
   }, [firestore, authUser, isCheckingPermissions, canManageVideos, canProxyPostVideo]);
@@ -1013,14 +1015,26 @@ export default function ContentsPage() {
     }
 
     if (canProxyPostMessage) {
-       return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
+       // This query requires a composite index on (creatorId, createdAt)
+       return query(collectionRef, where('creatorId', '==', authUser.uid));
     }
     
+    // Return a query that is guaranteed to be empty if user has no permissions
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
 
   }, [firestore, authUser, isCheckingPermissions, canManageMessages, canProxyPostMessage]);
 
   const { data: messages, isLoading: messagesLoading, error: messagesError } = useCollection<ExecutiveMessage>(messagesQuery);
+  
+  const sortedVideos = useMemo(() => {
+    if (!videos) return null;
+    return [...videos].sort((a, b) => (b.uploadedAt?.toMillis() ?? 0) - (a.uploadedAt?.toMillis() ?? 0));
+  }, [videos]);
+
+  const sortedMessages = useMemo(() => {
+    if (!messages) return null;
+    return [...messages].sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+  }, [messages]);
   
   useEffect(() => {
     if (videosError) console.error("[videosError]", videosError);
@@ -1122,6 +1136,8 @@ export default function ContentsPage() {
     const contentRef = doc(firestore, contentType, contentId);
     const commentRef = doc(contentRef, 'comments', commentId);
 
+    // To robustly handle reply deletion, we need a transaction or a Cloud Function.
+    // For now, we just decrement by 1. A better solution would query for all children and delete them.
     const batch = writeBatch(firestore);
     batch.delete(commentRef);
     batch.update(contentRef, { commentsCount: increment(-1) });
@@ -1215,7 +1231,7 @@ export default function ContentsPage() {
                 <VideosTable 
                     selected={selectedVideos} 
                     onSelectedChange={setSelectedVideos} 
-                    videos={videos} 
+                    videos={sortedVideos} 
                     isLoading={videosLoading} 
                     allUsers={allUsers || []}
                     currentUser={currentUser}
@@ -1262,7 +1278,7 @@ export default function ContentsPage() {
                  <MessagesTable 
                     selected={selectedMessages} 
                     onSelectedChange={setSelectedMessages}
-                    messages={messages}
+                    messages={sortedMessages}
                     isLoading={messagesLoading}
                     allUsers={allUsers || []}
                     currentUser={currentUser}
