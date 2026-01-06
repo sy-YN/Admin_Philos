@@ -15,7 +15,7 @@ import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Tr
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where, getDocs } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -331,8 +331,6 @@ function MessagesTable({
   onSelectedChange,
   messages,
   isLoading,
-  onAddComment,
-  onDeleteComment,
   allUsers,
   currentUser,
 }: { 
@@ -340,8 +338,6 @@ function MessagesTable({
   onSelectedChange: (ids: string[]) => void,
   messages: ExecutiveMessage[] | null,
   isLoading: boolean,
-  onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>,
-  onDeleteComment: (contentId: string, commentId: string) => Promise<void>,
   allUsers: Member[],
   currentUser: Member | null,
 }) {
@@ -415,19 +411,11 @@ function MessagesTable({
               <div className="text-xs text-muted-foreground">{formatDate(msg.createdAt)}</div>
             </TableCell>
             <TableCell className="hidden lg:table-cell">
-               <ContentDetailsDialog 
-                  contentId={msg.id} 
-                  contentType='executiveMessages' 
-                  contentTitle={msg.title}
-                  onAddComment={onAddComment}
-                  onDeleteComment={onDeleteComment}
-                >
-                <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-primary">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{msg.likesCount ?? 0}</div>
                   <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{msg.commentsCount ?? 0}</div>
                   <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{msg.viewsCount ?? 0}</div>
                 </div>
-              </ContentDetailsDialog>
             </TableCell>
             <TableCell>
               <DropdownMenu>
@@ -722,8 +710,6 @@ function VideosTable({
   onSelectedChange, 
   videos, 
   isLoading,
-  onAddComment,
-  onDeleteComment,
   allUsers,
   currentUser
 }: { 
@@ -731,8 +717,6 @@ function VideosTable({
   onSelectedChange: (ids: string[]) => void, 
   videos: VideoType[] | null, 
   isLoading: boolean,
-  onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>,
-  onDeleteComment: (contentId: string, commentId: string) => Promise<void>,
   allUsers: Member[],
   currentUser: Member | null,
 }) {
@@ -817,19 +801,11 @@ function VideosTable({
               </div>
             </TableCell>
             <TableCell className="hidden lg:table-cell">
-               <ContentDetailsDialog 
-                  contentId={video.id} 
-                  contentType='videos' 
-                  contentTitle={video.title}
-                  onAddComment={onAddComment}
-                  onDeleteComment={onDeleteComment}
-                >
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-primary">
-                    <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
-                    <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
-                    <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{video.viewsCount ?? 0}</div>
-                  </div>
-              </ContentDetailsDialog>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
+                  <div className="flex items-center gap-1"><MessageCircleIcon className="h-3.5 w-3.5" />{video.commentsCount ?? 0}</div>
+                  <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{video.viewsCount ?? 0}</div>
+                </div>
             </TableCell>
             <TableCell className="hidden md:table-cell">{formatDate(video.uploadedAt)}</TableCell>
             <TableCell>
@@ -965,59 +941,96 @@ export default function ContentsPage() {
   console.log('[ContentsPage] Permission flags:', { canManageVideos, canProxyPostVideo, canManageMessages, canProxyPostMessage });
 
   const videosQuery = useMemoFirebase(() => {
-    if (isCheckingPermissions || !authUser) {
-      console.log('[ContentsPage - videosQuery] Skipping query: Permissions or auth user not ready.');
-      return null;
+    if (isCheckingPermissions || !authUser || !firestore) {
+        console.log('[ContentsPage] videosQuery: Skipping, dependencies not ready.');
+        return null;
     }
     
     const collectionRef = collection(firestore, 'videos');
-    
+    console.log('[ContentsPage] videosQuery: Creating query...');
+
     if (canManageVideos) {
-      console.log('[ContentsPage - videosQuery] Using full management query.');
-      const q = query(collectionRef, orderBy('uploadedAt', 'desc'));
-      console.log(`[ContentsPage] videosQuery shape: Querying collection: videos with NO filters`);
-      return q;
-    }
-    if (canProxyPostVideo) {
-      console.log('[ContentsPage - videosQuery] Using proxy post query for user:', authUser.uid);
-      const q = query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
-      console.log(`[ContentsPage] videosQuery shape: Querying collection: videos with filter: creatorId == ${authUser.uid}`);
-      return q;
+        console.log('[ContentsPage] videosQuery shape: Querying collection: videos with NO filters');
+        return query(collectionRef);
     }
 
-    console.log('[ContentsPage - videosQuery] No permissions, returning null.');
-    return null;
-  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageVideos, canProxyPostVideo]);
+    if (canProxyPostVideo) {
+        console.log(`[ContentsPage] videosQuery shape: Querying collection: videos with filter: creatorId == ${authUser.uid}`);
+        return query(collectionRef, where('creatorId', '==', authUser.uid));
+    }
+    
+    console.log('[ContentsPage] videosQuery shape: No permissions. Returning empty query.');
+    // Return a query that is guaranteed to be empty but does not require special permissions.
+    return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
+
+  }, [firestore, authUser, isCheckingPermissions, canManageVideos, canProxyPostVideo]);
   
 
-  const { data: videos, isLoading: videosLoading } = useCollection<VideoType>(videosQuery);
+  const { data: videos, isLoading: videosLoading, error: videosError } = useCollection<VideoType>(videosQuery);
   
   const messagesQuery = useMemoFirebase(() => {
-    if (isCheckingPermissions || !authUser) {
-      console.log('[ContentsPage - messagesQuery] Skipping query: Permissions or auth user not ready.');
-      return null;
+     if (isCheckingPermissions || !authUser || !firestore) {
+        console.log('[ContentsPage] messagesQuery: Skipping, dependencies not ready.');
+        return null;
     }
-    
+
     const collectionRef = collection(firestore, 'executiveMessages');
+    console.log('[ContentsPage] messagesQuery: Creating query...');
+
     if (canManageMessages) {
-      console.log('[ContentsPage - messagesQuery] Using full management query.');
-       const q = query(collectionRef, orderBy('createdAt', 'desc'));
        console.log(`[ContentsPage] messagesQuery shape: Querying collection: executiveMessages with NO filters`);
-       return q;
+       return query(collectionRef);
     }
+
     if (canProxyPostMessage) {
-      console.log('[ContentsPage - messagesQuery] Using proxy post query for user:', authUser.uid);
-       const q = query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
        console.log(`[ContentsPage] messagesQuery shape: Querying collection: executiveMessages with filter: creatorId == ${authUser.uid}`);
-       return q;
+       return query(collectionRef, where('creatorId', '==', authUser.uid));
     }
     
-    console.log('[ContentsPage - messagesQuery] No permissions, returning null.');
-    return null;
-  }, [firestore, authUser, isCheckingPermissions, userPermissions, canManageMessages, canProxyPostMessage]);
+    console.log('[ContentsPage] messagesQuery shape: No permissions. Returning empty query.');
+    return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
 
-  const { data: messages, isLoading: messagesLoading } = useCollection<ExecutiveMessage>(messagesQuery);
+  }, [firestore, authUser, isCheckingPermissions, canManageMessages, canProxyPostMessage]);
 
+  const { data: messages, isLoading: messagesLoading, error: messagesError } = useCollection<ExecutiveMessage>(messagesQuery);
+  const { data: usersData, isLoading: usersLoading, error: usersError } = useCollection<Member>(useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]));
+
+  useEffect(() => {
+    if (videosError) console.error("[videosError]", videosError);
+  }, [videosError]);
+
+  useEffect(() => {
+    if (messagesError) console.error("[messagesError]", messagesError);
+  }, [messagesError]);
+
+  useEffect(() => {
+    if (usersError) console.error("[usersError]", usersError);
+  }, [usersError]);
+  
+   useEffect(() => {
+    const run = async () => {
+      if (!firestore || !authUser) return;
+
+      try {
+        const snap = await getDocs(collection(firestore, "users"));
+        console.log("[Debug] users OK size:", snap.size);
+      } catch (e: any) {
+        console.error("code:", e?.code);
+        console.error("message:", e?.message);
+        console.error(e);
+      }
+      
+       try {
+        const snap = await getDocs(collection(firestore, "executiveMessages"));
+        console.log("[Debug Query] Success! Found", snap.size, "documents in executiveMessages.");
+      } catch (e: any) {
+        console.error("code:", e?.code);
+        console.error("message:", e?.message);
+        console.error(e);
+      }
+    };
+    run();
+  }, [firestore, authUser]);
 
   const handleAddVideo = async (videoData: Partial<VideoType>) => {
     if (!firestore) return;
@@ -1036,58 +1049,6 @@ export default function ContentsPage() {
       toast({ title: "エラー", description: "ビデオの追加に失敗しました。", variant: 'destructive' });
     }
   };
-  
-  const handleAddComment = async (
-    contentType: 'videos' | 'executiveMessages',
-    contentId: string,
-    commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>
-  ) => {
-    if (!firestore || !authUser) {
-      toast({ title: "エラー", description: "コメントするにはログインが必要です。", variant: "destructive" });
-      return;
-    }
-
-    try {
-      const commentsCollectionRef = collection(firestore, contentType, contentId, 'comments');
-      await addDoc(commentsCollectionRef, {
-        ...commentData,
-        authorId: authUser.uid,
-        authorName: authUser.displayName || '匿名ユーザー',
-        authorAvatarUrl: authUser.photoURL || `https://picsum.photos/seed/${authUser.uid}/100/100`,
-        createdAt: serverTimestamp(),
-      });
-
-      const contentRef = doc(firestore, contentType, contentId);
-      await updateDoc(contentRef, {
-        commentsCount: increment(1)
-      });
-
-      toast({ title: "成功", description: "コメントを投稿しました。" });
-
-    } catch (error) {
-      console.error("コメントの投稿に失敗しました:", error);
-      toast({ title: "エラー", description: "コメントの投稿に失敗しました。", variant: "destructive" });
-    }
-  };
-  
-  const handleDeleteComment = async (contentType: 'videos' | 'executiveMessages', contentId: string, commentId: string) => {
-    if (!firestore) return;
-    try {
-      const commentRef = doc(firestore, contentType, contentId, 'comments', commentId);
-      await deleteDoc(commentRef);
-
-      const contentRef = doc(firestore, contentType, contentId);
-      await updateDoc(contentRef, {
-        commentsCount: increment(-1)
-      });
-      
-      toast({ title: '成功', description: 'コメントを削除しました。' });
-    } catch (error) {
-      console.error("コメントの削除に失敗しました:", error);
-      toast({ title: 'エラー', description: 'コメントの削除に失敗しました。', variant: 'destructive' });
-    }
-  };
-
 
   const handleBulkDelete = async (type: 'videos' | 'messages') => {
     let collectionName: string;
@@ -1206,8 +1167,6 @@ export default function ContentsPage() {
                     onSelectedChange={setSelectedVideos} 
                     videos={videos} 
                     isLoading={videosLoading} 
-                    onAddComment={(contentId, commentData) => handleAddComment('videos', contentId, commentData)}
-                    onDeleteComment={(contentId, commentId) => handleDeleteComment('videos', contentId, commentId)}
                     allUsers={allUsers || []}
                     currentUser={currentUser}
                 />
@@ -1253,8 +1212,6 @@ export default function ContentsPage() {
                     onSelectedChange={setSelectedMessages}
                     messages={messages}
                     isLoading={messagesLoading}
-                    onAddComment={(contentId, commentData) => handleAddComment('executiveMessages', contentId, commentData)}
-                    onDeleteComment={(contentId, commentId) => handleDeleteComment('executiveMessages', contentId, commentId)}
                     allUsers={allUsers || []}
                     currentUser={currentUser}
                   />
