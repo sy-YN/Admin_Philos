@@ -342,8 +342,8 @@ function MessagesTable({
   isLoading: boolean,
   allUsers: Member[],
   currentUser: Member | null,
-  onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
-  onDeleteComment: (contentId: string, commentId: string) => Promise<void>;
+  onAddComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
+  onDeleteComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentId: string) => Promise<void>;
 }) {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -737,8 +737,8 @@ function VideosTable({
   isLoading: boolean,
   allUsers: Member[],
   currentUser: Member | null,
-  onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
-  onDeleteComment: (contentId: string, commentId: string) => Promise<void>;
+  onAddComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
+  onDeleteComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentId: string) => Promise<void>;
 }) {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -987,11 +987,11 @@ export default function ContentsPage() {
     const collectionRef = collection(firestore, 'videos');
     
     if (canManageVideos) {
-        return query(collectionRef);
+        return query(collectionRef, orderBy('uploadedAt', 'desc'));
     }
 
     if (canProxyPostVideo) {
-        return query(collectionRef, where('creatorId', '==', authUser.uid));
+        return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
     }
     
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
@@ -1009,11 +1009,11 @@ export default function ContentsPage() {
     const collectionRef = collection(firestore, 'executiveMessages');
     
     if (canManageMessages) {
-       return query(collectionRef);
+       return query(collectionRef, orderBy('createdAt', 'desc'));
     }
 
     if (canProxyPostMessage) {
-       return query(collectionRef, where('creatorId', '==', authUser.uid));
+       return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
     }
     
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
@@ -1085,12 +1085,12 @@ export default function ContentsPage() {
   };
 
   const handleAddComment = useCallback(async (
+    contentType: 'videos' | 'executiveMessages',
     contentId: string,
     commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>
   ) => {
     if (!firestore || !authUser) return;
 
-    const contentType = 'executiveMessages'; // Assuming this for now, needs to be dynamic
     const contentRef = doc(firestore, contentType, contentId);
     const commentsColRef = collection(contentRef, 'comments');
     
@@ -1112,10 +1112,13 @@ export default function ContentsPage() {
     }
   }, [firestore, authUser, toast]);
 
-  const handleDeleteComment = useCallback(async (contentId: string, commentId: string) => {
+  const handleDeleteComment = useCallback(async (
+    contentType: 'videos' | 'executiveMessages',
+    contentId: string, 
+    commentId: string
+  ) => {
     if (!firestore) return;
     
-    const contentType = 'executiveMessages'; // This should also be dynamic
     const contentRef = doc(firestore, contentType, contentId);
     const commentRef = doc(contentRef, 'comments', commentId);
 
@@ -1217,7 +1220,7 @@ export default function ContentsPage() {
                     allUsers={allUsers || []}
                     currentUser={currentUser}
                     onAddComment={handleAddComment}
-                    onDeleteComment={onDeleteComment}
+                    onDeleteComment={handleDeleteComment}
                 />
               </CardContent>
             </Card>
@@ -1264,7 +1267,7 @@ export default function ContentsPage() {
                     allUsers={allUsers || []}
                     currentUser={currentUser}
                     onAddComment={handleAddComment}
-                    onDeleteComment={onDeleteComment}
+                    onDeleteComment={handleDeleteComment}
                   />
               </CardContent>
             </Card>
