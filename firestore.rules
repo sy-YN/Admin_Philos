@@ -2,11 +2,39 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 開発用のルールです。すべてのユーザーからの読み書きを許可します。
-    // 本番環境では、より厳格なルールに置き換える必要があります。
-    // 例: allow read, write: if request.auth != null;
+
+    // Allow authenticated users to read all main content and subcollections
+    match /executiveMessages/{messageId} {
+      allow read: if request.auth != null;
+
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        // Further restrictions for write operations can be added here
+        // allow create: if request.auth != null && request.auth.uid == request.resource.data.authorId;
+      }
+      match /likes/{userId} {
+        allow read: if request.auth != null;
+        // allow create, delete: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    match /videos/{videoId} {
+      allow read: if request.auth != null;
+
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+      }
+      match /likes/{userId} {
+        allow read: if request.auth != null;
+      }
+    }
+
+    // You should also define rules for your other collections like users, goals, etc.
+    // For now, keeping a broad rule for development, but more specific rules are recommended for production.
     match /{document=**} {
-      allow read, write: if true;
+      // This rule will be used for collections not explicitly defined above.
+      // For development, it's open, but it's not secure.
+      allow read, write: if request.auth != null;
     }
   }
 }
