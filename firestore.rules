@@ -2,12 +2,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Allow read and write for all authenticated users on all collections
-    // This is a permissive rule for development. 
-    // For production, you should implement more granular security rules.
+    // 開発用のルールです。すべてのユーザーからの読み書きを許可します。
+    // 本番環境では、より厳格なルールに置き換える必要があります。
+    // 例: allow read, write: if request.auth != null;
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }
