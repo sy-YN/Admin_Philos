@@ -36,8 +36,8 @@ interface ContentDetailsDialogProps {
   contentType: ContentType;
   contentTitle: string;
   children: React.ReactNode;
-  onAddComment: (contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
-  onDeleteComment: (contentId: string, commentId: string) => Promise<void>;
+  onAddComment: (contentType: ContentType, contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
+  onDeleteComment: (contentType: ContentType, contentId: string, commentId: string) => Promise<void>;
 }
 
 const formatDate = (timestamp: any) => {
@@ -200,6 +200,7 @@ const CommentItem = ({
 
 
 interface CommentFormProps {
+  contentType: ContentType;
   contentId: string;
   replyToComment: WithId<Comment> | null;
   onCommentPosted: () => void;
@@ -207,7 +208,7 @@ interface CommentFormProps {
   canPost: boolean;
 }
 
-function CommentForm({ contentId, replyToComment, onCommentPosted, onAddComment, canPost }: CommentFormProps) {
+function CommentForm({ contentType, contentId, replyToComment, onCommentPosted, onAddComment, canPost }: CommentFormProps) {
   const [commentText, setCommentText] = useState('');
   const [isPosting, setIsPosting] = useState(false);
 
@@ -220,7 +221,7 @@ function CommentForm({ contentId, replyToComment, onCommentPosted, onAddComment,
       parentCommentId: replyToComment?.id || null,
     };
     
-    await onAddComment(contentId, commentData);
+    await onAddComment(contentType, contentId, commentData);
     
     setCommentText('');
     onCommentPosted();
@@ -364,7 +365,7 @@ function CommentsList({
 
 
   const handleDelete = (commentId: string) => {
-    onDeleteComment(contentId, commentId);
+    onDeleteComment(contentType, contentId, commentId);
   };
 
 
@@ -377,6 +378,7 @@ function CommentsList({
       <div>
         <p className="text-sm text-muted-foreground p-8 text-center">まだコメントはありません。</p>
         <CommentForm 
+          contentType={contentType}
           contentId={contentId} 
           replyToComment={null} 
           onCommentPosted={() => setReplyToComment(null)}
@@ -406,6 +408,7 @@ function CommentsList({
           </div>
       </ScrollArea>
        <CommentForm 
+          contentType={contentType}
           contentId={contentId}
           replyToComment={replyToComment} 
           onCommentPosted={() => setReplyToComment(null)}
