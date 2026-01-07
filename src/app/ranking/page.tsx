@@ -83,16 +83,19 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
 
         for (const member of members) {
             const goalsSnapshot = await getDocs(collection(firestore, 'users', member.uid, 'personalGoals'));
-            const completedGoalsInPeriod = goalsSnapshot.docs
+            const activeGoalsInPeriod = goalsSnapshot.docs
                 .map(doc => ({ ...doc.data() } as PersonalGoal))
-                .filter(goal => 
-                    (goal.status === '達成済' || goal.status === '未達成') &&
-                    goal.updatedAt?.toDate() >= thirtyDaysAgo
-                );
+                .filter(goal => {
+                    const startDate = goal.startDate?.toDate();
+                    const endDate = goal.endDate?.toDate();
+                    if(!startDate || !endDate) return false;
+                    // Active in the last 30 days
+                    return startDate <= new Date() && endDate >= thirtyDaysAgo;
+                });
 
-            if (completedGoalsInPeriod.length > 0) {
-                const totalProgress = completedGoalsInPeriod.reduce((sum, goal) => sum + goal.progress, 0);
-                const averageProgress = totalProgress / completedGoalsInPeriod.length;
+            if (activeGoalsInPeriod.length > 0) {
+                const totalProgress = activeGoalsInPeriod.reduce((sum, goal) => sum + goal.progress, 0);
+                const averageProgress = totalProgress / activeGoalsInPeriod.length;
                 scores.goal_progress.set(member.uid, averageProgress);
             }
         }
@@ -158,7 +161,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                         const sortedScores = Array.from(individualScores[cat].entries()).sort(([, a], [, b]) => b - a);
                         sortedScores.forEach(([userId], index) => {
                             if (targetMembers?.find(m => m.uid === userId)) {
-                                const points = Math.max(0, MAX_POINTS - index);
+                                const points = Math.max(0, MAX_POINTS - (index + 1));
                                 rankPoints.set(userId, (rankPoints.get(userId) || 0) + points);
                             }
                         });
@@ -328,7 +331,7 @@ function ContentRankingList({ contentType }: { contentType: 'videos' | 'executiv
             </TableHeader>
             <TableBody>
                 {sortedContent.map((item, index) => {
-                    const dateToShow = (item as Video).uploadedAt || item.createdAt;
+                    const dateToShow = 'uploadedAt' in item ? item.uploadedAt : item.createdAt;
                     return (
                         <TableRow key={item.id}>
                             <TableCell>
