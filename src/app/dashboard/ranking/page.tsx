@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, getDocs } from 'firebase/firestore';
+import { collection, query, getDocs, Timestamp } from 'firebase/firestore';
 import { Loader2, Trophy, Crown, Medal, Award } from 'lucide-react';
 import type { RankingResult } from '@/types/ranking';
 import type { Member } from '@/types/member';
@@ -15,6 +15,8 @@ import type { Video } from '@/types/video';
 import type { ExecutiveMessage } from '@/types/executive-message';
 import type { Like } from '@/types/like';
 import type { Comment } from '@/types/comment';
+import type { PersonalGoal } from '@/types/personal-goal';
+import { subDays } from 'date-fns';
 
 type RankItem = {
     userId: string;
@@ -37,11 +39,10 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
 
     useEffect(() => {
         const calculateRankings = async () => {
-            if (!firestore || isLoadingMembers || isLoadingVideos || isLoadingMessages) {
+            if (!firestore || !members || isLoadingMembers || isLoadingVideos || isLoadingMessages) {
                 return;
             }
-            if (!videos || !messages) {
-                setIsCalculating(false);
+            if ((category === 'likes' || category === 'comments') && (!videos || !messages)) {
                 return;
             }
             
@@ -50,17 +51,17 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
             const userScores = new Map<string, number>();
 
             if (category === 'likes') {
-                const allContent = [...videos, ...messages];
+                const allContent = [...(videos || []), ...(messages || [])];
                 for (const content of allContent) {
                     const collectionName = 'src' in content ? 'videos' : 'executiveMessages';
                     const likesSnapshot = await getDocs(collection(firestore, collectionName, content.id, 'likes'));
                     likesSnapshot.forEach(likeDoc => {
-                        const userId = likeDoc.id; // User ID is the doc ID in 'likes' subcollection
+                        const userId = likeDoc.id;
                         userScores.set(userId, (userScores.get(userId) || 0) + 1);
                     });
                 }
             } else if (category === 'comments') {
-                const allContent = [...videos, ...messages];
+                const allContent = [...(videos || []), ...(messages || [])];
                  for (const content of allContent) {
                     const collectionName = 'src' in content ? 'videos' : 'executiveMessages';
                     const commentsSnapshot = await getDocs(collection(firestore, collectionName, content.id, 'comments'));
@@ -70,6 +71,23 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
                             userScores.set(authorId, (userScores.get(authorId) || 0) + 1);
                         }
                     });
+                }
+            } else if (category === 'goal_progress') {
+                const thirtyDaysAgo = subDays(new Date(), 30);
+                for (const member of members) {
+                    const goalsSnapshot = await getDocs(collection(firestore, 'users', member.uid, 'personalGoals'));
+                    const completedGoalsInPeriod = goalsSnapshot.docs
+                        .map(doc => ({ ...doc.data() } as PersonalGoal))
+                        .filter(goal => 
+                            (goal.status === '達成済' || goal.status === '未達成') &&
+                            goal.updatedAt.toDate() >= thirtyDaysAgo
+                        );
+
+                    if (completedGoalsInPeriod.length > 0) {
+                        const totalProgress = completedGoalsInPeriod.reduce((sum, goal) => sum + goal.progress, 0);
+                        const averageProgress = totalProgress / completedGoalsInPeriod.length;
+                        userScores.set(member.uid, averageProgress);
+                    }
                 }
             }
 
@@ -86,13 +104,9 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
             setIsCalculating(false);
         };
 
-        if(category === 'likes' || category === 'comments') {
-            calculateRankings();
-        } else {
-            setRankingData([]); // Clear for categories not yet implemented
-        }
+        calculateRankings();
 
-    }, [category, firestore, videos, messages, isLoadingMembers, isLoadingVideos, isLoadingMessages]);
+    }, [category, firestore, videos, messages, members, isLoadingMembers, isLoadingVideos, isLoadingMessages]);
 
 
     const getRankIcon = (rank: number) => {
@@ -111,7 +125,7 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
         )
     }
 
-    if (category !== 'likes' && category !== 'comments' || rankingData.length === 0) {
+    if (rankingData.length === 0) {
         return (
             <div className="text-center py-10 text-muted-foreground">
                 <Trophy className="mx-auto h-12 w-12 mb-4" />
@@ -120,6 +134,8 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
             </div>
         )
     }
+
+    const scoreUnit = category === 'goal_progress' ? '%' : 'pt';
 
     return (
         <Table>
@@ -152,7 +168,7 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
                                     <span className="font-medium">{userName}</span>
                                 </div>
                             </TableCell>
-                            <TableCell className="text-right font-mono">{item.score.toLocaleString()} pt</TableCell>
+                            <TableCell className="text-right font-mono">{Math.round(item.score).toLocaleString()}{scoreUnit}</TableCell>
                         </TableRow>
                     );
                 })}
@@ -183,7 +199,7 @@ export default function RankingPage() {
             <Tabs defaultValue="personal" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="personal">個人ランキング</TabsTrigger>
-                    <TabsTrigger value="department">部署ランキング</TabsTrigger>
+                    <TabsTrigger value="department" disabled>部署ランキング</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="personal">
@@ -195,7 +211,7 @@ export default function RankingPage() {
                         <CardContent>
                              <Tabs defaultValue="overall" className="w-full">
                                 <TabsList className="grid w-full grid-cols-4">
-                                    <TabsTrigger value="overall">総合</TabsTrigger>
+                                    <TabsTrigger value="overall" disabled>総合</TabsTrigger>
                                     <TabsTrigger value="likes">いいね数</TabsTrigger>
                                     <TabsTrigger value="comments">コメント数</TabsTrigger>
                                     <TabsTrigger value="goal_progress">目標達成</TabsTrigger>
