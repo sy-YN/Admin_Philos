@@ -125,7 +125,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
 
 
             if (scope === 'department') {
-                finalScores = new Map<string, number>();
+                const departmentStats = new Map<string, { totalScore: number, memberCount: number }>();
                 if (!members || !orgsMap.size) {
                     setIsCalculating(false);
                     return;
@@ -137,7 +137,18 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                     const commentScore = individualScores.comments.get(member.uid) || 0;
                     const goalScore = individualScores.goal_progress.get(member.uid) || 0;
                     const totalScore = likeScore + commentScore + (goalScore / 10);
-                    finalScores.set(orgId, (finalScores.get(orgId) || 0) + totalScore);
+                    
+                    const stats = departmentStats.get(orgId) || { totalScore: 0, memberCount: 0 };
+                    stats.totalScore += totalScore;
+                    stats.memberCount += 1;
+                    departmentStats.set(orgId, stats);
+                });
+
+                finalScores = new Map<string, number>();
+                departmentStats.forEach((stats, orgId) => {
+                    if (stats.memberCount > 0) {
+                        finalScores.set(orgId, stats.totalScore / stats.memberCount);
+                    }
                 });
             } else { // scope === 'all' (personal)
                 if (category === 'overall') {
@@ -245,7 +256,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                                 <span className="font-medium">{item.name}</span>
                             </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono">{Math.round(item.score).toLocaleString()}{scoreUnit}</TableCell>
+                        <TableCell className="text-right font-mono">{Math.round(item.score).toLocaleString()}{scope === 'department' ? 'pt (平均)' : scoreUnit}</TableCell>
                     </TableRow>
                 ))}
             </TableBody>
@@ -267,9 +278,9 @@ function ContentRankingList({ contentType }: { contentType: 'videos' | 'executiv
     }, [content]);
 
     const getRankIcon = (rank: number) => {
-        if (rank === 1) return <Crown className="h-5 w-5 text-yellow-500" />;
-        if (rank === 2) return <Medal className="h-5 w-5 text-slate-400" />;
-        if (rank === 3) return <Award className="h-5 w-5 text-amber-700" />;
+        if (rank === 0) return <Crown className="h-5 w-5 text-yellow-500" />;
+        if (rank === 1) return <Medal className="h-5 w-5 text-slate-400" />;
+        if (rank === 2) return <Award className="h-5 w-5 text-amber-700" />;
         return <span className="text-sm font-medium w-5 text-center">{rank + 1}</span>;
     }
     
@@ -415,7 +426,7 @@ export default function RankingPage() {
                          <Card>
                             <CardHeader>
                                 <CardTitle>部署ランキング</CardTitle>
-                                <CardDescription>部署全体の活動を合計した総合ランキングです。</CardDescription>
+                                <CardDescription>部署全体の活動を平均化した総合ランキングです。</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <RankingList category="overall" scope="department" />
@@ -449,5 +460,3 @@ export default function RankingPage() {
         </main>
     );
 }
-
-    
