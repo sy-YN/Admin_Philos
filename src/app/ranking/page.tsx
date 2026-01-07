@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, Timestamp, doc } from 'firebase/firestore';
 import { Loader2, Trophy, Crown, Medal, Award, Building, Video as VideoIcon, MessageSquare } from 'lucide-react';
 import type { RankingSettings } from '@/types/ranking';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -18,6 +18,7 @@ import type { Organization } from '@/types/organization';
 import { subDays, formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import Image from 'next/image';
+import { useDoc } from '@/firebase/firestore/use-doc';
 
 type RankItem = {
     id: string; // userId or organizationId
@@ -271,6 +272,18 @@ function ContentRankingList({ contentType }: { contentType: 'videos' | 'executiv
         if (rank === 3) return <Award className="h-5 w-5 text-amber-700" />;
         return <span className="text-sm font-medium w-5 text-center">{rank + 1}</span>;
     }
+    
+    const safeFormatDistanceToNow = (date: any) => {
+        if (!date || typeof date.toDate !== 'function') {
+            return '';
+        }
+        try {
+            return formatDistanceToNow(date.toDate(), { addSuffix: true, locale: ja });
+        } catch (e) {
+            return '';
+        }
+    };
+
 
     if (isLoadingContent) {
         return (
@@ -319,7 +332,7 @@ function ContentRankingList({ contentType }: { contentType: 'videos' | 'executiv
                         </TableCell>
                         <TableCell>{item.authorName}</TableCell>
                         <TableCell className="hidden md:table-cell">
-                            {formatDistanceToNow((item.createdAt as Timestamp)?.toDate(), { addSuffix: true, locale: ja })}
+                            {safeFormatDistanceToNow(item.createdAt)}
                         </TableCell>
                         <TableCell className="text-right font-mono">{(item.viewsCount || 0).toLocaleString()}</TableCell>
                     </TableRow>
@@ -436,3 +449,5 @@ export default function RankingPage() {
         </main>
     );
 }
+
+    

@@ -271,6 +271,17 @@ function ContentRankingList({ contentType }: { contentType: 'videos' | 'executiv
         if (rank === 3) return <Award className="h-5 w-5 text-amber-700" />;
         return <span className="text-sm font-medium w-5 text-center">{rank + 1}</span>;
     }
+    
+    const safeFormatDistanceToNow = (date: any) => {
+        if (!date || typeof date.toDate !== 'function') {
+            return '';
+        }
+        try {
+            return formatDistanceToNow(date.toDate(), { addSuffix: true, locale: ja });
+        } catch (e) {
+            return '';
+        }
+    };
 
     if (isLoadingContent) {
         return (
@@ -319,7 +330,7 @@ function ContentRankingList({ contentType }: { contentType: 'videos' | 'executiv
                         </TableCell>
                         <TableCell>{item.authorName}</TableCell>
                         <TableCell className="hidden md:table-cell">
-                            {formatDistanceToNow((item.createdAt as Timestamp)?.toDate(), { addSuffix: true, locale: ja })}
+                            {safeFormatDistanceToNow(item.createdAt)}
                         </TableCell>
                         <TableCell className="text-right font-mono">{(item.viewsCount || 0).toLocaleString()}</TableCell>
                     </TableRow>
@@ -423,3 +434,5 @@ export default function RankingPage() {
         </div>
     );
 }
+
+    
