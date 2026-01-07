@@ -44,11 +44,11 @@ function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessage
   const [content, setContent] = useState('');
   const [priority, setPriority] = useState<'normal' | 'high'>('normal');
   const [tags, setTags] = useState<string[]>(Array(5).fill(''));
-  const [authorId, setAuthorId] = useState(currentUser?.uid || '');
 
   const { userPermissions } = usePermissions();
   const canProxyPost = userPermissions.includes('proxy_post_message');
-
+  
+  const [authorId, setAuthorId] = useState(canProxyPost ? '' : (currentUser?.uid || ''));
 
   const handleTagChange = (index: number, value: string) => {
     const newTags = [...tags];
@@ -61,17 +61,12 @@ function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessage
     setContent('');
     setPriority('normal');
     setTags(Array(5).fill(''));
-    setAuthorId(currentUser?.uid || '');
+    setAuthorId(canProxyPost ? '' : (currentUser?.uid || ''));
   }
 
   const handleAddMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firestore || !user) return;
-    
-    if (!authorId) {
-        toast({ title: "エラー", description: "発信者を選択してください。", variant: 'destructive' });
-        return;
-    }
 
     setIsLoading(true);
     
@@ -218,11 +213,6 @@ function EditMessageDialog({ message, onMessageUpdated, children, allUsers, curr
   const handleEditMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firestore) return;
-    
-    if (!authorId) {
-        toast({ title: "エラー", description: "発信者を選択してください。", variant: 'destructive' });
-        return;
-    }
 
     setIsLoading(true);
 
@@ -434,8 +424,8 @@ function MessagesTable({
                     contentId={msg.id} 
                     contentType="executiveMessages" 
                     contentTitle={msg.title}
-                    onAddComment={(contentId, commentData) => onAddComment('executiveMessages', contentId, commentData)}
-                    onDeleteComment={(contentId, commentId) => onDeleteComment('executiveMessages', contentId, commentId)}
+                    onAddComment={onAddComment}
+                    onDeleteComment={onDeleteComment}
                 >
                   <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground">
                     <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{msg.likesCount ?? 0}</div>
@@ -582,10 +572,12 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
   const [description, setDescription] = useState(video?.description || '');
   const [src, setSrc] = useState(video?.src || '');
   const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnailUrl || '');
-  const [authorId, setAuthorId] = useState(video?.authorId || currentUser?.uid || '');
-
+  
   const { userPermissions } = usePermissions();
   const canProxyPost = userPermissions.includes('proxy_post_video');
+  
+  const [authorId, setAuthorId] = useState(mode === 'add' && canProxyPost ? '' : (video?.authorId || currentUser?.uid || ''));
+
   
   const initialTags = Array(5).fill('');
   if (video?.tags) {
@@ -607,7 +599,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
     setSrc('');
     setThumbnailUrl('');
     setTags(Array(5).fill(''));
-    setAuthorId(currentUser?.uid || '');
+    setAuthorId(canProxyPost ? '' : (currentUser?.uid || ''));
   };
 
   useEffect(() => {
@@ -616,7 +608,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
       setDescription(video?.description || '');
       setSrc(video?.src || '');
       setThumbnailUrl(video?.thumbnailUrl || '');
-      setAuthorId(video?.authorId || currentUser?.uid || '');
+      setAuthorId(mode === 'add' && canProxyPost ? '' : (video?.authorId || currentUser?.uid || ''));
       
       const newInitialTags = Array(5).fill('');
       if (video?.tags) {
@@ -626,7 +618,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
       }
       setTags(newInitialTags);
     }
-  }, [video, open, currentUser]);
+  }, [video, open, currentUser, mode, canProxyPost]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -817,8 +809,8 @@ function VideosTable({
           <TableHead className="w-[120px]">サムネイル</TableHead>
           <TableHead>タイトル</TableHead>
           <TableHead className="hidden sm:table-cell">タグ</TableHead>
-          <TableHead className="hidden lg:table-cell">Counts</TableHead>
           <TableHead className="hidden md:table-cell">投稿者 / 作成者 / 作成日</TableHead>
+          <TableHead className="hidden lg:table-cell">Counts</TableHead>
           <TableHead><span className="sr-only">Actions</span></TableHead>
         </TableRow>
       </TableHeader>
@@ -840,13 +832,18 @@ function VideosTable({
                   {video.tags.map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
                 </div>
               </TableCell>
+              <TableCell className="hidden md:table-cell">
+                <div>投稿: {video.authorName || '不明'}</div>
+                <div className="text-xs text-muted-foreground">作成: {creator?.displayName || '不明'}</div>
+                <div className="text-xs text-muted-foreground">{formatDate(video.uploadedAt)}</div>
+              </TableCell>
               <TableCell className="hidden lg:table-cell">
                   <ContentDetailsDialog 
                     contentId={video.id} 
                     contentType="videos" 
                     contentTitle={video.title}
-                    onAddComment={(contentId, commentData) => onAddComment('videos', contentId, commentData)}
-                    onDeleteComment={(contentId, commentId) => onDeleteComment('videos', contentId, commentId)}
+                    onAddComment={onAddComment}
+                    onDeleteComment={onDeleteComment}
                   >
                     <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground">
                       <div className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{video.likesCount ?? 0}</div>
@@ -854,11 +851,6 @@ function VideosTable({
                       <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{video.viewsCount ?? 0}</div>
                     </div>
                   </ContentDetailsDialog>
-              </TableCell>
-              <TableCell className="hidden md:table-cell">
-                <div>投稿: {video.authorName || '不明'}</div>
-                <div className="text-xs text-muted-foreground">作成: {creator?.displayName || '不明'}</div>
-                <div className="text-xs text-muted-foreground">{formatDate(video.uploadedAt)}</div>
               </TableCell>
               <TableCell>
                 <DropdownMenu>
