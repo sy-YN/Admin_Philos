@@ -88,7 +88,7 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
                     const startDate = goal.startDate?.toDate();
                     const endDate = goal.endDate?.toDate();
                     if(!startDate || !endDate) return false;
-                    // Active in the last 30 days
+                    // Active in the last 30 days (overlaps with the period)
                     return startDate <= new Date() && endDate >= thirtyDaysAgo;
                 });
 
@@ -128,12 +128,17 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
                     const orgId = member.organizationId;
                     if (!orgId) return;
                     
-                    const likeScore = individualScores.likes.get(member.uid) || 0;
-                    const commentScore = individualScores.comments.get(member.uid) || 0;
-                    const goalScore = individualScores.goal_progress.get(member.uid) || 0;
+                    const rankPoints = new Map<string, number>();
+                    const MAX_POINTS = members?.length || 50;
+                    (Object.keys(individualScores) as Array<keyof ScoreData>).forEach(cat => {
+                        const sortedScores = Array.from(individualScores[cat].entries()).sort(([, a], [, b]) => b - a);
+                        const userRank = sortedScores.findIndex(([id]) => id === member.uid);
+                        const points = userRank !== -1 ? Math.max(0, MAX_POINTS - (userRank + 1)) : 0;
+                        rankPoints.set(cat, (rankPoints.get(cat) || 0) + points);
+                    });
                     
-                    const totalScore = likeScore + commentScore + (goalScore / 10);
-                    
+                    const totalScore = Array.from(rankPoints.values()).reduce((sum, pts) => sum + pts, 0);
+
                     const stats = departmentStats.get(orgId) || { totalScore: 0, memberCount: 0 };
                     stats.totalScore += totalScore;
                     stats.memberCount += 1;

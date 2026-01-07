@@ -89,7 +89,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                     const startDate = goal.startDate?.toDate();
                     const endDate = goal.endDate?.toDate();
                     if(!startDate || !endDate) return false;
-                    // Active in the last 30 days
+                    // Active in the last 30 days (overlaps with the period)
                     return startDate <= new Date() && endDate >= thirtyDaysAgo;
                 });
 
