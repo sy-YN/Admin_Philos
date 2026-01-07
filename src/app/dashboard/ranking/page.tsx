@@ -1,148 +1,153 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
-import type { RankingSettings } from '@/types/ranking';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+import { Loader2, Trophy, Crown, Medal, Award } from 'lucide-react';
+import type { RankingResult } from '@/types/ranking';
+import type { Member } from '@/types/member';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+
+function RankingList({ category, scope }: { category: string; scope: 'all' | 'department' }) {
+    // This is a placeholder. In a real implementation, you would fetch
+    // data based on the category and scope props.
+    // For now, we show a placeholder message.
+    
+    // Example data structure
+    const sampleRanks = [
+        { rank: 1, userId: 'user1', userName: '山田 太郎', avatarUrl: 'https://picsum.photos/seed/user1/40/40', score: 1250 },
+        { rank: 2, userId: 'user2', userName: '佐藤 花子', avatarUrl: 'https://picsum.photos/seed/user2/40/40', score: 1100 },
+        { rank: 3, userId: 'user3', userName: '鈴木 一郎', avatarUrl: 'https://picsum.photos/seed/user3/40/40', score: 980 },
+        { rank: 4, userId: 'user4', userName: '田中 美咲', avatarUrl: 'https://picsum.photos/seed/user4/40/40', score: 950 },
+        { rank: 5, userId: 'user5', userName: '高橋 健太', avatarUrl: 'https://picsum.photos/seed/user5/40/40', score: 820 },
+    ];
+    
+    const getRankIcon = (rank: number) => {
+        if (rank === 1) return <Crown className="h-5 w-5 text-yellow-500" />;
+        if (rank === 2) return <Medal className="h-5 w-5 text-slate-400" />;
+        if (rank === 3) return <Award className="h-5 w-5 text-amber-700" />;
+        return <span className="text-sm font-medium w-5 text-center">{rank}</span>;
+    }
+
+    // For now, we will just display a placeholder message
+    // as the ranking calculation logic is not yet implemented.
+    if (true) {
+        return (
+            <div className="text-center py-10 text-muted-foreground">
+                <Trophy className="mx-auto h-12 w-12 mb-4" />
+                <p>ランキングデータは現在集計中です。</p>
+                <p className="text-sm">集計が完了すると、ここにランキングが表示されます。</p>
+            </div>
+        )
+    }
+
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead className="w-[60px]">順位</TableHead>
+                    <TableHead>メンバー</TableHead>
+                    <TableHead className="text-right">スコア</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {sampleRanks.map(item => (
+                    <TableRow key={item.userId}>
+                        <TableCell>
+                            <div className="flex items-center justify-center h-full">
+                               {getRankIcon(item.rank)}
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={item.avatarUrl} />
+                                    <AvatarFallback>{item.userName.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium">{item.userName}</span>
+                            </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{item.score.toLocaleString()} pt</TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    );
+}
 
 export default function RankingPage() {
-  const { toast } = useToast();
-  const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
-  
-  const settingsRef = useMemoFirebase(() => 
-    firestore ? doc(firestore, 'settings', 'ranking') : null
-  , [firestore]);
-
-  const { data: settings, isLoading: isLoadingSettings } = useDoc<RankingSettings>(settingsRef);
-  
-  const [period, setPeriod] = useState<RankingSettings['period']>('monthly');
-  const [likePoints, setLikePoints] = useState(1);
-  const [commentPoints, setCommentPoints] = useState(2);
-  const [goalPoints, setGoalPoints] = useState(10);
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (settings) {
-      setPeriod(settings.period);
-      setLikePoints(settings.weights.likes);
-      setCommentPoints(settings.weights.comments);
-      setGoalPoints(settings.weights.goal_progress);
-    }
-  }, [settings]);
-
-  const handleSave = async () => {
-    if (!firestore || !user) {
-      toast({ title: 'エラー', description: 'ログインしていません。', variant: 'destructive' });
-      return;
-    }
-    setIsSaving(true);
-
-    const newSettings: Omit<RankingSettings, 'id'> = {
-      period,
-      weights: {
-        likes: likePoints,
-        comments: commentPoints,
-        goal_progress: goalPoints,
-      },
-      updatedAt: serverTimestamp(),
-      updatedBy: user.uid,
-    };
+    const { user, isUserLoading } = useUser();
     
-    try {
-      await setDoc(doc(firestore, 'settings', 'ranking'), newSettings);
-      toast({ title: '成功', description: 'ランキング設定を保存しました。' });
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'エラー', description: '設定の保存に失敗しました。', variant: 'destructive' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  
-  const isLoading = isUserLoading || isLoadingSettings;
+    const isLoading = isUserLoading;
 
-  return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center">
-        <h1 className="text-lg font-semibold md:text-2xl">ランキング設定</h1>
-      </div>
-      
-      {isLoading ? (
-        <div className="flex justify-center py-10">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    if (isLoading) {
+        return (
+            <div className="flex justify-center py-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+  
+    return (
+        <div className="w-full max-w-6xl mx-auto space-y-6">
+            <div className="flex items-center">
+                <h1 className="text-lg font-semibold md:text-2xl">ランキング閲覧</h1>
+            </div>
+            
+            <Tabs defaultValue="personal" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="personal">個人ランキング</TabsTrigger>
+                    <TabsTrigger value="department">部署ランキング</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="personal">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>個人ランキング</CardTitle>
+                            <CardDescription>個人のエンゲージメント活動に基づいたランキングです。</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                             <Tabs defaultValue="overall" className="w-full">
+                                <TabsList className="grid w-full grid-cols-4">
+                                    <TabsTrigger value="overall">総合</TabsTrigger>
+                                    <TabsTrigger value="likes">いいね数</TabsTrigger>
+                                    <TabsTrigger value="comments">コメント数</TabsTrigger>
+                                    <TabsTrigger value="goal_progress">目標達成</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="overall">
+                                    <RankingList category="overall" scope="all" />
+                                </TabsContent>
+                                 <TabsContent value="likes">
+                                    <RankingList category="likes" scope="all" />
+                                </TabsContent>
+                                 <TabsContent value="comments">
+                                    <RankingList category="comments" scope="all" />
+                                </TabsContent>
+                                <TabsContent value="goal_progress">
+                                    <RankingList category="goal_progress" scope="all" />
+                                </TabsContent>
+                            </Tabs>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                
+                <TabsContent value="department">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>部署ランキング</CardTitle>
+                            <CardDescription>部署ごとの活動量に基づいたランキングです。</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <RankingList category="overall" scope="department" />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </div>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>総合ランキング設定</CardTitle>
-            <CardDescription>従業員向けアプリに表示される総合ランキングの集計ルールを設定します。</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="period">集計期間</Label>
-              <Select value={period} onValueChange={(value) => setPeriod(value as RankingSettings['period'])}>
-                <SelectTrigger id="period" className="w-[180px]">
-                  <SelectValue placeholder="期間を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">月間</SelectItem>
-                  <SelectItem value="quarterly">四半期</SelectItem>
-                  <SelectItem value="yearly">年間</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-4">
-               <Label>活動ポイントの重み付け</Label>
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-md">
-                 <div className="space-y-2">
-                   <Label htmlFor="like-points">いいね！（1回あたり）</Label>
-                   <Input 
-                     id="like-points" 
-                     type="number" 
-                     value={likePoints} 
-                     onChange={(e) => setLikePoints(Number(e.target.value))}
-                   />
-                 </div>
-                  <div className="space-y-2">
-                   <Label htmlFor="comment-points">コメント（1回あたり）</Label>
-                   <Input 
-                     id="comment-points" 
-                     type="number" 
-                     value={commentPoints} 
-                     onChange={(e) => setCommentPoints(Number(e.target.value))}
-                    />
-                 </div>
-                  <div className="space-y-2">
-                   <Label htmlFor="goal-points">個人目標（達成率1%あたり）</Label>
-                   <Input 
-                     id="goal-points" 
-                     type="number" 
-                     value={goalPoints} 
-                     onChange={(e) => setGoalPoints(Number(e.target.value))}
-                    />
-                 </div>
-               </div>
-            </div>
-            
-            <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                設定を保存
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
+    );
 }
