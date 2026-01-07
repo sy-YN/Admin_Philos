@@ -257,6 +257,52 @@ function CommentForm({ contentId, replyToComment, onCommentPosted, onAddComment,
   );
 }
 
+// Recursive component to render a comment and its children
+const CommentThread = ({
+  comment,
+  repliesMap,
+  currentUserId,
+  onDelete,
+  onReply,
+  canReply
+}: {
+  comment: WithId<Comment>;
+  repliesMap: Map<string, WithId<Comment>[]>;
+  currentUserId: string | undefined;
+  onDelete: (commentId: string) => void;
+  onReply: (comment: WithId<Comment>) => void;
+  canReply: boolean;
+}) => {
+  const replies = repliesMap.get(comment.id) || [];
+
+  return (
+    <div className="space-y-3">
+      <CommentItem
+        comment={comment}
+        currentUserId={currentUserId}
+        onDelete={() => onDelete(comment.id)}
+        onReply={onReply}
+        canReply={canReply}
+      />
+      {replies.length > 0 && (
+        <div className="ml-8 pl-4 border-l-2 space-y-3">
+          {replies.map(reply => (
+            <CommentThread
+              key={reply.id}
+              comment={reply}
+              repliesMap={repliesMap}
+              currentUserId={currentUserId}
+              onDelete={onDelete}
+              onReply={onReply}
+              canReply={canReply}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 function CommentsList({ 
   contentId, 
@@ -296,17 +342,21 @@ function CommentsList({
     if (!comments) {
       return { topLevelComments: [], repliesMap: new Map() };
     }
-    const topLevelComments = comments.filter(c => !c.parentCommentId).sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
     const repliesMap = new Map<string, WithId<Comment>[]>();
+    const topLevelComments: WithId<Comment>[] = [];
+    
     comments.forEach(c => {
       if (c.parentCommentId) {
         if (!repliesMap.has(c.parentCommentId)) {
           repliesMap.set(c.parentCommentId, []);
         }
-        repliesMap.get(c.parentCommentId)?.push(c);
+        repliesMap.get(c.parentCommentId)!.push(c);
+      } else {
+        topLevelComments.push(c);
       }
     });
-     // Sort replies within each parent
+
+    topLevelComments.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
     repliesMap.forEach(replies => replies.sort((a, b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0)));
     
     return { topLevelComments, repliesMap };
@@ -343,34 +393,15 @@ function CommentsList({
       <ScrollArea className="h-72">
           <div className="space-y-4 p-4">
               {topLevelComments.map(comment => (
-                  <div key={comment.id}>
-                      <CommentItem 
-                        comment={comment} 
-                        currentUserId={user?.uid} 
-                        onDelete={() => handleDelete(comment.id)} 
-                        onReply={setReplyToComment}
-                        canReply={canReply}
-                      />
-                      {repliesMap.has(comment.id) && (
-                          <div className="ml-8 mt-3 space-y-3 pl-4 border-l-2">
-                              {repliesMap.get(comment.id)?.map(reply => (
-                                  <div key={reply.id}>
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                                        <CornerDownRight className="h-3 w-3" />
-                                        <span>@{comment.authorName || '不明'}への返信</span>
-                                    </div>
-                                    <CommentItem 
-                                      comment={reply} 
-                                      currentUserId={user?.uid} 
-                                      onDelete={() => handleDelete(reply.id)} 
-                                      onReply={setReplyToComment}
-                                      canReply={canReply}
-                                    />
-                                  </div>
-                              ))}
-                          </div>
-                      )}
-                  </div>
+                  <CommentThread
+                    key={comment.id}
+                    comment={comment}
+                    repliesMap={repliesMap}
+                    currentUserId={user?.uid}
+                    onDelete={handleDelete}
+                    onReply={setReplyToComment}
+                    canReply={canReply}
+                  />
               ))}
           </div>
       </ScrollArea>
