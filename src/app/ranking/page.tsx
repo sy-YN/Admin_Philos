@@ -291,6 +291,7 @@ function ContentRankingList({ contentType }: { contentType: 'videos' | 'executiv
         try {
             return formatDistanceToNow(date.toDate(), { addSuffix: true, locale: ja });
         } catch (e) {
+            console.error('Date formatting error:', e);
             return '';
         }
     };
@@ -326,28 +327,31 @@ function ContentRankingList({ contentType }: { contentType: 'videos' | 'executiv
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {sortedContent.map((item, index) => (
-                    <TableRow key={item.id}>
-                        <TableCell>
-                            <div className="flex items-center justify-center h-full">
-                                {getRankIcon(index)}
-                            </div>
-                        </TableCell>
-                        <TableCell>
-                            <div className="flex items-center gap-3">
-                                {contentType === 'videos' && (item as Video).thumbnailUrl && (
-                                    <Image src={(item as Video).thumbnailUrl} alt={item.title} width={64} height={36} className="rounded-sm object-cover" />
-                                )}
-                                <span className="font-medium">{item.title}</span>
-                            </div>
-                        </TableCell>
-                        <TableCell>{item.authorName}</TableCell>
-                        <TableCell className="hidden md:table-cell">
-                            {safeFormatDistanceToNow(item.createdAt)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">{(item.viewsCount || 0).toLocaleString()}</TableCell>
-                    </TableRow>
-                ))}
+                {sortedContent.map((item, index) => {
+                    const dateToShow = (item as Video).uploadedAt || item.createdAt;
+                    return (
+                        <TableRow key={item.id}>
+                            <TableCell>
+                                <div className="flex items-center justify-center h-full">
+                                    {getRankIcon(index)}
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <div className="flex items-center gap-3">
+                                    {contentType === 'videos' && (item as Video).thumbnailUrl && (
+                                        <Image src={(item as Video).thumbnailUrl} alt={item.title} width={64} height={36} className="rounded-sm object-cover" />
+                                    )}
+                                    <span className="font-medium">{item.title}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell>{item.authorName}</TableCell>
+                            <TableCell className="hidden md:table-cell">
+                                {safeFormatDistanceToNow(dateToShow)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">{(item.viewsCount || 0).toLocaleString()}</TableCell>
+                        </TableRow>
+                    );
+                })}
             </TableBody>
         </Table>
    )
