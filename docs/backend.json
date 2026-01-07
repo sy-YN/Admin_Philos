@@ -236,6 +236,26 @@
         "likedAt"
       ]
     },
+    "View": {
+      "title": "View",
+      "description": "Represents a 'view' action from a user on an item.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who viewed the item."
+        },
+        "viewedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of when the view was recorded."
+        }
+      },
+      "required": [
+        "userId",
+        "viewedAt"
+      ]
+    },
     "Video": {
       "title": "Video",
       "description": "A video content item.",
@@ -588,6 +608,12 @@
       },
       "description": "Stores likes on executive messages, keyed by user UID."
     },
+    "/executiveMessages/{messageId}/views/{userId}": {
+      "schema": {
+        "$ref": "#/entities/View"
+      },
+      "description": "Stores views on executive messages, keyed by user UID."
+    },
     "/videos/{videoId}": {
       "schema": {
         "$ref": "#/entities/Video"
@@ -605,6 +631,12 @@
         "$ref": "#/entities/Like"
       },
       "description": "Stores likes on videos, keyed by user UID."
+    },
+    "/videos/{videoId}/views/{userId}": {
+      "schema": {
+        "$ref": "#/entities/View"
+      },
+      "description": "Stores views on videos, keyed by user UID."
     },
     "/philosophy/{philosophyId}": {
         "schema": {

@@ -13,6 +13,7 @@ import { Heart, MessageCircle, Eye, Loader2, User, CornerDownRight, Send, Trash2
 import { useSubCollection, WithId } from '@/firebase/firestore/use-sub-collection';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { Like } from '@/types/like';
+import type { View } from '@/types/view';
 import type { Comment } from '@/types/comment';
 import type { Member } from '@/types/member';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -66,6 +67,33 @@ function LikesList({ contentId, contentType }: Pick<ContentDetailsDialogProps, '
              <UserItem userId={like.id} />
              <span className="text-xs text-muted-foreground ml-auto">
                 {formatDate(like.likedAt)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </ScrollArea>
+  );
+}
+
+function ViewsList({ contentId, contentType }: Pick<ContentDetailsDialogProps, 'contentId' | 'contentType'>) {
+  const { data: views, isLoading } = useSubCollection<View>(contentType, contentId, 'views');
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
+  }
+
+  if (!views || views.length === 0) {
+    return <p className="text-sm text-muted-foreground p-8 text-center">まだ既読ユーザーはいません。</p>;
+  }
+
+  return (
+    <ScrollArea className="h-72">
+      <ul className="space-y-3 p-4">
+        {views.map((view) => (
+          <li key={view.id} className="flex items-center gap-3">
+             <UserItem userId={view.id} />
+             <span className="text-xs text-muted-foreground ml-auto">
+                {formatDate(view.viewedAt)}
             </span>
           </li>
         ))}
@@ -357,16 +385,6 @@ function CommentsList({
   );
 }
 
-function ViewsList() {
-    // This is a placeholder as the feature is not implemented yet.
-    return (
-        <div className="flex flex-col items-center justify-center h-72">
-            <Eye className="h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 text-sm text-muted-foreground">この機能は現在準備中です。</p>
-        </div>
-    );
-}
-
 export function ContentDetailsDialog({
   contentId,
   contentType,
@@ -439,7 +457,7 @@ export function ContentDetailsDialog({
               <LikesList contentId={contentId} contentType={contentType} />
             </TabsContent>
             <TabsContent value="views" className="m-0">
-              <ViewsList />
+              <ViewsList contentId={contentId} contentType={contentType} />
             </TabsContent>
           </Tabs>
         )}
