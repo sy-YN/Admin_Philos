@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, getDocs, Timestamp } from 'firebase/firestore';
-import { Loader2, Trophy, Crown, Medal, Award, Building } from 'lucide-react';
+import { Loader2, Trophy, Crown, Medal, Award, Building, Video as VideoIcon, MessageSquare } from 'lucide-react';
 import type { RankingSettings } from '@/types/ranking';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,7 +15,9 @@ import type { Video } from '@/types/video';
 import type { ExecutiveMessage } from '@/types/executive-message';
 import type { PersonalGoal } from '@/types/personal-goal';
 import type { Organization } from '@/types/organization';
-import { subDays } from 'date-fns';
+import { subDays, formatDistanceToNow } from 'date-fns';
+import { ja } from 'date-fns/locale';
+import Image from 'next/image';
 
 type RankItem = {
     id: string; // userId or organizationId
@@ -250,6 +252,84 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
     );
 }
 
+function ContentRankingList({ contentType }: { contentType: 'videos' | 'executiveMessages' }) {
+    const firestore = useFirestore();
+    const collectionName = contentType;
+
+    const { data: content, isLoading: isLoadingContent } = useCollection<Video | ExecutiveMessage>(
+        useMemoFirebase(() => firestore ? query(collection(firestore, collectionName)) : null, [firestore, collectionName])
+    );
+    
+    const sortedContent = useMemo(() => {
+        if (!content) return [];
+        return [...content].sort((a, b) => (b.viewsCount || 0) - (a.viewsCount || 0));
+    }, [content]);
+
+    const getRankIcon = (rank: number) => {
+        if (rank === 1) return <Crown className="h-5 w-5 text-yellow-500" />;
+        if (rank === 2) return <Medal className="h-5 w-5 text-slate-400" />;
+        if (rank === 3) return <Award className="h-5 w-5 text-amber-700" />;
+        return <span className="text-sm font-medium w-5 text-center">{rank + 1}</span>;
+    }
+
+    if (isLoadingContent) {
+        return (
+            <div className="text-center py-10 text-muted-foreground">
+               <Loader2 className="mx-auto h-12 w-12 animate-spin mb-4" />
+               <p>ランキングを集計中です...</p>
+           </div>
+       )
+   }
+
+   if (sortedContent.length === 0) {
+       return (
+           <div className="text-center py-10 text-muted-foreground">
+               <Trophy className="mx-auto h-12 w-12 mb-4" />
+               <p>ランキング対象のコンテンツがありません。</p>
+           </div>
+       )
+   }
+
+   return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead className="w-[60px]">順位</TableHead>
+                    <TableHead>コンテンツ</TableHead>
+                    <TableHead>投稿者</TableHead>
+                    <TableHead className="hidden md:table-cell">投稿日</TableHead>
+                    <TableHead className="text-right">閲覧数</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {sortedContent.map((item, index) => (
+                    <TableRow key={item.id}>
+                        <TableCell>
+                            <div className="flex items-center justify-center h-full">
+                                {getRankIcon(index)}
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                            <div className="flex items-center gap-3">
+                                {contentType === 'videos' && (item as Video).thumbnailUrl && (
+                                    <Image src={(item as Video).thumbnailUrl} alt={item.title} width={64} height={36} className="rounded-sm object-cover" />
+                                )}
+                                <span className="font-medium">{item.title}</span>
+                            </div>
+                        </TableCell>
+                        <TableCell>{item.authorName}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                            {formatDistanceToNow((item.createdAt as Timestamp)?.toDate(), { addSuffix: true, locale: ja })}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{(item.viewsCount || 0).toLocaleString()}</TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+   )
+}
+
+
 export default function RankingPage() {
     const firestore = useFirestore();
     const { user, isUserLoading } = useUser();
@@ -291,9 +371,10 @@ export default function RankingPage() {
                 </div>
 
                 <Tabs defaultValue="personal" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="personal">個人ランキング</TabsTrigger>
                         <TabsTrigger value="department">部署ランキング</TabsTrigger>
+                        <TabsTrigger value="contents">コンテンツランキング</TabsTrigger>
                     </TabsList>
                     <TabsContent value="personal">
                         <Card>
@@ -325,6 +406,28 @@ export default function RankingPage() {
                             </CardHeader>
                             <CardContent>
                                 <RankingList category="overall" scope="department" />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                     <TabsContent value="contents">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>コンテンツランキング</CardTitle>
+                                <CardDescription>閲覧数が多いコンテンツのランキングです。</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Tabs defaultValue="videos" className="w-full">
+                                    <TabsList className="grid w-full grid-cols-2">
+                                        <TabsTrigger value="videos"><VideoIcon className="mr-2 h-4 w-4"/>ビデオ</TabsTrigger>
+                                        <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4"/>メッセージ</TabsTrigger>
+                                    </TabsList>
+                                    <TabsContent value="videos">
+                                        <ContentRankingList contentType="videos" />
+                                    </TabsContent>
+                                    <TabsContent value="messages">
+                                        <ContentRankingList contentType="executiveMessages" />
+                                    </TabsContent>
+                                </Tabs>
                             </CardContent>
                         </Card>
                     </TabsContent>
