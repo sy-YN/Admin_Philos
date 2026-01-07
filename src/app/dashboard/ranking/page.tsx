@@ -24,6 +24,12 @@ type RankItem = {
     rank: number;
 };
 
+type ScoreData = {
+    likes: Map<string, number>;
+    comments: Map<string, number>;
+    goal_progress: Map<string, number>;
+};
+
 function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'comments' | 'goal_progress'; scope: 'all' | 'department' }) {
     const firestore = useFirestore();
     const { user: currentUser } = useUser();
@@ -39,59 +45,82 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
 
     useEffect(() => {
         const calculateRankings = async () => {
-            if (!firestore || !members || isLoadingMembers || isLoadingVideos || isLoadingMessages) {
-                return;
-            }
-            if ((category === 'likes' || category === 'comments') && (!videos || !messages)) {
+            if (!firestore || !members || !videos || !messages) {
                 return;
             }
             
             setIsCalculating(true);
             
-            const userScores = new Map<string, number>();
+            const scores: ScoreData = {
+                likes: new Map(),
+                comments: new Map(),
+                goal_progress: new Map(),
+            };
 
-            if (category === 'likes') {
-                const allContent = [...(videos || []), ...(messages || [])];
-                for (const content of allContent) {
-                    const collectionName = 'src' in content ? 'videos' : 'executiveMessages';
-                    const likesSnapshot = await getDocs(collection(firestore, collectionName, content.id, 'likes'));
-                    likesSnapshot.forEach(likeDoc => {
-                        const userId = likeDoc.id;
-                        userScores.set(userId, (userScores.get(userId) || 0) + 1);
-                    });
-                }
-            } else if (category === 'comments') {
-                const allContent = [...(videos || []), ...(messages || [])];
-                 for (const content of allContent) {
-                    const collectionName = 'src' in content ? 'videos' : 'executiveMessages';
-                    const commentsSnapshot = await getDocs(collection(firestore, collectionName, content.id, 'comments'));
-                    commentsSnapshot.forEach(commentDoc => {
-                        const authorId = commentDoc.data().authorId;
-                        if (authorId) {
-                            userScores.set(authorId, (userScores.get(authorId) || 0) + 1);
-                        }
-                    });
-                }
-            } else if (category === 'goal_progress') {
-                const thirtyDaysAgo = subDays(new Date(), 30);
-                for (const member of members) {
-                    const goalsSnapshot = await getDocs(collection(firestore, 'users', member.uid, 'personalGoals'));
-                    const completedGoalsInPeriod = goalsSnapshot.docs
-                        .map(doc => ({ ...doc.data() } as PersonalGoal))
-                        .filter(goal => 
-                            (goal.status === '達成済' || goal.status === '未達成') &&
-                            goal.updatedAt.toDate() >= thirtyDaysAgo
-                        );
+            // --- Likes Calculation ---
+            const allContentLikes = [...(videos || []), ...(messages || [])];
+            for (const content of allContentLikes) {
+                const collectionName = 'src' in content ? 'videos' : 'executiveMessages';
+                const likesSnapshot = await getDocs(collection(firestore, collectionName, content.id, 'likes'));
+                likesSnapshot.forEach(likeDoc => {
+                    const userId = likeDoc.id;
+                    scores.likes.set(userId, (scores.likes.get(userId) || 0) + 1);
+                });
+            }
 
-                    if (completedGoalsInPeriod.length > 0) {
-                        const totalProgress = completedGoalsInPeriod.reduce((sum, goal) => sum + goal.progress, 0);
-                        const averageProgress = totalProgress / completedGoalsInPeriod.length;
-                        userScores.set(member.uid, averageProgress);
+            // --- Comments Calculation ---
+            const allContentComments = [...(videos || []), ...(messages || [])];
+             for (const content of allContentComments) {
+                const collectionName = 'src' in content ? 'videos' : 'executiveMessages';
+                const commentsSnapshot = await getDocs(collection(firestore, collectionName, content.id, 'comments'));
+                commentsSnapshot.forEach(commentDoc => {
+                    const authorId = commentDoc.data().authorId;
+                    if (authorId) {
+                        scores.comments.set(authorId, (scores.comments.get(authorId) || 0) + 1);
                     }
+                });
+            }
+
+            // --- Goal Progress Calculation ---
+            const thirtyDaysAgo = subDays(new Date(), 30);
+            for (const member of members) {
+                const goalsSnapshot = await getDocs(collection(firestore, 'users', member.uid, 'personalGoals'));
+                const completedGoalsInPeriod = goalsSnapshot.docs
+                    .map(doc => ({ ...doc.data() } as PersonalGoal))
+                    .filter(goal => 
+                        (goal.status === '達成済' || goal.status === '未達成') &&
+                        goal.updatedAt?.toDate() >= thirtyDaysAgo
+                    );
+
+                if (completedGoalsInPeriod.length > 0) {
+                    const totalProgress = completedGoalsInPeriod.reduce((sum, goal) => sum + goal.progress, 0);
+                    const averageProgress = totalProgress / completedGoalsInPeriod.length;
+                    scores.goal_progress.set(member.uid, averageProgress);
                 }
             }
 
-            const sortedScores = Array.from(userScores.entries())
+            // --- Final Ranking Calculation ---
+            let finalScores = new Map<string, number>();
+
+            if (category === 'overall') {
+                const rankPoints = new Map<string, number>();
+                const MAX_POINTS = 50;
+
+                // Convert scores to rank-based points for each category
+                (Object.keys(scores) as Array<keyof ScoreData>).forEach(cat => {
+                    const sortedScores = Array.from(scores[cat].entries()).sort(([, a], [, b]) => b - a);
+                    sortedScores.forEach(([userId, score], index) => {
+                        const points = Math.max(0, MAX_POINTS - index);
+                        rankPoints.set(userId, (rankPoints.get(userId) || 0) + points);
+                    });
+                });
+                finalScores = rankPoints;
+            } else {
+                finalScores = scores[category];
+            }
+
+
+            const sortedScores = Array.from(finalScores.entries())
                 .sort(([, a], [, b]) => b - a);
 
             const rankedList: RankItem[] = sortedScores.map(([userId, score], index) => ({
@@ -106,7 +135,7 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
 
         calculateRankings();
 
-    }, [category, firestore, videos, messages, members, isLoadingMembers, isLoadingVideos, isLoadingMessages]);
+    }, [category, firestore, videos, messages, members]);
 
 
     const getRankIcon = (rank: number) => {
@@ -115,9 +144,11 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
         if (rank === 3) return <Award className="h-5 w-5 text-amber-700" />;
         return <span className="text-sm font-medium w-5 text-center">{rank}</span>;
     }
+    
+    const isLoading = isCalculating || isLoadingMembers || isLoadingVideos || isLoadingMessages;
 
-    if (isCalculating || isLoadingMembers) {
-        return (
+    if (isLoading) {
+         return (
              <div className="text-center py-10 text-muted-foreground">
                 <Loader2 className="mx-auto h-12 w-12 animate-spin mb-4" />
                 <p>ランキングを集計中です...</p>
@@ -211,7 +242,7 @@ export default function RankingPage() {
                         <CardContent>
                              <Tabs defaultValue="overall" className="w-full">
                                 <TabsList className="grid w-full grid-cols-4">
-                                    <TabsTrigger value="overall" disabled>総合</TabsTrigger>
+                                    <TabsTrigger value="overall">総合</TabsTrigger>
                                     <TabsTrigger value="likes">いいね数</TabsTrigger>
                                     <TabsTrigger value="comments">コメント数</TabsTrigger>
                                     <TabsTrigger value="goal_progress">目標達成</TabsTrigger>
