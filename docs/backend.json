@@ -564,6 +564,52 @@
         }
       },
       "required": ["userId", "permissions", "updatedAt", "updatedBy"]
+    },
+    "RankingSettings": {
+      "title": "Ranking Settings",
+      "description": "Stores the configuration for calculating and displaying rankings.",
+      "type": "object",
+      "properties": {
+        "period": { "type": "string", "enum": ["monthly", "quarterly", "yearly"], "description": "The aggregation period for rankings." },
+        "weights": {
+          "type": "object",
+          "description": "Points awarded for different activities in the overall ranking.",
+          "properties": {
+            "likes": { "type": "number" },
+            "comments": { "type": "number" },
+            "goal_progress": { "type": "number" }
+          },
+          "required": ["likes", "comments", "goal_progress"]
+        },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string", "description": "UID of the admin who last updated the settings." }
+      },
+      "required": ["period", "weights", "updatedAt", "updatedBy"]
+    },
+    "RankingResult": {
+      "title": "Ranking Result",
+      "description": "Stores the calculated ranking data for a specific period and scope.",
+      "type": "object",
+      "properties": {
+        "periodId": { "type": "string", "description": "Identifier for the period, e.g., '2024-08' for monthly, '2024-Q3' for quarterly." },
+        "scope": { "type": "string", "enum": ["all", "department"], "description": "The scope of the ranking." },
+        "scopeId": { "type": "string", "description": "ID of the scope (e.g., companyId for 'all', departmentId for 'department')." },
+        "category": { "type": "string", "enum": ["overall", "likes", "comments", "goal_progress"], "description": "The category of the ranking." },
+        "ranks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string" },
+              "rank": { "type": "number" },
+              "score": { "type": "number" }
+            },
+            "required": ["userId", "rank", "score"]
+          }
+        },
+        "calculatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["periodId", "scope", "scopeId", "category", "ranks", "calculatedAt"]
     }
   },
   "auth": {
@@ -650,6 +696,12 @@
         },
         "description": "Stores the display settings for the user-facing calendar."
     },
+    "/settings/ranking": {
+        "schema": {
+            "$ref": "#/entities/RankingSettings"
+        },
+        "description": "Stores the global settings for ranking calculations."
+    },
     "/calendarMessages/{messageId}": {
       "schema": {
         "$ref": "#/entities/CalendarMessage"
@@ -697,6 +749,12 @@
         "$ref": "#/entities/UserPermission"
       },
       "description": "Stores individual permission overrides for specific users, keyed by their UID. If a document exists for a user here, it completely overrides their role-based permissions."
+    },
+    "/rankingResults/{resultId}": {
+        "schema": {
+            "$ref": "#/entities/RankingResult"
+        },
+        "description": "Stores the pre-calculated ranking results for various scopes and categories."
     }
   }
 }
