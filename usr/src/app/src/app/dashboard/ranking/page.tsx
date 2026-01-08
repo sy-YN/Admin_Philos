@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, Timestamp, where } from 'firebase/firestore';
 import { Loader2, Trophy, Crown, Medal, Award, Building, Video as VideoIcon, MessageSquare } from 'lucide-react';
 import type { Member } from '@/types/member';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -66,8 +66,8 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
         for (const content of allContent) {
             const collectionName = 'src' in content ? 'videos' : 'executiveMessages';
             const [likesSnapshot, commentsSnapshot] = await Promise.all([
-                getDocs(collection(firestore, collectionName, content.id, 'likes')),
-                getDocs(collection(firestore, collectionName, content.id, 'comments'))
+                getDocs(query(collection(firestore, collectionName, content.id, 'likes'), where('likedAt', '>=', startOfCurrentMonth), where('likedAt', '<=', endOfCurrentMonth))),
+                getDocs(query(collection(firestore, collectionName, content.id, 'comments'), where('createdAt', '>=', startOfCurrentMonth), where('createdAt', '<=', endOfCurrentMonth)))
             ]);
             likesSnapshot.forEach(likeDoc => {
                 const userId = likeDoc.id;
@@ -458,4 +458,3 @@ export default function RankingPage() {
         </div>
     );
 }
-
