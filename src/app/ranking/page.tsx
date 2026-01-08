@@ -15,7 +15,7 @@ import type { Video } from '@/types/video';
 import type { ExecutiveMessage } from '@/types/executive-message';
 import type { PersonalGoal } from '@/types/personal-goal';
 import type { Organization } from '@/types/organization';
-import { subDays, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, startOfMonth, endOfMonth } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import Image from 'next/image';
 import { useDoc } from '@/firebase/firestore/use-doc';
@@ -59,8 +59,11 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
             comments: new Map(),
             goal_progress: new Map(),
         };
+        
+        const today = new Date();
+        const startOfCurrentMonth = startOfMonth(today);
+        const endOfCurrentMonth = endOfMonth(today);
 
-        const thirtyDaysAgo = subDays(new Date(), 30);
 
         const allContent = [...(videos || []), ...(messages || [])];
         for (const content of allContent) {
@@ -89,8 +92,8 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                     const startDate = goal.startDate?.toDate();
                     const endDate = goal.endDate?.toDate();
                     if(!startDate || !endDate) return false;
-                    // Active in the last 30 days (overlaps with the period)
-                    return startDate <= new Date() && endDate >= thirtyDaysAgo;
+                    // Active in the current month (overlaps with the period)
+                    return startDate <= endOfCurrentMonth && endDate >= startOfCurrentMonth;
                 });
 
             if (activeGoalsInPeriod.length > 0) {
@@ -381,12 +384,12 @@ export default function RankingPage() {
     }
     
     const getPeriodText = () => {
-        if (!settings) return '';
+        if (!settings) return '当月';
         switch (settings.period) {
-            case 'monthly': return '月間';
-            case 'quarterly': return '四半期';
-            case 'yearly': return '年間';
-            default: return '';
+            case 'monthly': return '当月';
+            case 'quarterly': return '当四半期';
+            case 'yearly': return '当年度';
+            default: return '当月';
         }
     }
 

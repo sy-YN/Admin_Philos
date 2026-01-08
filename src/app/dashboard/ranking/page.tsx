@@ -14,7 +14,7 @@ import type { Video } from '@/types/video';
 import type { ExecutiveMessage } from '@/types/executive-message';
 import type { PersonalGoal } from '@/types/personal-goal';
 import type { Organization } from '@/types/organization';
-import { subDays, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, startOfMonth, endOfMonth } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import Image from 'next/image';
 
@@ -57,7 +57,9 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
             goal_progress: new Map(),
         };
 
-        const thirtyDaysAgo = subDays(new Date(), 30);
+        const today = new Date();
+        const startOfCurrentMonth = startOfMonth(today);
+        const endOfCurrentMonth = endOfMonth(today);
 
         // Likes & Comments
         const allContent = [...(videos || []), ...(messages || [])];
@@ -88,8 +90,8 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
                     const startDate = goal.startDate?.toDate();
                     const endDate = goal.endDate?.toDate();
                     if(!startDate || !endDate) return false;
-                    // Active in the last 30 days (overlaps with the period)
-                    return startDate <= new Date() && endDate >= thirtyDaysAgo;
+                    // Active in the current month (overlaps with the period)
+                    return startDate <= endOfCurrentMonth && endDate >= startOfCurrentMonth;
                 });
 
             if (activeGoalsInPeriod.length > 0) {
@@ -391,7 +393,7 @@ export default function RankingPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>個人ランキング</CardTitle>
-                            <CardDescription>個人のエンゲージメント活動に基づいたランキングです。（過去30日間の集計）</CardDescription>
+                            <CardDescription>個人のエンゲージメント活動に基づいたランキングです。（当月の集計）</CardDescription>
                         </CardHeader>
                         <CardContent>
                              <Tabs defaultValue="overall" className="w-full">
@@ -422,7 +424,7 @@ export default function RankingPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>部署ランキング</CardTitle>
-                            <CardDescription>部署全体の活動を平均化した総合ランキングです。（過去30日間の集計）</CardDescription>
+                            <CardDescription>部署全体の活動を平均化した総合ランキングです。（当月の集計）</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <RankingList category="overall" scope="department" />
