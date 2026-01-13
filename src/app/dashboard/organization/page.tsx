@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, writeBatch, where, orderBy } from 'firebase/firestore';
 import type { Organization, OrganizationType } from '@/types/organization';
-import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, Building, Building2, Landmark, Users } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, Building, Building2, Landmark, Users, Save } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -280,18 +280,28 @@ export default function OrganizationPage() {
 
   const organizationsQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading) return null;
-    return query(collection(firestore, 'organizations'), orderBy('order'));
+    return query(collection(firestore, 'organizations'));
   }, [firestore, isUserLoading]);
 
-  const { data: organizations, isLoading } = useCollection<Organization>(organizationsQuery);
+  const { data: dbOrganizations, isLoading } = useCollection<Organization>(organizationsQuery);
+  
+  const [localOrganizations, setLocalOrganizations] = useState<Organization[]>([]);
+  const [isDirty, setIsDirty] = useState(false);
+
+  useEffect(() => {
+    if (dbOrganizations) {
+        setLocalOrganizations(dbOrganizations);
+        setIsDirty(false);
+    }
+  }, [dbOrganizations]);
 
   const organizationTree = useMemo(() => {
-    if (!organizations) return [];
+    if (!localOrganizations) return [];
     
-    const orgsById = new Map(organizations.map(org => [org.id, { ...org, children: [] as OrganizationWithChildren[] }]));
+    const orgsById = new Map(localOrganizations.map(org => [org.id, { ...org, children: [] as OrganizationWithChildren[] }]));
     const tree: OrganizationWithChildren[] = [];
 
-    organizations.forEach(org => {
+    localOrganizations.forEach(org => {
       if (org.parentId && orgsById.has(org.parentId)) {
         orgsById.get(org.parentId)?.children.push(orgsById.get(org.id)!);
       } else {
@@ -299,7 +309,6 @@ export default function OrganizationPage() {
       }
     });
 
-    // Sort children by order at each level
     const sortChildrenRecursive = (nodes: OrganizationWithChildren[]) => {
       nodes.sort((a,b) => a.order - b.order);
       nodes.forEach(node => {
@@ -311,7 +320,7 @@ export default function OrganizationPage() {
     sortChildrenRecursive(tree);
 
     return tree;
-  }, [organizations]);
+  }, [localOrganizations]);
 
    const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -325,19 +334,19 @@ export default function OrganizationPage() {
     setActiveId(event.active.id);
   };
   
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
 
-    if (!over || !organizations) return;
+    if (!over || !localOrganizations) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
     if (activeId === overId) return;
 
-    const activeOrg = organizations.find(o => o.id === activeId);
-    const overOrg = organizations.find(o => o.id === overId);
+    const activeOrg = localOrganizations.find(o => o.id === activeId);
+    const overOrg = localOrganizations.find(o => o.id === overId);
 
     if (!activeOrg || !overOrg) return;
 
@@ -351,47 +360,28 @@ export default function OrganizationPage() {
         return;
     }
     
-    // Check if the drop target `overOrg` can be a parent.
     const canBeParent = overOrg.type === 'holding' || overOrg.type === 'company';
     const isSameContainer = activeOrg.parentId === overOrg.parentId;
     
-    // If the target can be a parent AND the dragged item is not being dropped on its own parent
+    let newOrganizations = [...localOrganizations];
+
     if (canBeParent && activeOrg.parentId !== overId) {
         // --- Move to a new parent ---
-        
-        // Validate hierarchy rules before committing
-        if (overOrg.type === 'department' && activeOrg.type === 'company') {
-             toast({ title: '移動不可', description: '事業会社を部署の下に移動することはできません。', variant: 'destructive' });
-             return;
-        }
-         if (overOrg.type !== 'holding' && activeOrg.type === 'holding') {
-             toast({ title: '移動不可', description: '持株会社は他の組織の下に移動できません。', variant: 'destructive' });
-             return;
-        }
-
-        const newParentId = overId;
-        const siblingsInNewParent = organizations.filter(o => o.parentId === newParentId);
+        const activeOrgIndex = newOrganizations.findIndex(o => o.id === activeId);
+        const siblingsInNewParent = newOrganizations.filter(o => o.parentId === overId);
         const newOrder = siblingsInNewParent.length > 0 ? Math.max(...siblingsInNewParent.map(o => o.order)) + 1 : 0;
         
-        try {
-          await updateDoc(doc(firestore, 'organizations', activeId), {
-              parentId: newParentId,
-              order: newOrder
-          });
-          toast({ title: '成功', description: `「${activeOrg.name}」を「${overOrg.name}」に移動しました。`});
-        } catch(error) {
-          console.error('Error moving organization:', error);
-          toast({ title: 'エラー', description: '組織の移動に失敗しました。', variant: 'destructive'});
-        }
+        newOrganizations[activeOrgIndex] = {
+            ...activeOrg,
+            parentId: overId,
+            order: newOrder,
+        };
+        
     } else {
         // --- Reordering within the same parent ---
-        if (activeOrg.parentId !== overOrg.parentId) {
-            // This case might happen if dropping on a department when trying to reorder companies.
-            // We can treat this as an invalid move or try to be smarter. For now, we'll just prevent it.
-            return;
-        }
+        if (activeOrg.parentId !== overOrg.parentId) return;
 
-        const siblings = organizations.filter(o => o.parentId === activeOrg.parentId).sort((a, b) => a.order - b.order);
+        const siblings = newOrganizations.filter(o => o.parentId === activeOrg.parentId).sort((a, b) => a.order - b.order);
         const oldIndex = siblings.findIndex(o => o.id === activeId);
         const newIndex = siblings.findIndex(o => o.id === overId);
         
@@ -399,20 +389,18 @@ export default function OrganizationPage() {
 
         const reorderedSiblings = arrayMove(siblings, oldIndex, newIndex);
         
-        const batch = writeBatch(firestore);
-        reorderedSiblings.forEach((org, index) => {
-          const orgRef = doc(firestore, 'organizations', org.id);
-          batch.update(orgRef, { order: index });
-        });
+        const orderMap = new Map(reorderedSiblings.map((org, index) => [org.id, index]));
         
-        try {
-          await batch.commit();
-          toast({ title: '成功', description: '表示順を更新しました。' });
-        } catch (error) {
-          console.error('Error updating order:', error);
-          toast({ title: 'エラー', description: '表示順の更新に失敗しました。', variant: 'destructive' });
-        }
+        newOrganizations = newOrganizations.map(org => {
+            if (orderMap.has(org.id)) {
+                return { ...org, order: orderMap.get(org.id)! };
+            }
+            return org;
+        });
     }
+
+    setLocalOrganizations(newOrganizations);
+    setIsDirty(true);
   };
 
 
@@ -421,9 +409,9 @@ export default function OrganizationPage() {
   }
   
   const handleAddItem = async (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'order'>>) => {
-    if (!firestore || !organizations) return;
+    if (!firestore || !localOrganizations) return;
     
-    const siblings = organizations.filter(o => o.parentId === data.parentId);
+    const siblings = localOrganizations.filter(o => o.parentId === data.parentId);
     const newOrder = siblings.length > 0 ? Math.max(...siblings.map(o => o.order)) + 1 : 0;
 
     try {
@@ -454,9 +442,9 @@ export default function OrganizationPage() {
   };
   
   const handleDeleteItem = async (id: string) => {
-    if (!firestore || !organizations) return;
+    if (!firestore || !localOrganizations) return;
 
-    const hasChildren = organizations.some(org => org.parentId === id);
+    const hasChildren = localOrganizations.some(org => org.parentId === id);
     if (hasChildren) {
       toast({
         title: '削除できません',
@@ -488,7 +476,37 @@ export default function OrganizationPage() {
     }
   };
 
-  const activeOrg = useMemo(() => organizations?.find(o => o.id === activeId), [activeId, organizations]);
+  const handleSaveChanges = async () => {
+    if (!firestore || !dbOrganizations) return;
+
+    const batch = writeBatch(firestore);
+    let changesCount = 0;
+
+    localOrganizations.forEach(localOrg => {
+        const dbOrg = dbOrganizations.find(o => o.id === localOrg.id);
+        if (!dbOrg || dbOrg.parentId !== localOrg.parentId || dbOrg.order !== localOrg.order) {
+            const orgRef = doc(firestore, 'organizations', localOrg.id);
+            batch.update(orgRef, { parentId: localOrg.parentId, order: localOrg.order });
+            changesCount++;
+        }
+    });
+
+    if (changesCount === 0) {
+        toast({ title: '変更なし', description: '保存する変更点はありません。' });
+        return;
+    }
+
+    try {
+        await batch.commit();
+        toast({ title: '成功', description: '組織構造の変更を保存しました。' });
+        setIsDirty(false);
+    } catch (error) {
+        console.error("Error saving organization structure:", error);
+        toast({ title: 'エラー', description: '組織構造の保存に失敗しました。', variant: 'destructive'});
+    }
+  };
+
+  const activeOrg = useMemo(() => localOrganizations?.find(o => o.id === activeId), [activeId, localOrganizations]);
 
   const pageIsLoading = isLoading || isUserLoading;
 
@@ -496,8 +514,12 @@ export default function OrganizationPage() {
     <div className="w-full space-y-6">
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">組織管理</h1>
-        <div className="ml-auto">
-          <OrganizationDialog organizations={organizations || []} onSave={handleAddItem}>
+        <div className="ml-auto flex items-center gap-2">
+           <Button onClick={handleSaveChanges} disabled={!isDirty}>
+            <Save className="mr-2 h-4 w-4" />
+            変更を保存
+          </Button>
+          <OrganizationDialog organizations={localOrganizations || []} onSave={handleAddItem}>
             <Button><PlusCircle className="mr-2 h-4 w-4" />新しい組織を追加</Button>
           </OrganizationDialog>
         </div>
@@ -506,7 +528,7 @@ export default function OrganizationPage() {
       <Card>
         <CardHeader>
           <CardTitle>組織構造</CardTitle>
-          <CardDescription>ドラッグ＆ドロップで組織の階層や順序を変更できます。</CardDescription>
+          <CardDescription>ドラッグ＆ドロップで組織の階層や順序を変更できます。変更後は「保存」ボタンを押してください。</CardDescription>
         </CardHeader>
         <CardContent>
            <DndContext
@@ -526,7 +548,7 @@ export default function OrganizationPage() {
                       <OrganizationNode
                         key={node.id}
                         node={node}
-                        allOrganizations={organizations || []}
+                        allOrganizations={localOrganizations || []}
                         level={0}
                         onEdit={handleEditItem}
                         onDelete={handleDeleteItem}
@@ -555,3 +577,4 @@ export default function OrganizationPage() {
     </div>
   );
 }
+
