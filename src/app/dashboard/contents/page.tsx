@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense } from 'react';
@@ -1016,13 +1017,14 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     const collectionRef = collection(firestore, 'videos');
     
     if (canManageVideos) {
-        return query(collectionRef);
+        return query(collectionRef, orderBy('uploadedAt', 'desc'));
     }
 
     if (canProxyPostVideo) {
-        return query(collectionRef, where('creatorId', '==', authUser.uid));
+        return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
     }
     
+    // Return a query that is guaranteed to be empty if no permissions
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
 
   }, [firestore, authUser, isCheckingPermissions, canManageVideos, canProxyPostVideo]);
@@ -1038,11 +1040,11 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     const collectionRef = collection(firestore, 'executiveMessages');
     
     if (canManageMessages) {
-       return query(collectionRef);
+       return query(collectionRef, orderBy('createdAt', 'desc'));
     }
 
     if (canProxyPostMessage) {
-       return query(collectionRef, where('creatorId', '==', authUser.uid));
+       return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
     }
     
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
@@ -1051,15 +1053,8 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
 
   const { data: messages, isLoading: messagesLoading, error: messagesError } = useCollection<ExecutiveMessage>(messagesQuery);
   
-  const sortedVideos = useMemo(() => {
-    if (!videos) return null;
-    return [...videos].sort((a, b) => (b.uploadedAt?.toMillis() ?? 0) - (a.uploadedAt?.toMillis() ?? 0));
-  }, [videos]);
-
-  const sortedMessages = useMemo(() => {
-    if (!messages) return null;
-    return [...messages].sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
-  }, [messages]);
+  const sortedVideos = videos;
+  const sortedMessages = messages;
   
   useEffect(() => {
     if (videosError) console.error("[videosError]", videosError);
@@ -1193,7 +1188,7 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
   
-  if (!defaultTab) {
+  if (!canAccessVideoTab && !canAccessMessageTab) {
     return (
       <div className="w-full max-w-7xl mx-auto">
         <div className="flex items-center mb-6">
@@ -1209,7 +1204,7 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
       <div className="flex items-center mb-6">
         <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
       </div>
-      <Tabs value={selectedTab} onValueChange={onTabChange}>
+      <Tabs value={defaultTab} onValueChange={onTabChange}>
         {(canAccessVideoTab && canAccessMessageTab) && (
           <TabsList className="grid w-full grid-cols-2 max-w-md">
             <TabsTrigger value="videos" disabled={!canAccessVideoTab}><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>
@@ -1217,7 +1212,7 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
           </TabsList>
         )}
 
-        {canAccessVideoTab && selectedTab === 'videos' && (
+        {canAccessVideoTab && defaultTab === 'videos' && (
           <TabsContent value="videos">
             <Card>
               <CardHeader>
@@ -1265,7 +1260,7 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
           </TabsContent>
         )}
 
-        {canAccessMessageTab && selectedTab === 'messages' && (
+        {canAccessMessageTab && defaultTab === 'messages' && (
           <TabsContent value="messages">
             <Card>
               <CardHeader>

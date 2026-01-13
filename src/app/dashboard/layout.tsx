@@ -64,8 +64,8 @@ const allNavItems: NavItem[] = [
     id: 'contents',
     requiredPermissions: ['video_management', 'message_management', 'proxy_post_video', 'proxy_post_message'],
     children: [
-      { href: '/dashboard/contents?tab=videos', label: 'ビデオ管理', id: 'video_management' },
-      { href: '/dashboard/contents?tab=messages', label: 'メッセージ管理', id: 'message_management' },
+      { href: '/dashboard/contents?tab=videos', label: 'ビデオ管理', id: 'video_management', requiredPermissions: ['proxy_post_video'] },
+      { href: '/dashboard/contents?tab=messages', label: 'メッセージ管理', id: 'message_management', requiredPermissions: ['proxy_post_message'] },
     ],
   },
   { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen, id: 'philosophy' },
@@ -94,6 +94,13 @@ const allNavItems: NavItem[] = [
   { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy, id: 'ranking' },
 ];
 
+function hasRequiredPermissions(userPerms: string[], requiredPerms: string[] | undefined): boolean {
+    if (!requiredPerms || requiredPerms.length === 0) {
+        return true;
+    }
+    return requiredPerms.some(p => userPerms.includes(p));
+}
+
 function DashboardNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -106,10 +113,11 @@ function DashboardNav() {
 
   const navItems = useMemo(() => {
     return allNavItems.filter(item => {
-      if(!item.requiredPermissions) {
-          return userPermissions.includes(item.id);
+      // Main menu item visibility check
+      if (item.id === 'contents') {
+        return hasRequiredPermissions(userPermissions, item.requiredPermissions);
       }
-      return item.requiredPermissions?.some(p => userPermissions.includes(p))
+      return userPermissions.includes(item.id);
     });
   }, [userPermissions]);
 
@@ -177,9 +185,9 @@ function DashboardNav() {
                           <TooltipContent side="right">{item.label}</TooltipContent>
                       </Tooltip>
                       <PopoverContent side="right" className="w-48 p-1">
-                          {item.children
-                              .filter(child => userPermissions.includes(child.id))
-                              .map((child) => (
+                           {item.children
+                                .filter(child => hasRequiredPermissions(userPermissions, [child.id, ...(child.requiredPermissions || [])]))
+                                .map((child) => (
                                   <Link
                                   key={child.href}
                                   href={child.href}
@@ -231,8 +239,8 @@ function DashboardNav() {
                       </AccordionTrigger>
                       <AccordionContent className="pl-8 pb-1 space-y-1">
                           {item.children
-                              .filter(child => userPermissions.includes(child.id))
-                              .map((child) => (
+                                .filter(child => hasRequiredPermissions(userPermissions, [child.id, ...(child.requiredPermissions || [])]))
+                                .map((child) => (
                               <Link
                                   key={child.href}
                                   href={child.href}
