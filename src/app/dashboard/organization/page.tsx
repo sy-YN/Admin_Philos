@@ -55,7 +55,7 @@ function OrganizationDialog({
 }: {
   organization?: Organization;
   organizations: Organization[];
-  onSave: (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'managerUids' | 'order'>>) => void;
+  onSave: (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'order'>>) => void;
   children: React.ReactNode;
   parentId?: string | null;
 }) {
@@ -515,13 +515,13 @@ export default function OrganizationPage() {
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">組織管理</h1>
         <div className="ml-auto flex items-center gap-2">
-           <Button onClick={handleSaveChanges} disabled={!isDirty}>
+           <OrganizationDialog organizations={localOrganizations || []} onSave={handleAddItem}>
+            <Button><PlusCircle className="mr-2 h-4 w-4" />新しい組織を追加</Button>
+          </OrganizationDialog>
+          <Button onClick={handleSaveChanges} disabled={!isDirty}>
             <Save className="mr-2 h-4 w-4" />
             変更を保存
           </Button>
-          <OrganizationDialog organizations={localOrganizations || []} onSave={handleAddItem}>
-            <Button><PlusCircle className="mr-2 h-4 w-4" />新しい組織を追加</Button>
-          </OrganizationDialog>
         </div>
       </div>
 
@@ -577,4 +577,3 @@ export default function OrganizationPage() {
     </div>
   );
 }
-
