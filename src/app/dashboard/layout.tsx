@@ -54,9 +54,9 @@ type NavItem = {
 };
 
 const allNavItems: NavItem[] = [
-  { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members' },
-  { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization' },
-  { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions' },
+  { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members', requiredPermissions: ['members'] },
+  { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization', requiredPermissions: ['organization'] },
+  { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions', requiredPermissions: ['permissions'] },
   {
     href: '/dashboard/contents',
     label: 'コンテンツ管理',
@@ -64,19 +64,20 @@ const allNavItems: NavItem[] = [
     id: 'contents',
     requiredPermissions: ['video_management', 'message_management', 'proxy_post_video', 'proxy_post_message'],
     children: [
-      { href: '/dashboard/contents?tab=videos', label: 'ビデオ管理', id: 'video_management', requiredPermissions: ['proxy_post_video'] },
-      { href: '/dashboard/contents?tab=messages', label: 'メッセージ管理', id: 'message_management', requiredPermissions: ['proxy_post_message'] },
+      { href: '/dashboard/contents?tab=videos', label: 'ビデオ管理', id: 'video_management', requiredPermissions: ['video_management', 'proxy_post_video'] },
+      { href: '/dashboard/contents?tab=messages', label: 'メッセージ管理', id: 'message_management', requiredPermissions: ['message_management', 'proxy_post_message'] },
     ],
   },
-  { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen, id: 'philosophy' },
+  { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen, id: 'philosophy', requiredPermissions: ['philosophy'] },
   {
     href: '/dashboard/calendar',
     label: 'カレンダー設定',
     icon: CalendarDays,
     id: 'calendar',
+    requiredPermissions: ['calendar'],
     children: [
-        { href: '/dashboard/calendar?tab=daily', label: '日替わりメッセージ', id: 'calendar' },
-        { href: '/dashboard/calendar?tab=scheduled', label: '期間指定メッセージ', id: 'calendar' },
+        { href: '/dashboard/calendar?tab=daily', label: '日替わりメッセージ', id: 'calendar', requiredPermissions: ['calendar'] },
+        { href: '/dashboard/calendar?tab=scheduled', label: '期間指定メッセージ', id: 'calendar', requiredPermissions: ['calendar'] },
     ]
   },
   {
@@ -86,12 +87,12 @@ const allNavItems: NavItem[] = [
     id: 'dashboard',
     requiredPermissions: ['company_goal_setting', 'org_personal_goal_setting'],
     children: [
-        { href: '/dashboard/dashboard?tab=company', label: '会社単位', id: 'company_goal_setting'},
-        { href: '/dashboard/dashboard?tab=team', label: '組織単位', id: 'org_personal_goal_setting'},
-        { href: '/dashboard/dashboard?tab=personal', label: '個人単位', id: 'org_personal_goal_setting'},
+        { href: '/dashboard/dashboard?tab=company', label: '会社単位', id: 'company_goal_setting', requiredPermissions: ['company_goal_setting'] },
+        { href: '/dashboard/dashboard?tab=team', label: '組織単位', id: 'org_personal_goal_setting', requiredPermissions: ['org_personal_goal_setting'] },
+        { href: '/dashboard/dashboard?tab=personal', label: '個人単位', id: 'org_personal_goal_setting', requiredPermissions: ['org_personal_goal_setting'] },
     ]
   },
-  { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy, id: 'ranking' },
+  { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy, id: 'ranking', requiredPermissions: ['ranking'] },
 ];
 
 function hasRequiredPermissions(userPerms: string[], requiredPerms: string[] | undefined): boolean {
@@ -112,12 +113,7 @@ function DashboardNav() {
   const activeTab = searchParams.get('tab');
 
   const navItems = useMemo(() => {
-    return allNavItems.filter(item => {
-      // Main menu item visibility check
-      const hasDirectPermission = userPermissions.includes(item.id);
-      const hasChildrenPermission = hasRequiredPermissions(userPermissions, item.requiredPermissions);
-      return hasDirectPermission || hasChildrenPermission;
-    });
+    return allNavItems.filter(item => hasRequiredPermissions(userPermissions, item.requiredPermissions));
   }, [userPermissions]);
 
   const handleLogout = async () => {
@@ -185,7 +181,7 @@ function DashboardNav() {
                       </Tooltip>
                       <PopoverContent side="right" className="w-48 p-1">
                            {item.children
-                                .filter(child => hasRequiredPermissions(userPermissions, [child.id, ...(child.requiredPermissions || [])]))
+                                .filter(child => hasRequiredPermissions(userPermissions, child.requiredPermissions))
                                 .map((child) => (
                                   <Link
                                   key={child.href}
@@ -227,7 +223,7 @@ function DashboardNav() {
                       <AccordionItem value={item.id} key={item.id} className="border-b-0">
                       <AccordionTrigger
                           className={cn(
-                          'flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:no-underline hover:text-primary [&[data-state=open]>svg:not(.lucide-film)]:text-primary',
+                          'flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:no-underline hover:text-primary',
                           isLinkActive(item) && 'text-primary'
                           )}
                       >
@@ -238,7 +234,7 @@ function DashboardNav() {
                       </AccordionTrigger>
                       <AccordionContent className="pl-8 pb-1 space-y-1">
                           {item.children
-                                .filter(child => hasRequiredPermissions(userPermissions, [child.id, ...(child.requiredPermissions || [])]))
+                                .filter(child => hasRequiredPermissions(userPermissions, child.requiredPermissions))
                                 .map((child) => (
                               <Link
                                   key={child.href}
@@ -337,21 +333,21 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
   const { userPermissions, isCheckingPermissions } = usePermissions();
   
   useEffect(() => {
-    console.log('[LayoutAuthWrapper] Mount / State Change', {
-      pathname,
-      isUserLoading,
-      isCheckingPermissions,
-      hasUser: !!user,
-      permissionsCount: userPermissions.length,
-    });
+    // console.log('[LayoutAuthWrapper] Mount / State Change', {
+    //   pathname,
+    //   isUserLoading,
+    //   isCheckingPermissions,
+    //   hasUser: !!user,
+    //   permissionsCount: userPermissions.length,
+    // });
 
     if (isUserLoading) {
-      console.log('[LayoutAuthWrapper] Auth state is loading. Waiting...');
+    //   console.log('[LayoutAuthWrapper] Auth state is loading. Waiting...');
       return;
     }
 
     if (!user) {
-      console.log('[LayoutAuthWrapper] No user found. Redirecting to /login.');
+    //   console.log('[LayoutAuthWrapper] No user found. Redirecting to /login.');
       if (pathname !== '/login') {
         window.location.replace('/login');
       }
@@ -360,33 +356,28 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
 
     // User exists, now wait for permissions
     if (isCheckingPermissions) {
-        console.log('[LayoutAuthWrapper] User exists, but permissions are still loading. Waiting...');
+        // console.log('[LayoutAuthWrapper] User exists, but permissions are still loading. Waiting...');
         return;
     }
     
     // At this point, user is loaded AND permissions are checked.
-    console.log('[LayoutAuthWrapper] Permissions check complete. Final permissions:', userPermissions);
+    // console.log('[LayoutAuthWrapper] Permissions check complete. Final permissions:', userPermissions);
 
     const managementPermissions = userPermissions.filter(p => p !== 'can_comment');
 
     if (managementPermissions.length === 0) {
-      console.log('[LayoutAuthWrapper] User has no management permissions. Signing out.');
+    //   console.log('[LayoutAuthWrapper] User has no management permissions. Signing out.');
       useAuth().signOut().then(() => {
         window.location.replace('/login');
       });
     } else if (pathname === '/dashboard' || pathname === '/') {
-      const firstAllowedPage = allNavItems.find(item => {
-        if (!item.requiredPermissions) {
-          return userPermissions.includes(item.id);
-        }
-        return item.requiredPermissions.some(p => userPermissions.includes(p));
-      });
+      const firstAllowedPage = allNavItems.find(item => hasRequiredPermissions(userPermissions, item.requiredPermissions));
       
       if (firstAllowedPage) {
-        console.log(`[LayoutAuthWrapper] Redirecting from ${pathname} to first allowed page: ${firstAllowedPage.href}`);
+        // console.log(`[LayoutAuthWrapper] Redirecting from ${pathname} to first allowed page: ${firstAllowedPage.href}`);
         window.location.replace(firstAllowedPage.href);
       } else {
-        console.warn('[LayoutAuthWrapper] User has permissions, but no allowed page found in nav items.');
+        // console.warn('[LayoutAuthWrapper] User has permissions, but no allowed page found in nav items.');
       }
     }
   }, [user, isUserLoading, isCheckingPermissions, userPermissions, pathname]);

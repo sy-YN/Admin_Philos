@@ -49,6 +49,7 @@ import { OrganizationPicker } from '@/components/organization/organization-picke
 import type { GoalRecord } from '@/types/goal-record';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { usePermissions } from '@/context/PermissionContext';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -1801,39 +1802,41 @@ function DashboardSettingsPageComponent() {
     const { toast } = useToast();
     const firestore = useFirestore();
     const { user: authUser, isUserLoading: isAuthUserLoading } = useUser();
-    
+    const { userPermissions, isCheckingPermissions } = usePermissions();
+
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
-    const [userPermissions, setUserPermissions] = useState<string[]>([]);
-    const [isCurrentUserLoading, setIsCurrentUserLoading] = useState(true);
     
     const [selectedOrgId, setSelectedOrgId] = useState<string>('');
     const [editableOrgs, setEditableOrgs] = useState<Organization[]>([]);
     const { data: allOrganizations, isLoading: isLoadingOrgs } = useCollection<Organization>(useMemoFirebase(() => firestore ? query(collection(firestore, 'organizations')) : null, [firestore]));
 
-    const fetchUserWithPermissions = useCallback(async (uid: string) => {
-      if (!firestore) return { user: null, permissions: [] };
+    const usersQuery = useMemoFirebase(() => !firestore || isAuthUserLoading ? null : query(collection(firestore, 'users')), [firestore, isAuthUserLoading]);
+    const { data: allUsers } = useCollection<Member>(usersQuery);
 
-      const userDocRef = doc(firestore, 'users', uid);
-      const userDoc = await getDoc(userDocRef);
-      if (!userDoc.exists()) return { user: null, permissions: [] };
+    useEffect(() => {
+        if (authUser && allUsers) {
+            setCurrentUserData(allUsers.find(u => u.uid === authUser.uid) || null);
+        }
+    }, [authUser, allUsers]);
 
-      const userData = { id: userDoc.id, ...userDoc.data() } as Member;
-      
-      const userPermsDocRef = doc(firestore, 'user_permissions', uid);
-      const userPermsDoc = await getDoc(userPermsDocRef);
+    useEffect(() => {
+        if (currentUserData && allOrganizations && userPermissions.includes('org_personal_goal_setting')) {
+            const getSubTreeIds = (orgId: string, orgs: Organization[]): string[] => {
+                let children = orgs.filter(o => o.parentId === orgId);
+                let subTreeIds: string[] = [orgId];
+                children.forEach(child => {
+                    subTreeIds = subTreeIds.concat(getSubTreeIds(child.id, orgs));
+                });
+                return subTreeIds;
+            };
 
-      if (userPermsDoc.exists()) {
-        const individualPerms = userPermsDoc.data() as UserPermission;
-        return { user: userData, permissions: individualPerms.permissions || [] };
-      }
-
-      const roleDocRef = doc(firestore, 'roles', userData.role);
-      const roleDoc = await getDoc(roleDocRef);
-      
-      const permissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
-      
-      return { user: userData, permissions };
-    }, [firestore]);
+            if (currentUserData.organizationId) {
+                const userOrgTreeIds = getSubTreeIds(currentUserData.organizationId, allOrganizations);
+                setEditableOrgs(allOrganizations.filter(org => userOrgTreeIds.includes(org.id)));
+                setSelectedOrgId(currentUserData.organizationId);
+            }
+        }
+    }, [currentUserData, allOrganizations, userPermissions]);
 
 
     const canManageCompanyGoals = userPermissions.includes('company_goal_setting');
@@ -1842,40 +1845,10 @@ function DashboardSettingsPageComponent() {
     const getDefaultTab = useCallback(() => {
         if (canManageCompanyGoals) return 'company';
         if (canManageOrgPersonalGoals) return 'team';
-        return 'company';
+        return 'company'; // Fallback
     }, [canManageCompanyGoals, canManageOrgPersonalGoals]);
     
     const [activeTab, setActiveTab] = useState<WidgetScope | 'personal'>(getDefaultTab());
-
-    useEffect(() => {
-        if (isAuthUserLoading || isLoadingOrgs) return;
-        
-        if (authUser && allOrganizations) {
-            setIsCurrentUserLoading(true);
-            fetchUserWithPermissions(authUser.uid).then(({ user, permissions }) => {
-                setCurrentUserData(user);
-                setUserPermissions(permissions);
-
-                const getSubTreeIds = (orgId: string, orgs: Organization[]): string[] => {
-                    let children = orgs.filter(o => o.parentId === orgId);
-                    let subTreeIds: string[] = [orgId];
-                    children.forEach(child => {
-                        subTreeIds = subTreeIds.concat(getSubTreeIds(child.id, orgs));
-                    });
-                    return subTreeIds;
-                };
-
-                if (user?.organizationId && permissions.includes('org_personal_goal_setting')) {
-                    const userOrgTreeIds = getSubTreeIds(user.organizationId, allOrganizations);
-                    setEditableOrgs(allOrganizations.filter(org => userOrgTreeIds.includes(org.id)));
-                    setSelectedOrgId(user.organizationId);
-                }
-                setIsCurrentUserLoading(false);
-            });
-        } else {
-            setIsCurrentUserLoading(false);
-        }
-    }, [authUser, isAuthUserLoading, fetchUserWithPermissions, allOrganizations, isLoadingOrgs]);
 
     useEffect(() => {
         const defaultTab = getDefaultTab();
@@ -1897,22 +1870,24 @@ function DashboardSettingsPageComponent() {
     }, [tab, canManageCompanyGoals, canManageOrgPersonalGoals, getDefaultTab]);
     
     const goalsQuery = useMemoFirebase(() => {
-        if (!firestore || isCurrentUserLoading) return null;
-        if (activeTab === 'personal') return null; // Personal goals are fetched separately
+        if (!firestore || isCheckingPermissions) return null;
+        if (activeTab === 'personal') return null;
         
-        let queryConstraints = [where('scope', '==', activeTab)];
+        let queryConstraints: any[] = [where('scope', '==', activeTab)];
 
         if (activeTab === 'company') {
-          if (!currentUserData?.company) return null;
+          if (!canManageCompanyGoals || !currentUserData?.company) return null;
           queryConstraints.push(where('scopeId', '==', currentUserData.company));
         } else if (activeTab === 'team') {
-          if (!selectedOrgId) return null;
+          if (!canManageOrgPersonalGoals || !selectedOrgId) return null;
           queryConstraints.push(where('scopeId', '==', selectedOrgId));
+        } else {
+          return null;
         }
 
         return query(collection(firestore, 'goals'), ...queryConstraints);
 
-    }, [firestore, currentUserData, activeTab, isCurrentUserLoading, selectedOrgId]);
+    }, [firestore, currentUserData, activeTab, isCheckingPermissions, selectedOrgId, canManageCompanyGoals, canManageOrgPersonalGoals]);
 
     const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
 
@@ -2184,13 +2159,24 @@ function DashboardSettingsPageComponent() {
       });
     }, [widgets]);
 
-  const isLoading = isAuthUserLoading || isCurrentUserLoading || isLoadingOrgs;
+  const isLoading = isAuthUserLoading || isCheckingPermissions || isLoadingOrgs || !currentUserData;
 
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  if (!canManageCompanyGoals && !canManageOrgPersonalGoals) {
+    return (
+        <div className="w-full max-w-7xl mx-auto">
+            <div className="flex items-center mb-6">
+                <h1 className="text-lg font-semibold md:text-2xl">目標設定</h1>
+            </div>
+            <p>目標を管理する権限がありません。</p>
+        </div>
     );
   }
   
@@ -2218,7 +2204,7 @@ function DashboardSettingsPageComponent() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope | 'personal')}>
-          <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-2" : "hidden")))}>
+          <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1" : "hidden")))}>
               {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
               {canManageOrgPersonalGoals && (
                 <>
