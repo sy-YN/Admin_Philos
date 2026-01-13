@@ -224,9 +224,10 @@ function DashboardNav() {
                           isLinkActive(item) && 'text-primary'
                           )}
                       >
-                          <item.icon className="h-5 w-5" />
-                          {item.label}
-                          <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 ml-auto" />
+                          <div className="flex items-center gap-3 flex-1">
+                            <item.icon className="h-5 w-5" />
+                            {item.label}
+                          </div>
                       </AccordionTrigger>
                       <AccordionContent className="pl-8 pb-1 space-y-1">
                           {item.children
