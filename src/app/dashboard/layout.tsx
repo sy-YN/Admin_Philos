@@ -1,38 +1,107 @@
-
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { Building2, Users, Film, BookOpen, BarChart3, Trophy, LogOut, ChevronLeft, CalendarDays, User, Network, Shield } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import {
+  Building2,
+  Users,
+  Film,
+  BookOpen,
+  BarChart3,
+  Trophy,
+  LogOut,
+  ChevronLeft,
+  CalendarDays,
+  User,
+  Network,
+  Shield,
+  ChevronDown,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser } from '@/firebase';
 import { useState, useMemo, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { PermissionProvider, usePermissions } from '@/context/PermissionContext';
 
+type NavItem = {
+  id: string;
+  href: string;
+  label: string;
+  icon: React.FC<any>;
+  requiredPermissions?: string[];
+  children?: Omit<NavItem, 'icon' | 'children'>[];
+};
 
-const allNavItems = [
+const allNavItems: NavItem[] = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members' },
   { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization' },
   { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions' },
-  { href: '/dashboard/contents', label: 'コンテンツ管理', icon: Film, id: 'contents', requiredPermissions: ['video_management', 'message_management', 'proxy_post_video', 'proxy_post_message'] },
+  {
+    href: '/dashboard/contents',
+    label: 'コンテンツ管理',
+    icon: Film,
+    id: 'contents',
+    requiredPermissions: ['video_management', 'message_management', 'proxy_post_video', 'proxy_post_message'],
+    children: [
+      { href: '/dashboard/contents?tab=videos', label: 'ビデオ管理', id: 'video_management' },
+      { href: '/dashboard/contents?tab=messages', label: 'メッセージ管理', id: 'message_management' },
+    ],
+  },
   { href: '/dashboard/philosophy', label: '理念管理', icon: BookOpen, id: 'philosophy' },
-  { href: '/dashboard/calendar', label: 'カレンダー設定', icon: CalendarDays, id: 'calendar' },
-  { href: '/dashboard/dashboard', label: '目標設定', icon: BarChart3, id: 'dashboard', requiredPermissions: ['company_goal_setting', 'org_personal_goal_setting'] },
+  {
+    href: '/dashboard/calendar',
+    label: 'カレンダー設定',
+    icon: CalendarDays,
+    id: 'calendar',
+    children: [
+        { href: '/dashboard/calendar?tab=daily', label: '日替わりメッセージ', id: 'calendar' },
+        { href: '/dashboard/calendar?tab=scheduled', label: '期間指定メッセージ', id: 'calendar' },
+    ]
+  },
+  {
+    href: '/dashboard/dashboard',
+    label: '目標設定',
+    icon: BarChart3,
+    id: 'dashboard',
+    requiredPermissions: ['company_goal_setting', 'org_personal_goal_setting'],
+    children: [
+        { href: '/dashboard/dashboard?tab=company', label: '会社単位', id: 'company_goal_setting'},
+        { href: '/dashboard/dashboard?tab=team', label: '組織単位', id: 'org_personal_goal_setting'},
+        { href: '/dashboard/dashboard?tab=personal', label: '個人単位', id: 'org_personal_goal_setting'},
+    ]
+  },
   { href: '/dashboard/ranking', label: 'ランキング設定', icon: Trophy, id: 'ranking' },
 ];
 
 function DashboardNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user } = useUser();
   const auth = useAuth();
-  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { userPermissions } = usePermissions();
+
+  const activeTab = searchParams.get('tab');
 
   const navItems = useMemo(() => {
     return allNavItems.filter(item => {
@@ -47,9 +116,19 @@ function DashboardNav() {
     if (auth) {
       await auth.signOut();
     }
-    // After signOut, the auth state change will trigger the effect in
-    // LayoutAuthWrapper, which will handle the redirection.
-    router.push('/login');
+  };
+
+  const isLinkActive = (item: NavItem) => {
+    if (item.children) {
+      return pathname.startsWith(item.href);
+    }
+    return pathname === item.href;
+  };
+
+  const isSubLinkActive = (subItem: Omit<NavItem, 'icon' | 'children'>, parentItem: NavItem) => {
+    const parentIsActive = pathname.startsWith(parentItem.href);
+    const tab = subItem.href.split('tab=')[1];
+    return parentIsActive && activeTab === tab;
   };
   
   return (
@@ -74,33 +153,113 @@ function DashboardNav() {
               <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
             </Button>
           </div>
-          <nav className={cn(
-            "flex flex-col gap-1 py-4 text-sm font-medium transition-all duration-300 flex-grow",
-              isCollapsed ? "px-2" : "px-4"
-            )}>
-            {navItems.map((item) => (
-                  <Tooltip key={item.href} delayDuration={0}>
-                  <TooltipTrigger asChild>
-                      <Link
+          <nav className="flex flex-col gap-1 py-4 text-sm font-medium flex-grow px-2">
+           {isCollapsed ? (
+                // Collapsed View: Popover for sub-items
+                <TooltipProvider>
+                    {navItems.map((item) =>
+                    item.children ? (
+                        <Popover key={item.id}>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                            <PopoverTrigger asChild>
+                                <Button
+                                variant={isLinkActive(item) ? 'secondary' : 'ghost'}
+                                className="w-full justify-center h-12"
+                                size="icon"
+                                >
+                                <item.icon className="h-5 w-5" />
+                                <span className="sr-only">{item.label}</span>
+                                </Button>
+                            </PopoverTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">{item.label}</TooltipContent>
+                        </Tooltip>
+                        <PopoverContent side="right" className="w-48 p-1">
+                            {item.children
+                                .filter(child => userPermissions.includes(child.id))
+                                .map((child) => (
+                                    <Link
+                                    key={child.href}
+                                    href={child.href}
+                                    className={cn(
+                                        'flex items-center gap-3 rounded-md px-3 py-2 text-muted-foreground transition-all hover:bg-muted hover:text-primary',
+                                        isSubLinkActive(child, item) && 'bg-muted text-primary'
+                                    )}
+                                    >
+                                    {child.label}
+                                    </Link>
+                            ))}
+                        </PopoverContent>
+                        </Popover>
+                    ) : (
+                        <Tooltip key={item.href} delayDuration={0}>
+                        <TooltipTrigger asChild>
+                            <Link href={item.href}>
+                            <Button
+                                variant={isLinkActive(item) ? 'secondary' : 'ghost'}
+                                className="w-full justify-center h-12"
+                                size="icon"
+                            >
+                                <item.icon className="h-5 w-5" />
+                                <span className="sr-only">{item.label}</span>
+                            </Button>
+                            </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">{item.label}</TooltipContent>
+                        </Tooltip>
+                    )
+                    )}
+                </TooltipProvider>
+                ) : (
+                // Expanded View: Accordion for sub-items
+                <Accordion type="single" collapsible className="w-full" defaultValue={navItems.find(item => isLinkActive(item))?.id}>
+                    {navItems.map((item) =>
+                    item.children ? (
+                        <AccordionItem value={item.id} key={item.id} className="border-b-0">
+                        <AccordionTrigger
+                            className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:no-underline hover:text-primary [&[data-state=open]>svg]:text-primary',
+                            isLinkActive(item) && 'text-primary'
+                            )}
+                        >
+                            <item.icon className="h-5 w-5" />
+                            {item.label}
+                            <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 ml-auto" />
+                        </AccordionTrigger>
+                        <AccordionContent className="pl-8 pb-1 space-y-1">
+                            {item.children
+                                .filter(child => userPermissions.includes(child.id))
+                                .map((child) => (
+                                <Link
+                                    key={child.href}
+                                    href={child.href}
+                                    className={cn(
+                                    'block rounded-md px-3 py-2 text-muted-foreground transition-all hover:bg-muted hover:text-primary',
+                                    isSubLinkActive(child, item) && 'bg-muted text-primary'
+                                    )}
+                                >
+                                    {child.label}
+                                </Link>
+                            ))}
+                        </AccordionContent>
+                        </AccordionItem>
+                    ) : (
+                        <Link
+                        key={item.href}
                         href={item.href}
-                          className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:text-primary",
-                          pathname.startsWith(item.href) && 'bg-muted text-primary',
-                          isCollapsed && "justify-center"
+                        className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:text-primary',
+                            pathname === item.href && 'bg-muted text-primary'
                         )}
-                      >
+                        >
                         <item.icon className="h-5 w-5" />
-                        {!isCollapsed && <span>{item.label}</span>}
-                        <span className="sr-only">{item.label}</span>
-                      </Link>
-                  </TooltipTrigger>
-                    {isCollapsed && (
-                    <TooltipContent side="right">
-                      {item.label}
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              ))}
+                        {item.label}
+                        </Link>
+                    )
+                    )}
+                </Accordion>
+            )}
           </nav>
           <div className={cn(
             "mt-auto p-4 transition-all duration-300 space-y-4",
@@ -110,22 +269,24 @@ function DashboardNav() {
             <Separator />
 
             <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
-                <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src={user?.photoURL || undefined} />
-                    <AvatarFallback>
-                      <User className="h-5 w-5"/>
-                    </AvatarFallback>
-                  </Avatar>
-                </TooltipTrigger>
-                  {isCollapsed && user && (
-                  <TooltipContent side="right">
-                      <p>{user.displayName}</p>
-                      <p className="text-muted-foreground">{user.email}</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
+                <TooltipProvider>
+                    <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                    <Avatar className="h-9 w-9">
+                        <AvatarImage src={user?.photoURL || undefined} />
+                        <AvatarFallback>
+                        <User className="h-5 w-5"/>
+                        </AvatarFallback>
+                    </Avatar>
+                    </TooltipTrigger>
+                    {isCollapsed && user && (
+                    <TooltipContent side="right">
+                        <p>{user.displayName}</p>
+                        <p className="text-muted-foreground">{user.email}</p>
+                    </TooltipContent>
+                    )}
+                </TooltipProvider>
+              </div>
                 {!isCollapsed && user && (
                   <div className="flex-1 overflow-hidden">
                       <p className="text-sm font-semibold truncate">{user.displayName}</p>
@@ -134,25 +295,27 @@ function DashboardNav() {
                 )}
             </div>
             
-            <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                    <Button 
-                      size={isCollapsed ? 'icon' : 'default'}
-                      className="w-full"
-                      variant="outline" 
-                      onClick={handleLogout}
-                    >
-                    <LogOut className="h-5 w-5" />
-                    {!isCollapsed && <span className="ml-2">ログアウト</span>}
-                      <span className="sr-only">ログアウト</span>
-                  </Button>
-                </TooltipTrigger>
-                  {isCollapsed && (
-                  <TooltipContent side="right">
-                    ログアウト
-                  </TooltipContent>
-                )}
-            </Tooltip>
+            <TooltipProvider>
+                <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                        <Button 
+                        size={isCollapsed ? 'icon' : 'default'}
+                        className="w-full"
+                        variant="outline" 
+                        onClick={handleLogout}
+                        >
+                        <LogOut className="h-5 w-5" />
+                        {!isCollapsed && <span className="ml-2">ログアウト</span>}
+                        <span className="sr-only">ログアウト</span>
+                    </Button>
+                    </TooltipTrigger>
+                    {isCollapsed && (
+                    <TooltipContent side="right">
+                        ログアウト
+                    </TooltipContent>
+                    )}
+                </Tooltip>
+            </TooltipProvider>
           </div>
       </aside>
   )
@@ -160,8 +323,6 @@ function DashboardNav() {
 
 function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const { userPermissions, isCheckingPermissions } = usePermissions();
   
@@ -172,24 +333,19 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
 
     if (!user) {
       if (pathname !== '/login') {
-          router.replace('/login');
+          window.location.replace('/login');
       }
       return;
     }
     
-    // This part runs only when user is authenticated and permissions are checked.
     const managementPermissions = userPermissions.filter(p => p !== 'can_comment');
 
-    if (managementPermissions.length === 0) {
-      if (auth) {
-        auth.signOut().then(() => {
-          router.replace('/login');
-        });
-      } else {
-        router.replace('/login');
-      }
+    if (managementPermissions.length === 0 && user) {
+      // No management permissions, sign out and redirect
+      useAuth().signOut().then(() => {
+        window.location.replace('/login');
+      });
     } else {
-      // Redirect from /dashboard to the first accessible page
       const firstAllowedPage = allNavItems.find(item => {
         if (!item.requiredPermissions) {
           return userPermissions.includes(item.id);
@@ -198,10 +354,10 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
       });
 
       if (pathname === '/dashboard' && firstAllowedPage) {
-        router.replace(firstAllowedPage.href);
+        window.location.replace(firstAllowedPage.href);
       }
     }
-  }, [user, isUserLoading, isCheckingPermissions, userPermissions, router, auth, pathname]);
+  }, [user, isUserLoading, isCheckingPermissions, userPermissions, pathname]);
 
   if (isUserLoading || isCheckingPermissions) {
     return (
@@ -211,8 +367,6 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
     );
   }
   
-  // If user is null and we are not on login page, we are in a redirecting state.
-  // The loading spinner above should cover this, but as a fallback:
   if (!user && pathname !== '/login') {
       return (
       <div className="flex h-screen items-center justify-center">
@@ -221,7 +375,6 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Render children (the actual page) only when checks are complete
   return (
       <div className="flex h-screen w-full bg-muted/40">
         {pathname !== '/login' && <DashboardNav />}
@@ -243,12 +396,10 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <TooltipProvider>
       <PermissionProvider>
         <LayoutAuthWrapper>
           {children}
         </LayoutAuthWrapper>
       </PermissionProvider>
-    </TooltipProvider>
   );
 }

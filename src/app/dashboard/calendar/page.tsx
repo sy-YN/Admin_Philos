@@ -1,7 +1,8 @@
-
 'use client';
 
+import { Suspense } from 'react';
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -469,25 +470,46 @@ function ScheduledMessageListTab() {
   );
 }
 
-
-export default function CalendarSettingsPage() {
-  return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center">
-        <h1 className="text-lg font-semibold md:text-2xl">カレンダー設定</h1>
+function CalendarSettingsPage() {
+    const searchParams = useSearchParams();
+    const tab = searchParams.get('tab');
+    const [selectedTab, setSelectedTab] = useState(tab || 'daily');
+  
+    useEffect(() => {
+      if (tab) {
+        setSelectedTab(tab);
+      }
+    }, [tab]);
+  
+    return (
+      <div className="w-full max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center">
+          <h1 className="text-lg font-semibold md:text-2xl">カレンダー設定</h1>
+        </div>
+        <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="daily">日替わりメッセージ</TabsTrigger>
+            <TabsTrigger value="scheduled">期間指定メッセージ</TabsTrigger>
+          </TabsList>
+          {selectedTab === 'daily' && (
+            <TabsContent value="daily">
+              <DailyMessageListTab />
+            </TabsContent>
+          )}
+          {selectedTab === 'scheduled' && (
+            <TabsContent value="scheduled">
+              <ScheduledMessageListTab />
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
-      <Tabs defaultValue="daily">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="daily">日替わりメッセージ</TabsTrigger>
-          <TabsTrigger value="scheduled">期間指定メッセージ</TabsTrigger>
-        </TabsList>
-        <TabsContent value="daily">
-          <DailyMessageListTab />
-        </TabsContent>
-        <TabsContent value="scheduled">
-          <ScheduledMessageListTab />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
+    );
+  }
+
+export default function CalendarSettingsPageWrapper() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+            <CalendarSettingsPage />
+        </Suspense>
+    )
 }

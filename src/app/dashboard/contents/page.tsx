@@ -1,6 +1,6 @@
-
 'use client';
 
+import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -28,6 +28,7 @@ import { ContentDetailsDialog } from '@/components/contents/content-details-dial
 import type { Comment } from '@/types/comment';
 import type { Member } from '@/types/member';
 import { usePermissions } from '@/context/PermissionContext';
+import { useSearchParams } from 'next/navigation';
 
 
 // --- Message Section (Firestore) ---
@@ -964,8 +965,26 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
   );
 }
 
+function ContentsPage() {
+    const searchParams = useSearchParams();
+    const [selectedTab, setSelectedTab] = useState(searchParams.get('tab') || 'videos');
+  
+    useEffect(() => {
+      const tab = searchParams.get('tab');
+      if (tab) {
+        setSelectedTab(tab);
+      }
+    }, [searchParams]);
 
-export default function ContentsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+        <ContentsPageContent selectedTab={selectedTab} onTabChange={setSelectedTab}/>
+    </Suspense>
+  )
+}
+
+
+function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string, onTabChange: (tab: string) => void }) {
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const { toast } = useToast();
@@ -1001,11 +1020,9 @@ export default function ContentsPage() {
     }
 
     if (canProxyPostVideo) {
-        // This query requires a composite index on (creatorId, uploadedAt)
         return query(collectionRef, where('creatorId', '==', authUser.uid));
     }
     
-    // Return a query that is guaranteed to be empty if user has no permissions
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
 
   }, [firestore, authUser, isCheckingPermissions, canManageVideos, canProxyPostVideo]);
@@ -1025,11 +1042,9 @@ export default function ContentsPage() {
     }
 
     if (canProxyPostMessage) {
-       // This query requires a composite index on (creatorId, createdAt)
        return query(collectionRef, where('creatorId', '==', authUser.uid));
     }
     
-    // Return a query that is guaranteed to be empty if user has no permissions
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
 
   }, [firestore, authUser, isCheckingPermissions, canManageMessages, canProxyPostMessage]);
@@ -1146,8 +1161,6 @@ export default function ContentsPage() {
     const contentRef = doc(firestore, contentType, contentId);
     const commentRef = doc(contentRef, 'comments', commentId);
 
-    // To robustly handle reply deletion, we need a transaction or a Cloud Function.
-    // For now, we just decrement by 1. A better solution would query for all children and delete them.
     const batch = writeBatch(firestore);
     batch.delete(commentRef);
     batch.update(contentRef, { commentsCount: increment(-1) });
@@ -1165,21 +1178,21 @@ export default function ContentsPage() {
 
   const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
   
-  const canAccessVideoTab = canManageVideos || canProxyPostVideo;
-  const canAccessMessageTab = canManageMessages || canProxyPostMessage;
+  const canAccessVideoTab = userPermissions.includes('video_management') || userPermissions.includes('proxy_post_video');
+  const canAccessMessageTab = userPermissions.includes('message_management') || userPermissions.includes('proxy_post_message');
 
-  const getDefaultTab = () => {
+  const defaultTab = useMemo(() => {
+    if (selectedTab === 'videos' && canAccessVideoTab) return 'videos';
+    if (selectedTab === 'messages' && canAccessMessageTab) return 'messages';
     if (canAccessVideoTab) return 'videos';
     if (canAccessMessageTab) return 'messages';
     return '';
-  }
+  }, [selectedTab, canAccessVideoTab, canAccessMessageTab]);
 
   if (isLoading) {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
   
-  const defaultTab = getDefaultTab();
-
   if (!defaultTab) {
     return (
       <div className="w-full max-w-7xl mx-auto">
@@ -1196,16 +1209,15 @@ export default function ContentsPage() {
       <div className="flex items-center mb-6">
         <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
       </div>
-      <Tabs defaultValue={defaultTab}>
+      <Tabs value={selectedTab} onValueChange={onTabChange}>
         {(canAccessVideoTab && canAccessMessageTab) && (
           <TabsList className="grid w-full grid-cols-2 max-w-md">
-            {canAccessVideoTab && <TabsTrigger value="videos"><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>}
-            {canAccessMessageTab && <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>}
+            <TabsTrigger value="videos" disabled={!canAccessVideoTab}><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>
+            <TabsTrigger value="messages" disabled={!canAccessMessageTab}><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>
           </TabsList>
         )}
 
-        {/* ビデオ管理タブ */}
-        {canAccessVideoTab && (
+        {canAccessVideoTab && selectedTab === 'videos' && (
           <TabsContent value="videos">
             <Card>
               <CardHeader>
@@ -1253,8 +1265,7 @@ export default function ContentsPage() {
           </TabsContent>
         )}
 
-        {/* メッセージ管理タブ */}
-        {canAccessMessageTab && (
+        {canAccessMessageTab && selectedTab === 'messages' && (
           <TabsContent value="messages">
             <Card>
               <CardHeader>
@@ -1303,3 +1314,5 @@ export default function ContentsPage() {
     </div>
   );
 }
+
+export default ContentsPage;

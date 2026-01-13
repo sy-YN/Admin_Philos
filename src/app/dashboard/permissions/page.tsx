@@ -1,7 +1,8 @@
-
 'use client';
 
+import { Suspense } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -64,7 +65,11 @@ const roleDefinitions: Omit<Role, 'id'>[] = [
     { id: 'employee', name: '従業員', permissions: ['can_comment'] },
 ];
 
-export default function PermissionsPage() {
+function PermissionsPageComponent() {
+  const searchParams = useSearchParams();
+  const tab = searchParams.get('tab');
+  const [selectedTab, setSelectedTab] = useState(tab || 'roles');
+
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user: currentUser, isUserLoading } = useUser();
@@ -103,6 +108,12 @@ export default function PermissionsPage() {
     }
   }, [userPermsData]);
 
+  useEffect(() => {
+    if (tab) {
+        setSelectedTab(tab);
+    }
+  }, [tab]);
+
   const handleRolePermissionChange = (roleId: string, permissionId: string, checked: boolean) => {
     setRolePermissions(prev => {
       const currentRolePermissions = prev[roleId] || [];
@@ -118,8 +129,6 @@ export default function PermissionsPage() {
         const user = usersData?.find(u => u.uid === userId);
         if(!user) return prev;
 
-        // If a user doesn't have an individual setting yet, their base is their role's permissions.
-        // Once edited, their permissions become explicitly managed.
         const basePermissions = prev[userId] !== undefined 
           ? prev[userId] 
           : (rolesMap.get(user.role) || []);
@@ -223,195 +232,207 @@ export default function PermissionsPage() {
         <h1 className="text-lg font-semibold md:text-2xl">権限管理</h1>
       </div>
       
-       <Tabs defaultValue="roles">
+       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="roles">役割別権限</TabsTrigger>
           <TabsTrigger value="users">ユーザー個別権限</TabsTrigger>
         </TabsList>
-        <TabsContent value="roles">
-          <Card>
-            <CardHeader>
-              <CardTitle>役割別メニューアクセス設定</CardTitle>
-              <CardDescription>役割（ロール）ごとに、管理画面でアクセスできる機能を設定します。</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? <Loader2 className="animate-spin" /> : rolesData && rolesData.length > 0 ? (
-                <>
-                <ScrollArea>
-                    <Table className="min-w-[1200px] border-collapse">
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead rowSpan={2} className="w-[120px] sticky left-0 bg-background z-10 px-2 align-middle border-b">役割</TableHead>
-                            {permissionGroups.map(group => (
-                                <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
-                            ))}
-                        </TableRow>
-                        <TableRow>
-                            {permissionColumns.map(col => {
-                              const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
-                              const isFirstInGroup = group?.permissions[0].id === col.id;
-                              return (
-                                <TableHead key={col.id} className={`text-center px-1 text-xs text-muted-foreground font-normal ${isFirstInGroup ? 'border-l' : ''}`}>
-                                  {col.name}
-                                </TableHead>
-                              )
-                            })}
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {rolesData.sort((a,b) => roleDefinitions.findIndex(def => def.id === a.id) - roleDefinitions.findIndex(def => def.id === b.id)).map(role => (
-                        <TableRow key={role.id}>
-                            <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">{role.name}</TableCell>
-                            {permissionColumns.map(col => {
-                            const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
-                            const isFirstInGroup = group?.permissions[0].id === col.id;
-                            return (
-                            <TableCell key={col.id} className={`text-center p-1 ${isFirstInGroup ? 'border-l' : ''}`}>
-                                <Checkbox
-                                checked={rolePermissions[role.id]?.includes(col.id)}
-                                onCheckedChange={(checked) => handleRolePermissionChange(role.id, col.id, !!checked)}
-                                disabled={role.id === 'admin' || isSaving}
-                                aria-label={`${role.name} - ${col.name}`}
-                                />
-                            </TableCell>
-                            )
-                            })}
-                        </TableRow>
-                        ))}
-                    </TableBody>
-                    </Table>
-                    <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-                <div className="flex justify-end mt-4">
-                    <Button onClick={handleSaveRolePermissions} disabled={isSaving}>
-                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        役割権限を保存
-                    </Button>
-                </div>
-              </>
-              ) : (
-                <div className="text-center py-10 text-muted-foreground">
-                    <p>役割データが見つかりません。</p>
-                    <Button onClick={handleSeedRoles} disabled={isSaving} variant="outline" className="mt-4">
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                        初期の役割データを登録する
-                    </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="users">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>ユーザー個別権限の管理</CardTitle>
-                    <CardDescription>役割の権限を基本とし、ユーザーごとに特定の権限をチェックでON/OFFします。</CardDescription>
-                </div>
-                <Button onClick={handleSaveIndividualPermissions} disabled={isSaving}>
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                    個別権限を保存
-                </Button>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div> : (
-                  <>
+        {selectedTab === 'roles' && (
+            <TabsContent value="roles">
+            <Card>
+                <CardHeader>
+                <CardTitle>役割別メニューアクセス設定</CardTitle>
+                <CardDescription>役割（ロール）ごとに、管理画面でアクセスできる機能を設定します。</CardDescription>
+                </CardHeader>
+                <CardContent>
+                {isLoading ? <Loader2 className="animate-spin" /> : rolesData && rolesData.length > 0 ? (
+                    <>
                     <ScrollArea>
-                      <Table className="min-w-[1200px]">
+                        <Table className="min-w-[1200px] border-collapse">
                         <TableHeader>
-                          <TableRow>
-                              <TableHead rowSpan={2} className="w-[180px] sticky left-0 bg-background z-10 px-2 align-middle border-b">ユーザー</TableHead>
-                              {permissionGroups.map(group => (
-                                  <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
-                              ))}
-                              <TableHead rowSpan={2} className="w-[80px] sticky right-0 bg-background z-10 px-2 align-middle border-b text-center">操作</TableHead>
-                          </TableRow>
-                          <TableRow>
-                              {permissionColumns.map(col => {
+                            <TableRow>
+                                <TableHead rowSpan={2} className="w-[120px] sticky left-0 bg-background z-10 px-2 align-middle border-b">役割</TableHead>
+                                {permissionGroups.map(group => (
+                                    <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
+                                ))}
+                            </TableRow>
+                            <TableRow>
+                                {permissionColumns.map(col => {
                                 const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
                                 const isFirstInGroup = group?.permissions[0].id === col.id;
                                 return (
-                                  <TableHead key={col.id} className={`text-center px-1 text-xs text-muted-foreground font-normal ${isFirstInGroup ? 'border-l' : ''}`}>
+                                    <TableHead key={col.id} className={`text-center px-1 text-xs text-muted-foreground font-normal ${isFirstInGroup ? 'border-l' : ''}`}>
                                     {col.name}
-                                  </TableHead>
+                                    </TableHead>
                                 )
-                              })}
-                          </TableRow>
+                                })}
+                            </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {(usersData || []).length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={permissionColumns.length + 2} className="h-24 text-center text-muted-foreground">
-                                    管理対象のユーザーがいません。
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                            {(usersData || []).map(user => {
-                                const hasIndividualSetting = individualPermissions[user.uid] !== undefined;
-                                const effectivePerms = hasIndividualSetting
-                                  ? individualPermissions[user.uid]
-                                  : (rolesMap.get(user.role) || []);
-                                
+                            {rolesData.sort((a,b) => roleDefinitions.findIndex(def => def.id === a.id) - roleDefinitions.findIndex(def => def.id === b.id)).map(role => (
+                            <TableRow key={role.id}>
+                                <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">{role.name}</TableCell>
+                                {permissionColumns.map(col => {
+                                const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
+                                const isFirstInGroup = group?.permissions[0].id === col.id;
                                 return (
-                                    <TableRow key={user.uid}>
-                                        <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">
-                                            {user.displayName}
-                                            <div className="text-xs text-muted-foreground">{rolesData?.find(r => r.id === user.role)?.name}</div>
-                                        </TableCell>
-                                        {permissionColumns.map(col => {
-                                            const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
-                                            const isFirstInGroup = group?.permissions[0].id === col.id;
-                                            return (
-                                                <TableCell key={col.id} className={`text-center p-1 ${isFirstInGroup ? 'border-l' : ''}`}>
-                                                    <Checkbox
-                                                        checked={effectivePerms.includes(col.id)}
-                                                        onCheckedChange={(checked) => handleIndividualPermissionChange(user.uid, col.id, !!checked)}
-                                                        disabled={isSaving || user.role === 'admin'}
-                                                    />
-                                                </TableCell>
-                                            )
-                                        })}
-                                        <TableCell className="sticky right-0 bg-background z-10 px-2 text-center">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" disabled={!hasIndividualSetting || user.role === 'admin'}>
-                                                        <MoreHorizontal className="h-4 w-4"/>
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent>
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
-                                                                個別設定をリセット
-                                                            </DropdownMenuItem>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>個別設定をリセットしますか？</AlertDialogTitle>
-                                                                <AlertDialogDescription>「{user.displayName}」の個別権限設定が削除され、役割「{rolesData?.find(r => r.id === user.role)?.name}」の権限が適用されます。</AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleResetIndividualPermissions(user.uid)}>リセット</AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                                <TableCell key={col.id} className={`text-center p-1 ${isFirstInGroup ? 'border-l' : ''}`}>
+                                    <Checkbox
+                                    checked={rolePermissions[role.id]?.includes(col.id)}
+                                    onCheckedChange={(checked) => handleRolePermissionChange(role.id, col.id, !!checked)}
+                                    disabled={role.id === 'admin' || isSaving}
+                                    aria-label={`${role.name} - ${col.name}`}
+                                    />
+                                </TableCell>
+                                )
+                                })}
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                        </Table>
+                        <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+                    <div className="flex justify-end mt-4">
+                        <Button onClick={handleSaveRolePermissions} disabled={isSaving}>
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            役割権限を保存
+                        </Button>
+                    </div>
+                </>
+                ) : (
+                    <div className="text-center py-10 text-muted-foreground">
+                        <p>役割データが見つかりません。</p>
+                        <Button onClick={handleSeedRoles} disabled={isSaving} variant="outline" className="mt-4">
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            初期の役割データを登録する
+                        </Button>
+                    </div>
+                )}
+                </CardContent>
+            </Card>
+            </TabsContent>
+        )}
+        {selectedTab === 'users' && (
+            <TabsContent value="users">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>ユーザー個別権限の管理</CardTitle>
+                        <CardDescription>役割の権限を基本とし、ユーザーごとに特定の権限をチェックでON/OFFします。</CardDescription>
+                    </div>
+                    <Button onClick={handleSaveIndividualPermissions} disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        個別権限を保存
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    {isLoading ? <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div> : (
+                    <>
+                        <ScrollArea>
+                        <Table className="min-w-[1200px]">
+                            <TableHeader>
+                            <TableRow>
+                                <TableHead rowSpan={2} className="w-[180px] sticky left-0 bg-background z-10 px-2 align-middle border-b">ユーザー</TableHead>
+                                {permissionGroups.map(group => (
+                                    <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
+                                ))}
+                                <TableHead rowSpan={2} className="w-[80px] sticky right-0 bg-background z-10 px-2 align-middle border-b text-center">操作</TableHead>
+                            </TableRow>
+                            <TableRow>
+                                {permissionColumns.map(col => {
+                                    const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
+                                    const isFirstInGroup = group?.permissions[0].id === col.id;
+                                    return (
+                                    <TableHead key={col.id} className={`text-center px-1 text-xs text-muted-foreground font-normal ${isFirstInGroup ? 'border-l' : ''}`}>
+                                        {col.name}
+                                    </TableHead>
+                                    )
+                                })}
+                            </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {(usersData || []).length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={permissionColumns.length + 2} className="h-24 text-center text-muted-foreground">
+                                        管理対象のユーザーがいません。
                                         </TableCell>
                                     </TableRow>
-                                )
-                            })}
-                        </TableBody>
-                      </Table>
-                      <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
-                  </>
-                )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                                )}
+                                {(usersData || []).map(user => {
+                                    const hasIndividualSetting = individualPermissions[user.uid] !== undefined;
+                                    const effectivePerms = hasIndividualSetting
+                                    ? individualPermissions[user.uid]
+                                    : (rolesMap.get(user.role) || []);
+                                    
+                                    return (
+                                        <TableRow key={user.uid}>
+                                            <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">
+                                                {user.displayName}
+                                                <div className="text-xs text-muted-foreground">{rolesData?.find(r => r.id === user.role)?.name}</div>
+                                            </TableCell>
+                                            {permissionColumns.map(col => {
+                                                const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
+                                                const isFirstInGroup = group?.permissions[0].id === col.id;
+                                                return (
+                                                    <TableCell key={col.id} className={`text-center p-1 ${isFirstInGroup ? 'border-l' : ''}`}>
+                                                        <Checkbox
+                                                            checked={effectivePerms.includes(col.id)}
+                                                            onCheckedChange={(checked) => handleIndividualPermissionChange(user.uid, col.id, !!checked)}
+                                                            disabled={isSaving || user.role === 'admin'}
+                                                        />
+                                                    </TableCell>
+                                                )
+                                            })}
+                                            <TableCell className="sticky right-0 bg-background z-10 px-2 text-center">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" disabled={!hasIndividualSetting || user.role === 'admin'}>
+                                                            <MoreHorizontal className="h-4 w-4"/>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive">
+                                                                    個別設定をリセット
+                                                                </DropdownMenuItem>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>個別設定をリセットしますか？</AlertDialogTitle>
+                                                                    <AlertDialogDescription>「{user.displayName}」の個別権限設定が削除され、役割「{rolesData?.find(r => r.id === user.role)?.name}」の権限が適用されます。</AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => handleResetIndividualPermissions(user.uid)}>リセット</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })}
+                            </TableBody>
+                        </Table>
+                        <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                    </>
+                    )}
+                </CardContent>
+            </Card>
+            </TabsContent>
+        )}
        </Tabs>
     </div>
   );
+}
+
+export default function PermissionsPageWrapper() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+            <PermissionsPageComponent />
+        </Suspense>
+    )
 }

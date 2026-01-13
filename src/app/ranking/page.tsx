@@ -1,11 +1,12 @@
-
 'use client';
 
+import { Suspense } from 'react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, getDocs, Timestamp, doc } from 'firebase/firestore';
+import { collection, query, getDocs, Timestamp, doc, where } from 'firebase/firestore';
 import { Loader2, Trophy, Crown, Medal, Award, Building, Video as VideoIcon, MessageSquare } from 'lucide-react';
 import type { RankingSettings } from '@/types/ranking';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -69,8 +70,8 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
         for (const content of allContent) {
             const collectionName = 'src' in content ? 'videos' : 'executiveMessages';
             const [likesSnapshot, commentsSnapshot] = await Promise.all([
-                getDocs(collection(firestore, collectionName, content.id, 'likes')),
-                getDocs(collection(firestore, collectionName, content.id, 'comments'))
+                getDocs(query(collection(firestore, collectionName, content.id, 'likes'), where('likedAt', '>=', startOfCurrentMonth), where('likedAt', '<=', endOfCurrentMonth))),
+                getDocs(query(collection(firestore, collectionName, content.id, 'comments'), where('createdAt', '>=', startOfCurrentMonth), where('createdAt', '<=', endOfCurrentMonth)))
             ]);
             likesSnapshot.forEach(likeDoc => {
                 const userId = likeDoc.id;
@@ -92,7 +93,6 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                     const startDate = goal.startDate?.toDate();
                     const endDate = goal.endDate?.toDate();
                     if(!startDate || !endDate) return false;
-                    // Active in the current month (overlaps with the period)
                     return startDate <= endOfCurrentMonth && endDate >= startOfCurrentMonth;
                 });
 
@@ -364,7 +364,7 @@ function ContentRankingList({ contentType }: { contentType: 'videos' | 'executiv
 }
 
 
-export default function RankingPage() {
+function RankingPageComponent() {
     const firestore = useFirestore();
     const { user, isUserLoading } = useUser();
     
@@ -373,7 +373,18 @@ export default function RankingPage() {
     , [firestore]);
     const { data: settings, isLoading: isLoadingSettings } = useDoc<RankingSettings>(settingsRef);
 
+    const searchParams = useSearchParams();
+    const [selectedPersonalScope, setSelectedPersonalScope] = useState(searchParams.get('personal_scope') || 'all');
+    const [selectedTab, setSelectedTab] = useState(searchParams.get('tab') || 'personal');
+
     const isLoading = isUserLoading || isLoadingSettings;
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if(tab) setSelectedTab(tab);
+        const personalScope = searchParams.get('personal_scope');
+        if(personalScope) setSelectedPersonalScope(personalScope);
+    }, [searchParams]);
 
     if (isLoading) {
         return (
@@ -404,69 +415,83 @@ export default function RankingPage() {
                     </p>
                 </div>
 
-                <Tabs defaultValue="personal" className="w-full">
+                <Tabs value={selectedTab} onValueChange={setSelectedTab}>
                     <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="personal">個人ランキング</TabsTrigger>
                         <TabsTrigger value="department">部署ランキング</TabsTrigger>
                         <TabsTrigger value="contents">コンテンツランキング</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="personal">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>個人ランキング</CardTitle>
-                                <CardDescription>個人の活動に基づいたランキングです。</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Tabs defaultValue="all" className="w-full">
-                                    <TabsList className="grid w-full grid-cols-2 mb-4">
-                                        <TabsTrigger value="all">全社</TabsTrigger>
-                                        <TabsTrigger value="my-department">自部署</TabsTrigger>
-                                    </TabsList>
-                                    <TabsContent value="all">
-                                        <RankingList category="overall" scope="all" personalScope="all" />
-                                    </TabsContent>
-                                    <TabsContent value="my-department">
-                                         <RankingList category="overall" scope="all" personalScope="my-department" />
-                                    </TabsContent>
-                                </Tabs>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                    <TabsContent value="department">
-                         <Card>
-                            <CardHeader>
-                                <CardTitle>部署ランキング</CardTitle>
-                                <CardDescription>部署全体の活動を平均化した総合ランキングです。</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <RankingList category="overall" scope="department" />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                     <TabsContent value="contents">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>コンテンツランキング</CardTitle>
-                                <CardDescription>閲覧数が多いコンテンツのランキングです。</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Tabs defaultValue="videos" className="w-full">
-                                    <TabsList className="grid w-full grid-cols-2">
-                                        <TabsTrigger value="videos"><VideoIcon className="mr-2 h-4 w-4"/>ビデオ</TabsTrigger>
-                                        <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4"/>メッセージ</TabsTrigger>
-                                    </TabsList>
-                                    <TabsContent value="videos">
-                                        <ContentRankingList contentType="videos" />
-                                    </TabsContent>
-                                    <TabsContent value="messages">
-                                        <ContentRankingList contentType="executiveMessages" />
-                                    </TabsContent>
-                                </Tabs>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
+                    {selectedTab === 'personal' && (
+                        <TabsContent value="personal">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>個人ランキング</CardTitle>
+                                    <CardDescription>個人の活動に基づいたランキングです。</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Tabs value={selectedPersonalScope} onValueChange={setSelectedPersonalScope}>
+                                        <TabsList className="grid w-full grid-cols-2 mb-4">
+                                            <TabsTrigger value="all">全社</TabsTrigger>
+                                            <TabsTrigger value="my-department">自部署</TabsTrigger>
+                                        </TabsList>
+                                        <TabsContent value="all">
+                                            <RankingList category="overall" scope="all" personalScope="all" />
+                                        </TabsContent>
+                                        <TabsContent value="my-department">
+                                            <RankingList category="overall" scope="all" personalScope="my-department" />
+                                        </TabsContent>
+                                    </Tabs>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    )}
+                    {selectedTab === 'department' && (
+                        <TabsContent value="department">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>部署ランキング</CardTitle>
+                                    <CardDescription>部署全体の活動を平均化した総合ランキングです。</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <RankingList category="overall" scope="department" />
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    )}
+                    {selectedTab === 'contents' && (
+                        <TabsContent value="contents">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>コンテンツランキング</CardTitle>
+                                    <CardDescription>閲覧数が多いコンテンツのランキングです。</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Tabs defaultValue="videos" className="w-full">
+                                        <TabsList className="grid w-full grid-cols-2">
+                                            <TabsTrigger value="videos"><VideoIcon className="mr-2 h-4 w-4"/>ビデオ</TabsTrigger>
+                                            <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4"/>メッセージ</TabsTrigger>
+                                        </TabsList>
+                                        <TabsContent value="videos">
+                                            <ContentRankingList contentType="videos" />
+                                        </TabsContent>
+                                        <TabsContent value="messages">
+                                            <ContentRankingList contentType="executiveMessages" />
+                                        </TabsContent>
+                                    </Tabs>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    )}
                 </Tabs>
             </div>
         </main>
     );
+}
+
+export default function RankingPageWrapper() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+            <RankingPageComponent />
+        </Suspense>
+    )
 }
