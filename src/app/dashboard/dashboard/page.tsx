@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -1793,8 +1794,10 @@ function PersonalGoalDialog({
   );
 }
 
+function DashboardSettingsPageComponent() {
+    const searchParams = useSearchParams();
+    const tab = searchParams.get('tab');
 
-export default function DashboardSettingsPage() {
     const { toast } = useToast();
     const firestore = useFirestore();
     const { user: authUser, isUserLoading: isAuthUserLoading } = useUser();
@@ -1802,7 +1805,6 @@ export default function DashboardSettingsPage() {
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
     const [userPermissions, setUserPermissions] = useState<string[]>([]);
     const [isCurrentUserLoading, setIsCurrentUserLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<WidgetScope | 'personal'>('company');
     
     const [selectedOrgId, setSelectedOrgId] = useState<string>('');
     const [editableOrgs, setEditableOrgs] = useState<Organization[]>([]);
@@ -1817,22 +1819,33 @@ export default function DashboardSettingsPage() {
 
       const userData = { id: userDoc.id, ...userDoc.data() } as Member;
       
-      const roleDocRef = doc(firestore, 'roles', userData.role);
       const userPermsDocRef = doc(firestore, 'user_permissions', uid);
+      const userPermsDoc = await getDoc(userPermsDocRef);
 
-      const [roleDoc, userPermsDoc] = await Promise.all([
-        getDoc(roleDocRef),
-        getDoc(userPermsDocRef),
-      ]);
+      if (userPermsDoc.exists()) {
+        const individualPerms = userPermsDoc.data() as UserPermission;
+        return { user: userData, permissions: individualPerms.permissions || [] };
+      }
 
-      const rolePermissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
-      const individualPermissions = userPermsDoc.exists() ? userPermsDoc.data().permissions : [];
+      const roleDocRef = doc(firestore, 'roles', userData.role);
+      const roleDoc = await getDoc(roleDocRef);
       
-      const allPermissions = [...new Set([...rolePermissions, ...individualPermissions])];
+      const permissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
       
-      return { user: userData, permissions: allPermissions };
+      return { user: userData, permissions };
     }, [firestore]);
 
+
+    const canManageCompanyGoals = userPermissions.includes('company_goal_setting');
+    const canManageOrgPersonalGoals = userPermissions.includes('org_personal_goal_setting');
+
+    const getDefaultTab = useCallback(() => {
+        if (canManageCompanyGoals) return 'company';
+        if (canManageOrgPersonalGoals) return 'team';
+        return 'company';
+    }, [canManageCompanyGoals, canManageOrgPersonalGoals]);
+    
+    const [activeTab, setActiveTab] = useState<WidgetScope | 'personal'>(getDefaultTab());
 
     useEffect(() => {
         if (isAuthUserLoading || isLoadingOrgs) return;
@@ -1857,18 +1870,31 @@ export default function DashboardSettingsPage() {
                     setEditableOrgs(allOrganizations.filter(org => userOrgTreeIds.includes(org.id)));
                     setSelectedOrgId(user.organizationId);
                 }
-                
-                if (!permissions.includes('company_goal_setting') && permissions.includes('org_personal_goal_setting')) {
-                  setActiveTab('team');
-                } else {
-                  setActiveTab('company');
-                }
                 setIsCurrentUserLoading(false);
             });
         } else {
             setIsCurrentUserLoading(false);
         }
     }, [authUser, isAuthUserLoading, fetchUserWithPermissions, allOrganizations, isLoadingOrgs]);
+
+    useEffect(() => {
+        const defaultTab = getDefaultTab();
+        const requestedTab = tab;
+
+        if (requestedTab && (requestedTab === 'company' || requestedTab === 'team' || requestedTab === 'personal')) {
+            if (
+                (requestedTab === 'company' && canManageCompanyGoals) ||
+                (requestedTab === 'team' && canManageOrgPersonalGoals) ||
+                (requestedTab === 'personal' && canManageOrgPersonalGoals)
+            ) {
+                setActiveTab(requestedTab as WidgetScope | 'personal');
+            } else {
+                setActiveTab(defaultTab);
+            }
+        } else {
+             setActiveTab(defaultTab);
+        }
+    }, [tab, canManageCompanyGoals, canManageOrgPersonalGoals, getDefaultTab]);
     
     const goalsQuery = useMemoFirebase(() => {
         if (!firestore || isCurrentUserLoading) return null;
@@ -2160,9 +2186,6 @@ export default function DashboardSettingsPage() {
 
   const isLoading = isAuthUserLoading || isCurrentUserLoading || isLoadingOrgs;
 
-  const canManageCompanyGoals = userPermissions.includes('company_goal_setting');
-  const canManageOrgPersonalGoals = userPermissions.includes('org_personal_goal_setting');
-
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -2204,6 +2227,7 @@ export default function DashboardSettingsPage() {
                 </>
               )}
           </TabsList>
+            {activeTab === 'company' && (
             <TabsContent value="company">
                 {canManageCompanyGoals ? (
                   isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
@@ -2230,6 +2254,8 @@ export default function DashboardSettingsPage() {
                   </div>
                 )}
             </TabsContent>
+            )}
+            {activeTab === 'team' && (
             <TabsContent value="team">
                 {canManageOrgPersonalGoals ? (
                     <>
@@ -2266,6 +2292,8 @@ export default function DashboardSettingsPage() {
                   </div>
                 )}
             </TabsContent>
+             )}
+             {activeTab === 'personal' && (
             <TabsContent value="personal">
                  {canManageOrgPersonalGoals ? (
                     !currentUserData ? (
@@ -2283,10 +2311,17 @@ export default function DashboardSettingsPage() {
                   </div>
                 )}
             </TabsContent>
+            )}
         </Tabs>
       </div>
     </div>
   );
 }
 
-    
+export default function DashboardSettingsPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+            <DashboardSettingsPageComponent />
+        </Suspense>
+    )
+}

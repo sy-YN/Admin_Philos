@@ -133,193 +133,194 @@ function DashboardNav() {
   };
   
   return (
-      <aside className={cn(
-        "hidden md:flex flex-col border-r bg-background transition-all duration-300",
-        isCollapsed ? "w-20" : "w-72"
-      )}>
-          <div className={cn(
-            "flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 relative transition-all duration-300",
-              isCollapsed && "px-2 justify-center"
-            )}>
-            <Link href="/" className="flex items-center gap-2 font-semibold">
-              <Building2 className="h-6 w-6 text-primary" />
-              {!isCollapsed && <span className="">Philos Admin</span>}
-            </Link>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="absolute -right-5 top-1/2 -translate-y-1/2 rounded-full h-10 w-10 border bg-background hover:bg-muted"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-            >
-              <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
-            </Button>
-          </div>
-          <nav className="flex flex-col gap-1 py-4 text-sm font-medium flex-grow px-2">
-           {isCollapsed ? (
-                // Collapsed View: Popover for sub-items
-                <TooltipProvider>
-                    {navItems.map((item) =>
-                    item.children ? (
-                        <Popover key={item.id}>
-                        <Tooltip delayDuration={0}>
-                            <TooltipTrigger asChild>
-                            <PopoverTrigger asChild>
-                                <Button
-                                variant={isLinkActive(item) ? 'secondary' : 'ghost'}
-                                className="w-full justify-center h-12"
-                                size="icon"
-                                >
-                                <item.icon className="h-5 w-5" />
-                                <span className="sr-only">{item.label}</span>
-                                </Button>
-                            </PopoverTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent side="right">{item.label}</TooltipContent>
-                        </Tooltip>
-                        <PopoverContent side="right" className="w-48 p-1">
-                            {item.children
-                                .filter(child => userPermissions.includes(child.id))
-                                .map((child) => (
-                                    <Link
-                                    key={child.href}
-                                    href={child.href}
-                                    className={cn(
-                                        'flex items-center gap-3 rounded-md px-3 py-2 text-muted-foreground transition-all hover:bg-muted hover:text-primary',
-                                        isSubLinkActive(child, item) && 'bg-muted text-primary'
-                                    )}
-                                    >
-                                    {child.label}
-                                    </Link>
-                            ))}
-                        </PopoverContent>
-                        </Popover>
-                    ) : (
-                        <Tooltip key={item.href} delayDuration={0}>
-                        <TooltipTrigger asChild>
-                            <Link href={item.href}>
-                            <Button
-                                variant={isLinkActive(item) ? 'secondary' : 'ghost'}
-                                className="w-full justify-center h-12"
-                                size="icon"
-                            >
-                                <item.icon className="h-5 w-5" />
-                                <span className="sr-only">{item.label}</span>
-                            </Button>
-                            </Link>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">{item.label}</TooltipContent>
-                        </Tooltip>
-                    )
-                    )}
-                </TooltipProvider>
-                ) : (
-                // Expanded View: Accordion for sub-items
-                <Accordion type="single" collapsible className="w-full" defaultValue={navItems.find(item => isLinkActive(item))?.id}>
-                    {navItems.map((item) =>
-                    item.children ? (
-                        <AccordionItem value={item.id} key={item.id} className="border-b-0">
-                        <AccordionTrigger
-                            className={cn(
-                            'flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:no-underline hover:text-primary [&[data-state=open]>svg]:text-primary',
-                            isLinkActive(item) && 'text-primary'
-                            )}
-                        >
-                            <item.icon className="h-5 w-5" />
-                            {item.label}
-                            <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 ml-auto" />
-                        </AccordionTrigger>
-                        <AccordionContent className="pl-8 pb-1 space-y-1">
-                            {item.children
-                                .filter(child => userPermissions.includes(child.id))
-                                .map((child) => (
-                                <Link
-                                    key={child.href}
-                                    href={child.href}
-                                    className={cn(
-                                    'block rounded-md px-3 py-2 text-muted-foreground transition-all hover:bg-muted hover:text-primary',
-                                    isSubLinkActive(child, item) && 'bg-muted text-primary'
-                                    )}
-                                >
-                                    {child.label}
-                                </Link>
-                            ))}
-                        </AccordionContent>
-                        </AccordionItem>
-                    ) : (
-                        <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                            'flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:text-primary',
-                            pathname === item.href && 'bg-muted text-primary'
-                        )}
-                        >
-                        <item.icon className="h-5 w-5" />
-                        {item.label}
-                        </Link>
-                    )
-                    )}
-                </Accordion>
-            )}
-          </nav>
-          <div className={cn(
-            "mt-auto p-4 transition-all duration-300 space-y-4",
-            isCollapsed && "p-2"
-            )}>
-              
-            <Separator />
-
-            <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
-                <TooltipProvider>
-                    <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                    <Avatar className="h-9 w-9">
-                        <AvatarImage src={user?.photoURL || undefined} />
-                        <AvatarFallback>
-                        <User className="h-5 w-5"/>
-                        </AvatarFallback>
-                    </Avatar>
-                    </TooltipTrigger>
-                    {isCollapsed && user && (
-                    <TooltipContent side="right">
-                        <p>{user.displayName}</p>
-                        <p className="text-muted-foreground">{user.email}</p>
-                    </TooltipContent>
-                    )}
-                </TooltipProvider>
-              </div>
-                {!isCollapsed && user && (
-                  <div className="flex-1 overflow-hidden">
-                      <p className="text-sm font-semibold truncate">{user.displayName}</p>
-                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                  </div>
-                )}
-            </div>
+    <aside className={cn(
+      "hidden md:flex flex-col border-r bg-background transition-all duration-300",
+      isCollapsed ? "w-20" : "w-72"
+    )}>
+        <div className={cn(
+          "flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 relative transition-all duration-300",
+            isCollapsed && "px-2 justify-center"
+          )}>
+          <Link href="/" className="flex items-center gap-2 font-semibold">
+            <Building2 className="h-6 w-6 text-primary" />
+            {!isCollapsed && <span className="">Philos Admin</span>}
+          </Link>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute -right-5 top-1/2 -translate-y-1/2 rounded-full h-10 w-10 border bg-background hover:bg-muted"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+          >
+            <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
+          </Button>
+        </div>
+        <nav className="flex flex-col gap-1 py-4 text-sm font-medium flex-grow px-2">
+         {isCollapsed ? (
+              // Collapsed View: Popover for sub-items
+              <TooltipProvider>
+                  {navItems.map((item) =>
+                  item.children ? (
+                      <Popover key={item.id}>
+                      <Tooltip delayDuration={0}>
+                          <TooltipTrigger asChild>
+                          <PopoverTrigger asChild>
+                              <Button
+                              variant={isLinkActive(item) ? 'secondary' : 'ghost'}
+                              className="w-full justify-center h-12"
+                              size="icon"
+                              >
+                              <item.icon className="h-5 w-5" />
+                              <span className="sr-only">{item.label}</span>
+                              </Button>
+                          </PopoverTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">{item.label}</TooltipContent>
+                      </Tooltip>
+                      <PopoverContent side="right" className="w-48 p-1">
+                          {item.children
+                              .filter(child => userPermissions.includes(child.id))
+                              .map((child) => (
+                                  <Link
+                                  key={child.href}
+                                  href={child.href}
+                                  className={cn(
+                                      'flex items-center gap-3 rounded-md px-3 py-2 text-muted-foreground transition-all hover:bg-muted hover:text-primary',
+                                      isSubLinkActive(child, item) && 'bg-muted text-primary'
+                                  )}
+                                  >
+                                  {child.label}
+                                  </Link>
+                          ))}
+                      </PopoverContent>
+                      </Popover>
+                  ) : (
+                      <Tooltip key={item.href} delayDuration={0}>
+                      <TooltipTrigger asChild>
+                          <Link href={item.href}>
+                          <Button
+                              variant={isLinkActive(item) ? 'secondary' : 'ghost'}
+                              className="w-full justify-center h-12"
+                              size="icon"
+                          >
+                              <item.icon className="h-5 w-5" />
+                              <span className="sr-only">{item.label}</span>
+                          </Button>
+                          </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">{item.label}</TooltipContent>
+                      </Tooltip>
+                  )
+                  )}
+              </TooltipProvider>
+              ) : (
+              // Expanded View: Accordion for sub-items
+              <Accordion type="single" collapsible className="w-full" defaultValue={navItems.find(item => isLinkActive(item))?.id}>
+                  {navItems.map((item) =>
+                  item.children ? (
+                      <AccordionItem value={item.id} key={item.id} className="border-b-0">
+                      <AccordionTrigger
+                          className={cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:no-underline hover:text-primary [&[data-state=open]>svg]:text-primary',
+                          isLinkActive(item) && 'text-primary'
+                          )}
+                      >
+                          <item.icon className="h-5 w-5" />
+                          {item.label}
+                          <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 ml-auto" />
+                      </AccordionTrigger>
+                      <AccordionContent className="pl-8 pb-1 space-y-1">
+                          {item.children
+                              .filter(child => userPermissions.includes(child.id))
+                              .map((child) => (
+                              <Link
+                                  key={child.href}
+                                  href={child.href}
+                                  className={cn(
+                                  'block rounded-md px-3 py-2 text-muted-foreground transition-all hover:bg-muted hover:text-primary',
+                                  isSubLinkActive(child, item) && 'bg-muted text-primary'
+                                  )}
+                              >
+                                  {child.label}
+                              </Link>
+                          ))}
+                      </AccordionContent>
+                      </AccordionItem>
+                  ) : (
+                      <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:text-primary',
+                          pathname === item.href && 'bg-muted text-primary'
+                      )}
+                      >
+                      <item.icon className="h-5 w-5" />
+                      {item.label}
+                      </Link>
+                  )
+                  )}
+              </Accordion>
+          )}
+        </nav>
+        <div className={cn(
+          "mt-auto p-4 transition-all duration-300 space-y-4",
+          isCollapsed && "p-2"
+          )}>
             
-            <TooltipProvider>
-                <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                        <Button 
-                        size={isCollapsed ? 'icon' : 'default'}
-                        className="w-full"
-                        variant="outline" 
-                        onClick={handleLogout}
-                        >
-                        <LogOut className="h-5 w-5" />
-                        {!isCollapsed && <span className="ml-2">ログアウト</span>}
-                        <span className="sr-only">ログアウト</span>
-                    </Button>
-                    </TooltipTrigger>
-                    {isCollapsed && (
-                    <TooltipContent side="right">
-                        ログアウト
-                    </TooltipContent>
-                    )}
-                </Tooltip>
-            </TooltipProvider>
+          <Separator />
+
+          <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
+              <TooltipProvider>
+                  <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                  <Avatar className="h-9 w-9">
+                      <AvatarImage src={user?.photoURL || undefined} />
+                      <AvatarFallback>
+                      <User className="h-5 w-5"/>
+                      </AvatarFallback>
+                  </Avatar>
+                  </TooltipTrigger>
+                  {isCollapsed && user && (
+                  <TooltipContent side="right">
+                      <p>{user.displayName}</p>
+                      <p className="text-muted-foreground">{user.email}</p>
+                  </TooltipContent>
+                  )}
+                  </Tooltip>
+              </TooltipProvider>
+            
+              {!isCollapsed && user && (
+                <div className="flex-1 overflow-hidden">
+                    <p className="text-sm font-semibold truncate">{user.displayName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                </div>
+              )}
           </div>
-      </aside>
-  )
+          
+          <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                      <Button 
+                      size={isCollapsed ? 'icon' : 'default'}
+                      className="w-full"
+                      variant="outline" 
+                      onClick={handleLogout}
+                      >
+                      <LogOut className="h-5 w-5" />
+                      {!isCollapsed && <span className="ml-2">ログアウト</span>}
+                      <span className="sr-only">ログアウト</span>
+                  </Button>
+                  </TooltipTrigger>
+                  {isCollapsed && (
+                  <TooltipContent side="right">
+                      ログアウト
+                  </TooltipContent>
+                  )}
+              </Tooltip>
+          </TooltipProvider>
+        </div>
+    </aside>
+)
 }
 
 function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
