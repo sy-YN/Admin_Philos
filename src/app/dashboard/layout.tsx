@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -134,7 +135,7 @@ function DashboardNav() {
   return (
       <aside className={cn(
         "hidden md:flex flex-col border-r bg-background transition-all duration-300",
-          isCollapsed ? "w-20" : "w-72"
+        isCollapsed ? "w-20" : "w-72"
       )}>
           <div className={cn(
             "flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 relative transition-all duration-300",
