@@ -220,7 +220,7 @@ function DashboardNav() {
                       <AccordionItem value={item.id} key={item.id} className="border-b-0">
                       <AccordionTrigger
                           className={cn(
-                          'flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:no-underline hover:text-primary [&[data-state=open]>svg]:text-primary',
+                          'flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:no-underline hover:text-primary [&[data-state=open]>svg:not(.lucide-film)]:text-primary',
                           isLinkActive(item) && 'text-primary'
                           )}
                       >
