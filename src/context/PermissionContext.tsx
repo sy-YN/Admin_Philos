@@ -29,9 +29,7 @@ export const PermissionProvider = ({ children }: { children: ReactNode }) => {
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
 
   const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
-    console.log(`[PermissionProvider] fetchUserPermissions: Starting for UID: ${userUid}`);
     if (!firestore) {
-        console.error('[PermissionProvider] fetchUserPermissions: Firestore not available!');
         return [];
     };
     try {
@@ -39,15 +37,12 @@ export const PermissionProvider = ({ children }: { children: ReactNode }) => {
       const userPermsDoc = await getDoc(userPermsDocRef);
       if (userPermsDoc.exists()) {
         const individualPerms = userPermsDoc.data() as UserPermission;
-        console.log('[PermissionProvider] fetchUserPermissions: Found individual permissions.', individualPerms.permissions);
         return individualPerms.permissions || [];
       }
       
-      console.log('[PermissionProvider] fetchUserPermissions: No individual permissions found. Checking role-based permissions.');
       const userDocRef = doc(firestore, 'users', userUid);
       const userDoc = await getDoc(userDocRef);
       if (!userDoc.exists()) {
-        console.warn('[PermissionProvider] fetchUserPermissions: User document not found.');
         return [];
       }
       
@@ -56,7 +51,6 @@ export const PermissionProvider = ({ children }: { children: ReactNode }) => {
       const roleDoc = await getDoc(roleDocRef);
       
       const permissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
-      console.log(`[PermissionProvider] fetchUserPermissions: Found role '${userData.role}' with permissions:`, permissions);
       return permissions;
 
     } catch (error) {
@@ -66,24 +60,19 @@ export const PermissionProvider = ({ children }: { children: ReactNode }) => {
   }, [firestore]);
 
   useEffect(() => {
-    console.log('[PermissionProvider] useEffect triggered', { isUserLoading, hasUser: !!user });
     
     if (isUserLoading) {
-      console.log('[PermissionProvider] Auth state is loading, setting isCheckingPermissions to true.');
       setIsCheckingPermissions(true);
       return;
     }
 
     if (user) {
-      console.log('[PermissionProvider] User is authenticated. Starting to fetch permissions...');
       setIsCheckingPermissions(true);
       fetchUserPermissions(user.uid).then(perms => {
-        console.log('[PermissionProvider] Permissions fetch complete. Setting state.');
         setUserPermissions(perms);
         setIsCheckingPermissions(false);
       });
     } else {
-      console.log('[PermissionProvider] No user found. Clearing permissions and finishing check.');
       setUserPermissions([]);
       setIsCheckingPermissions(false);
     }

@@ -1010,7 +1010,6 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
 
 
   const videosQuery = useMemoFirebase(() => {
-    // console.log('[ContentsPage] useMemoFirebase for videosQuery', { isCheckingPermissions, authUser, firestore, canManageVideos, canProxyPostVideo });
     if (isCheckingPermissions || !authUser || !firestore) {
         return null;
     }
@@ -1018,17 +1017,13 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     const collectionRef = collection(firestore, 'videos');
     
     if (canManageVideos) {
-        // console.log('[ContentsPage] Querying ALL videos (video_management)');
         return query(collectionRef, orderBy('uploadedAt', 'desc'));
     }
 
     if (canProxyPostVideo) {
-        // console.log(`[ContentsPage] Querying videos by creatorId: ${authUser.uid} (proxy_post_video)`);
         return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
     }
     
-    // console.log('[ContentsPage] No video permissions, creating an empty query.');
-    // Return a query that is guaranteed to be empty if no permissions
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
 
   }, [firestore, authUser, isCheckingPermissions, canManageVideos, canProxyPostVideo]);
@@ -1037,7 +1032,6 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
   const { data: videos, isLoading: videosLoading, error: videosError } = useCollection<VideoType>(videosQuery);
   
   const messagesQuery = useMemoFirebase(() => {
-    //  console.log('[ContentsPage] useMemoFirebase for messagesQuery', { isCheckingPermissions, authUser, firestore, canManageMessages, canProxyPostMessage });
      if (isCheckingPermissions || !authUser || !firestore) {
         return null;
     }
@@ -1045,16 +1039,13 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     const collectionRef = collection(firestore, 'executiveMessages');
     
     if (canManageMessages) {
-    //    console.log('[ContentsPage] Querying ALL messages (message_management)');
        return query(collectionRef, orderBy('createdAt', 'desc'));
     }
 
     if (canProxyPostMessage) {
-    //    console.log(`[ContentsPage] Querying messages by creatorId: ${authUser.uid} (proxy_post_message)`);
        return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
     }
     
-    // console.log('[ContentsPage] No message permissions, creating an empty query.');
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
 
   }, [firestore, authUser, isCheckingPermissions, canManageMessages, canProxyPostMessage]);
@@ -1066,13 +1057,11 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
   
   useEffect(() => {
     if (videosError) {
-        // console.error("[videosError]", videosError);
     }
   }, [videosError]);
 
   useEffect(() => {
     if (messagesError) {
-        // console.error("[messagesError]", messagesError);
     }
   }, [messagesError]);
 
@@ -1182,7 +1171,6 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
 
 
   const isLoading = isUserLoading || isCheckingPermissions || isLoadingUsers;
-  // console.log('[ContentsPage] Render cycle.', { isLoading, isUserLoading, isCheckingPermissions, isLoadingUsers });
 
   const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
   

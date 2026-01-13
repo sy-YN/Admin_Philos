@@ -333,40 +333,24 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
   const { userPermissions, isCheckingPermissions } = usePermissions();
   
   useEffect(() => {
-    // console.log('[LayoutAuthWrapper] Mount / State Change', {
-    //   pathname,
-    //   isUserLoading,
-    //   isCheckingPermissions,
-    //   hasUser: !!user,
-    //   permissionsCount: userPermissions.length,
-    // });
-
     if (isUserLoading) {
-    //   console.log('[LayoutAuthWrapper] Auth state is loading. Waiting...');
       return;
     }
 
     if (!user) {
-    //   console.log('[LayoutAuthWrapper] No user found. Redirecting to /login.');
       if (pathname !== '/login') {
         window.location.replace('/login');
       }
       return;
     }
 
-    // User exists, now wait for permissions
     if (isCheckingPermissions) {
-        // console.log('[LayoutAuthWrapper] User exists, but permissions are still loading. Waiting...');
         return;
     }
     
-    // At this point, user is loaded AND permissions are checked.
-    // console.log('[LayoutAuthWrapper] Permissions check complete. Final permissions:', userPermissions);
-
     const managementPermissions = userPermissions.filter(p => p !== 'can_comment');
 
     if (managementPermissions.length === 0) {
-    //   console.log('[LayoutAuthWrapper] User has no management permissions. Signing out.');
       useAuth().signOut().then(() => {
         window.location.replace('/login');
       });
@@ -374,10 +358,8 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
       const firstAllowedPage = allNavItems.find(item => hasRequiredPermissions(userPermissions, item.requiredPermissions));
       
       if (firstAllowedPage) {
-        // console.log(`[LayoutAuthWrapper] Redirecting from ${pathname} to first allowed page: ${firstAllowedPage.href}`);
         window.location.replace(firstAllowedPage.href);
       } else {
-        // console.warn('[LayoutAuthWrapper] User has permissions, but no allowed page found in nav items.');
       }
     }
   }, [user, isUserLoading, isCheckingPermissions, userPermissions, pathname]);
