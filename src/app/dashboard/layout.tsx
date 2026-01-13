@@ -114,10 +114,9 @@ function DashboardNav() {
   const navItems = useMemo(() => {
     return allNavItems.filter(item => {
       // Main menu item visibility check
-      if (item.id === 'contents') {
-        return hasRequiredPermissions(userPermissions, item.requiredPermissions);
-      }
-      return userPermissions.includes(item.id);
+      const hasDirectPermission = userPermissions.includes(item.id);
+      const hasChildrenPermission = hasRequiredPermissions(userPermissions, item.requiredPermissions);
+      return hasDirectPermission || hasChildrenPermission;
     });
   }, [userPermissions]);
 
@@ -338,34 +337,56 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
   const { userPermissions, isCheckingPermissions } = usePermissions();
   
   useEffect(() => {
-    if (isUserLoading || isCheckingPermissions) {
+    console.log('[LayoutAuthWrapper] Mount / State Change', {
+      pathname,
+      isUserLoading,
+      isCheckingPermissions,
+      hasUser: !!user,
+      permissionsCount: userPermissions.length,
+    });
+
+    if (isUserLoading) {
+      console.log('[LayoutAuthWrapper] Auth state is loading. Waiting...');
       return;
     }
 
     if (!user) {
+      console.log('[LayoutAuthWrapper] No user found. Redirecting to /login.');
       if (pathname !== '/login') {
-          window.location.replace('/login');
+        window.location.replace('/login');
       }
       return;
     }
+
+    // User exists, now wait for permissions
+    if (isCheckingPermissions) {
+        console.log('[LayoutAuthWrapper] User exists, but permissions are still loading. Waiting...');
+        return;
+    }
     
+    // At this point, user is loaded AND permissions are checked.
+    console.log('[LayoutAuthWrapper] Permissions check complete. Final permissions:', userPermissions);
+
     const managementPermissions = userPermissions.filter(p => p !== 'can_comment');
 
-    if (managementPermissions.length === 0 && user) {
-      // No management permissions, sign out and redirect
+    if (managementPermissions.length === 0) {
+      console.log('[LayoutAuthWrapper] User has no management permissions. Signing out.');
       useAuth().signOut().then(() => {
         window.location.replace('/login');
       });
-    } else {
+    } else if (pathname === '/dashboard' || pathname === '/') {
       const firstAllowedPage = allNavItems.find(item => {
         if (!item.requiredPermissions) {
           return userPermissions.includes(item.id);
         }
         return item.requiredPermissions.some(p => userPermissions.includes(p));
       });
-
-      if (pathname === '/dashboard' && firstAllowedPage) {
+      
+      if (firstAllowedPage) {
+        console.log(`[LayoutAuthWrapper] Redirecting from ${pathname} to first allowed page: ${firstAllowedPage.href}`);
         window.location.replace(firstAllowedPage.href);
+      } else {
+        console.warn('[LayoutAuthWrapper] User has permissions, but no allowed page found in nav items.');
       }
     }
   }, [user, isUserLoading, isCheckingPermissions, userPermissions, pathname]);
@@ -374,18 +395,21 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-4 text-muted-foreground">権限を確認しています...</p>
       </div>
     );
   }
   
   if (!user && pathname !== '/login') {
-      return (
+    return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-4 text-muted-foreground">リダイレクトしています...</p>
       </div>
     );
   }
 
+  // Render children only when auth and permission checks are fully complete
   return (
       <div className="flex h-screen w-full bg-muted/40">
         {pathname !== '/login' && <DashboardNav />}

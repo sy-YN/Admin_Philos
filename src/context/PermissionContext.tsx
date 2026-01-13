@@ -29,18 +29,25 @@ export const PermissionProvider = ({ children }: { children: ReactNode }) => {
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(true);
 
   const fetchUserPermissions = useCallback(async (userUid: string): Promise<string[]> => {
-    if (!firestore) return [];
+    console.log(`[PermissionProvider] fetchUserPermissions: Starting for UID: ${userUid}`);
+    if (!firestore) {
+        console.error('[PermissionProvider] fetchUserPermissions: Firestore not available!');
+        return [];
+    };
     try {
       const userPermsDocRef = doc(firestore, 'user_permissions', userUid);
       const userPermsDoc = await getDoc(userPermsDocRef);
       if (userPermsDoc.exists()) {
         const individualPerms = userPermsDoc.data() as UserPermission;
+        console.log('[PermissionProvider] fetchUserPermissions: Found individual permissions.', individualPerms.permissions);
         return individualPerms.permissions || [];
       }
       
+      console.log('[PermissionProvider] fetchUserPermissions: No individual permissions found. Checking role-based permissions.');
       const userDocRef = doc(firestore, 'users', userUid);
       const userDoc = await getDoc(userDocRef);
       if (!userDoc.exists()) {
+        console.warn('[PermissionProvider] fetchUserPermissions: User document not found.');
         return [];
       }
       
@@ -48,31 +55,37 @@ export const PermissionProvider = ({ children }: { children: ReactNode }) => {
       const roleDocRef = doc(firestore, 'roles', userData.role);
       const roleDoc = await getDoc(roleDocRef);
       
-      return roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
+      const permissions = roleDoc.exists() ? (roleDoc.data() as Role).permissions : [];
+      console.log(`[PermissionProvider] fetchUserPermissions: Found role '${userData.role}' with permissions:`, permissions);
+      return permissions;
+
     } catch (error) {
-      console.error("[PermissionContext] Error fetching permissions:", error);
+      console.error("[PermissionProvider] Error fetching permissions:", error);
       return [];
     }
   }, [firestore]);
 
   useEffect(() => {
-    // Keep isCheckingPermissions true while Firebase SDK is loading its user state
+    console.log('[PermissionProvider] useEffect triggered', { isUserLoading, hasUser: !!user });
+    
     if (isUserLoading) {
+      console.log('[PermissionProvider] Auth state is loading, setting isCheckingPermissions to true.');
       setIsCheckingPermissions(true);
       return;
     }
 
     if (user) {
-      // User is authenticated, start fetching their permissions
+      console.log('[PermissionProvider] User is authenticated. Starting to fetch permissions...');
       setIsCheckingPermissions(true);
       fetchUserPermissions(user.uid).then(perms => {
+        console.log('[PermissionProvider] Permissions fetch complete. Setting state.');
         setUserPermissions(perms);
-        setIsCheckingPermissions(false); // Permissions fetch is complete
+        setIsCheckingPermissions(false);
       });
     } else {
-      // No user is logged in (or they just logged out)
+      console.log('[PermissionProvider] No user found. Clearing permissions and finishing check.');
       setUserPermissions([]);
-      setIsCheckingPermissions(false); // No permissions to check, so we're done.
+      setIsCheckingPermissions(false);
     }
   }, [user, isUserLoading, fetchUserPermissions]);
 

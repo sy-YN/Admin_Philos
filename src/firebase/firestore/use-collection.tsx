@@ -52,17 +52,22 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    const queryPath = memoizedTargetRefOrQuery ? getPathFromQuery(memoizedTargetRefOrQuery) : 'null';
+    console.log(`[useCollection] useEffect triggered for path: ${queryPath}`, { hasQuery: !!memoizedTargetRefOrQuery });
+    
     if (memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
       throw new Error('useCollection query must be memoized with useMemoFirebase');
     }
 
     if (!memoizedTargetRefOrQuery) {
+      console.log(`[useCollection] No query provided for path: ${queryPath}. Resetting state.`);
       setData(null);
       setIsLoading(false);
       setError(null);
       return;
     }
 
+    console.log(`[useCollection] Query provided. Setting up listener for path: ${queryPath}`);
     setIsLoading(true);
     setError(null);
 
@@ -70,6 +75,7 @@ export function useCollection<T = any>(
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
+        console.log(`[useCollection] onSnapshot: SUCCESS for path: ${queryPath}. Received ${snapshot.size} documents.`);
         const results: ResultItemType[] = [];
         for (const doc of snapshot.docs) {
           results.push({ ...(doc.data() as T), id: doc.id });
@@ -79,6 +85,7 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (error: FirestoreError) => {
+        console.error(`[useCollection] onSnapshot: ERROR for path: ${queryPath}`, error);
         // This logic extracts the path from either a ref or a query
         const path = getPathFromQuery(memoizedTargetRefOrQuery);
 
@@ -96,10 +103,11 @@ export function useCollection<T = any>(
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      console.log(`[useCollection] Unsubscribing from path: ${queryPath}`);
+      unsubscribe();
+    }
   }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
   
   return { data, isLoading, error };
 }
-
-    
