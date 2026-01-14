@@ -16,7 +16,7 @@ import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Tr
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where, getDocs, Query } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -1145,25 +1145,42 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     
     const contentRef = doc(firestore, contentType, contentId);
     const commentsColRef = collection(contentRef, 'comments');
-    const commentRef = doc(commentsColRef, commentId);
 
     const batch = writeBatch(firestore);
+    let totalDeleted = 0;
+
+    // Helper function to recursively find all descendants
+    const findDescendants = async (parentId: string): Promise<string[]> => {
+      const childrenQuery = query(commentsColRef, where('parentCommentId', '==', parentId));
+      const childrenSnapshot = await getDocs(childrenQuery);
+      let descendantIds: string[] = [];
+      
+      for (const childDoc of childrenSnapshot.docs) {
+        descendantIds.push(childDoc.id);
+        const grandChildrenIds = await findDescendants(childDoc.id);
+        descendantIds = descendantIds.concat(grandChildrenIds);
+      }
+      
+      return descendantIds;
+    };
     
-    // Find all children and add them to the batch for deletion
-    const childrenQuery = query(commentsColRef, where('parentCommentId', '==', commentId));
-    const childrenSnapshot = await getDocs(childrenQuery);
-    let deletedCount = 1; // Start with the parent comment itself
-
-    childrenSnapshot.forEach(childDoc => {
-        batch.delete(childDoc.ref);
-        deletedCount++;
-    });
-
-    batch.delete(commentRef);
-    batch.update(contentRef, { commentsCount: increment(-deletedCount) });
-
     try {
-      await batch.commit();
+        // Find all descendants of the comment to be deleted
+        const descendantIds = await findDescendants(commentId);
+        
+        // Add the main comment and all its descendants to the batch delete
+        const allIdsToDelete = [commentId, ...descendantIds];
+        allIdsToDelete.forEach(id => {
+            batch.delete(doc(commentsColRef, id));
+        });
+        
+        totalDeleted = allIdsToDelete.length;
+
+        // Decrement the commentsCount by the total number of deleted comments
+        batch.update(contentRef, { commentsCount: increment(-totalDeleted) });
+
+        await batch.commit();
+
     } catch (error) {
       console.error("Error deleting comment and its children: ", error);
       toast({ title: "エラー", description: "コメントの削除に失敗しました。", variant: "destructive" });
@@ -1313,4 +1330,3 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
 }
 
 export default ContentsPage;
-
