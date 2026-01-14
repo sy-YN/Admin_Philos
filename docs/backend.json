@@ -379,14 +379,13 @@
       "properties": {
         "title": { "type": "string" },
         "content": { "type": "string", "description": "Can contain HTML from rich text editor." },
-        "icon": { "type": "string", "description": "Lucide icon name." },
         "order": { "type": "number", "description": "Display order for the daily loop." },
         "authorId": { "type": "string", "description": "The UID of the author who created the message." },
         "authorName": { "type": "string", "description": "The display name of the author." },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["title", "content", "icon", "order", "authorId", "authorName", "createdAt", "updatedAt"]
+      "required": ["title", "content", "order", "authorId", "authorName", "createdAt", "updatedAt"]
     },
     "FixedCalendarMessage": {
       "title": "Fixed Calendar Message",
@@ -395,7 +394,6 @@
       "properties": {
         "title": { "type": "string" },
         "content": { "type": "string", "description": "Can contain HTML from rich text editor." },
-        "icon": { "type": "string", "description": "Lucide icon name." },
         "startDate": { "type": "string", "format": "date-time", "description": "The start date for the display period." },
         "endDate": { "type": "string", "format": "date-time", "description": "The end date for the display period." },
         "order": { "type": "number", "description": "Display priority if dates overlap. Lower is higher." },
@@ -404,7 +402,7 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["title", "content", "icon", "startDate", "endDate", "order", "authorId", "authorName", "createdAt", "updatedAt"]
+      "required": ["title", "content", "startDate", "endDate", "order", "authorId", "authorName", "createdAt", "updatedAt"]
     },
     "Goal": {
       "title": "Goal",

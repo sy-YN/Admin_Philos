@@ -3,21 +3,19 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LucideIcon, Heart, X } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { collection, query, Timestamp, doc, getDoc, getDocs, writeBatch, orderBy, where, limit } from 'firebase/firestore';
-import * as LucideIcons from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isToday, startOfDay, format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore } from '@/firebase';
 
 type Message = {
   id: string;
   title: string;
   content: string;
-  icon: string;
   authorName?: string;
 };
 
@@ -34,11 +32,6 @@ type FixedCalendarMessage = Message & {
 type Settings = {
   dailyLoopCounter: number;
   lastUpdatedDate?: Timestamp;
-};
-
-const getIcon = (name: string): LucideIcon => {
-  const Icon = (LucideIcons as any)[name];
-  return Icon || LucideIcons.HelpCircle;
 };
 
 export default function CalendarPage() {
@@ -194,12 +187,10 @@ export default function CalendarPage() {
        return <div className="text-center text-muted-foreground">表示するコンテンツがありません。</div>;
     }
 
-    const IconComponent = getIcon(displayItem.icon);
     return (
       <>
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 mb-3">
-            <IconComponent className="w-6 h-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground leading-snug">
                 {displayItem.title}
             </h1>

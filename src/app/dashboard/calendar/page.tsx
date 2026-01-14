@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense } from 'react';
@@ -14,10 +15,8 @@ import { Loader2, PlusCircle, Edit, Trash2, GripVertical, Calendar as CalendarIc
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { IconPicker } from '@/components/philosophy/icon-picker';
 import { RichTextEditor } from '@/components/tiptap/editor';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { DynamicIcon } from '@/components/philosophy/dynamic-icon';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -47,7 +46,6 @@ function BaseMessageDialog({
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [icon, setIcon] = useState('Smile');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   useEffect(() => {
@@ -55,7 +53,6 @@ function BaseMessageDialog({
       if (item) {
         setTitle(item.title || '');
         setContent(item.content || '');
-        setIcon(item.icon || 'Smile');
         if (isFixed) {
           const fixedItem = item as FixedCalendarMessage;
           setDateRange({
@@ -66,7 +63,6 @@ function BaseMessageDialog({
       } else {
         setTitle('');
         setContent('');
-        setIcon('Smile');
         setDateRange(undefined);
       }
     }
@@ -82,7 +78,7 @@ function BaseMessageDialog({
       return;
     }
 
-    const baseData = { title, content, icon };
+    const baseData = { title, content };
     const finalData = isFixed
       ? { ...baseData, startDate: Timestamp.fromDate(dateRange!.from!), endDate: Timestamp.fromDate(dateRange!.to!), order: order! }
       : { ...baseData, order: order! };
@@ -99,14 +95,10 @@ function BaseMessageDialog({
           <DialogTitle>{item ? 'メッセージを編集' : '新規メッセージを追加'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
               <div className="grid gap-2">
               <Label htmlFor="title">タイトル</Label>
               <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-              <Label>アイコン</Label>
-              <IconPicker currentIcon={icon} onIconChange={setIcon} />
               </div>
           </div>
           {isFixed && (
@@ -173,7 +165,6 @@ function SortableMessageItem({ item, onEdit, onDelete }: { item: CalendarMessage
   return (
     <div ref={setNodeRef} style={style} className="flex items-start gap-4 p-3 rounded-md border bg-background">
       <div {...attributes} {...listeners} className="cursor-grab touch-none p-1 pt-0.5"><GripVertical className="h-5 w-5 text-muted-foreground" /></div>
-      <div className="w-6 h-6 flex items-center justify-center shrink-0"><DynamicIcon name={item.icon} className="h-6 w-6 text-primary" /></div>
       <div className="flex-1 overflow-hidden">
         <p className="font-semibold">{item.title}</p>
         <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&_p]:my-1" dangerouslySetInnerHTML={{ __html: item.content }} />
@@ -320,7 +311,6 @@ function SortableFixedMessageItem({ item, onEdit, onDelete }: { item: FixedCalen
   return (
     <div ref={setNodeRef} style={style} className="flex items-start gap-4 p-3 rounded-md border bg-background">
       <div {...attributes} {...listeners} className="cursor-grab touch-none p-1 pt-0.5"><GripVertical className="h-5 w-5 text-muted-foreground" /></div>
-      <div className="w-6 h-6 flex items-center justify-center shrink-0"><DynamicIcon name={item.icon} className="h-6 w-6 text-primary" /></div>
       <div className="flex-1 overflow-hidden">
         <p className="font-semibold">{item.title}</p>
         <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&_p]:my-1" dangerouslySetInnerHTML={{ __html: item.content }} />
