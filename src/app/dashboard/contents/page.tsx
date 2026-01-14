@@ -1054,17 +1054,6 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
   
   const sortedVideos = videos;
   const sortedMessages = messages;
-  
-  useEffect(() => {
-    if (videosError) {
-    }
-  }, [videosError]);
-
-  useEffect(() => {
-    if (messagesError) {
-    }
-  }, [messagesError]);
-
 
   const handleAddVideo = async (videoData: Partial<VideoType>) => {
     if (!firestore) return;
@@ -1155,16 +1144,28 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     if (!firestore) return;
     
     const contentRef = doc(firestore, contentType, contentId);
-    const commentRef = doc(contentRef, 'comments', commentId);
+    const commentsColRef = collection(contentRef, 'comments');
+    const commentRef = doc(commentsColRef, commentId);
 
     const batch = writeBatch(firestore);
+    
+    // Find all children and add them to the batch for deletion
+    const childrenQuery = query(commentsColRef, where('parentCommentId', '==', commentId));
+    const childrenSnapshot = await getDocs(childrenQuery);
+    let deletedCount = 1; // Start with the parent comment itself
+
+    childrenSnapshot.forEach(childDoc => {
+        batch.delete(childDoc.ref);
+        deletedCount++;
+    });
+
     batch.delete(commentRef);
-    batch.update(contentRef, { commentsCount: increment(-1) });
+    batch.update(contentRef, { commentsCount: increment(-deletedCount) });
 
     try {
       await batch.commit();
     } catch (error) {
-      console.error("Error deleting comment: ", error);
+      console.error("Error deleting comment and its children: ", error);
       toast({ title: "エラー", description: "コメントの削除に失敗しました。", variant: "destructive" });
     }
   }, [firestore, toast]);
@@ -1312,3 +1313,4 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
 }
 
 export default ContentsPage;
+
