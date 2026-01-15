@@ -396,7 +396,7 @@ export default function PhilosophyPage() {
   return (
     <div className="w-full space-y-6 max-w-5xl">
        <div className="flex items-center">
-        <h1 className="text-lg font-semibold md:text-2xl">理念・ビジョン管理</h1>
+        <h1 className="text-lg font-semibold md:text-2xl">理念管理</h1>
         <div className="ml-auto flex items-center gap-2">
             <CategoryDialog onSave={handleAddCategory}>
               <Button variant="outline"><FolderPlus className="mr-2 h-4 w-4" />新規カテゴリを追加</Button>
