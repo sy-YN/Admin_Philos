@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense } from 'react';
@@ -32,10 +33,9 @@ type RankItem = {
 type ScoreData = {
     likes: Map<string, number>;
     comments: Map<string, number>;
-    goal_progress: Map<string, number>;
 };
 
-function RankingList({ category, scope, personalScope }: { category: 'overall' | 'likes' | 'comments' | 'goal_progress'; scope: 'all' | 'department'; personalScope?: 'all' | 'my-department' }) {
+function RankingList({ category, scope, personalScope }: { category: 'overall' | 'likes' | 'comments'; scope: 'all' | 'department'; personalScope?: 'all' | 'my-department' }) {
     const firestore = useFirestore();
     const { user: currentUser } = useUser();
     
@@ -58,7 +58,6 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
         const scores: ScoreData = {
             likes: new Map(),
             comments: new Map(),
-            goal_progress: new Map(),
         };
         
         const today = new Date();
@@ -83,24 +82,6 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                     scores.comments.set(authorId, (scores.comments.get(authorId) || 0) + 1);
                 }
             });
-        }
-
-        for (const member of members) {
-            const goalsSnapshot = await getDocs(collection(firestore, 'users', member.uid, 'personalGoals'));
-            const activeGoalsInPeriod = goalsSnapshot.docs
-                .map(doc => ({ ...doc.data() } as PersonalGoal))
-                .filter(goal => {
-                    const startDate = goal.startDate?.toDate();
-                    const endDate = goal.endDate?.toDate();
-                    if(!startDate || !endDate) return false;
-                    return startDate <= endOfCurrentMonth && endDate >= startOfCurrentMonth;
-                });
-
-            if (activeGoalsInPeriod.length > 0) {
-                const totalProgress = activeGoalsInPeriod.reduce((sum, goal) => sum + goal.progress, 0);
-                const averageProgress = totalProgress / activeGoalsInPeriod.length;
-                scores.goal_progress.set(member.uid, averageProgress);
-            }
         }
         
         return scores;
@@ -141,8 +122,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                     if (!orgId) return;
                     const likeScore = individualScores.likes.get(member.uid) || 0;
                     const commentScore = individualScores.comments.get(member.uid) || 0;
-                    const goalScore = individualScores.goal_progress.get(member.uid) || 0;
-                    const totalScore = likeScore + commentScore + (goalScore / 10);
+                    const totalScore = likeScore + commentScore;
                     
                     const stats = departmentStats.get(orgId) || { totalScore: 0, memberCount: 0 };
                     stats.totalScore += totalScore;
@@ -228,7 +208,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
         )
     }
 
-    const scoreUnit = category === 'goal_progress' ? '%' : 'pt';
+    const scoreUnit = 'pt';
 
     return (
         <Table>
@@ -435,10 +415,28 @@ function RankingPageComponent() {
                                             <TabsTrigger value="my-department">自部署</TabsTrigger>
                                         </TabsList>
                                         <TabsContent value="all">
-                                            <RankingList category="overall" scope="all" personalScope="all" />
+                                            <Tabs defaultValue="overall" className="w-full">
+                                                <TabsList className="grid w-full grid-cols-3">
+                                                    <TabsTrigger value="overall">総合</TabsTrigger>
+                                                    <TabsTrigger value="likes">いいね数</TabsTrigger>
+                                                    <TabsTrigger value="comments">コメント数</TabsTrigger>
+                                                </TabsList>
+                                                <TabsContent value="overall"><RankingList category="overall" scope="all" personalScope="all" /></TabsContent>
+                                                <TabsContent value="likes"><RankingList category="likes" scope="all" personalScope="all" /></TabsContent>
+                                                <TabsContent value="comments"><RankingList category="comments" scope="all" personalScope="all" /></TabsContent>
+                                            </Tabs>
                                         </TabsContent>
                                         <TabsContent value="my-department">
-                                            <RankingList category="overall" scope="all" personalScope="my-department" />
+                                            <Tabs defaultValue="overall" className="w-full">
+                                                <TabsList className="grid w-full grid-cols-3">
+                                                    <TabsTrigger value="overall">総合</TabsTrigger>
+                                                    <TabsTrigger value="likes">いいね数</TabsTrigger>
+                                                    <TabsTrigger value="comments">コメント数</TabsTrigger>
+                                                </TabsList>
+                                                <TabsContent value="overall"><RankingList category="overall" scope="all" personalScope="my-department" /></TabsContent>
+                                                <TabsContent value="likes"><RankingList category="likes" scope="all" personalScope="my-department" /></TabsContent>
+                                                <TabsContent value="comments"><RankingList category="comments" scope="all" personalScope="my-department" /></TabsContent>
+                                            </Tabs>
                                         </TabsContent>
                                     </Tabs>
                                 </CardContent>
@@ -488,6 +486,7 @@ function RankingPageComponent() {
     );
 }
 
+
 export default function RankingPageWrapper() {
     return (
         <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
@@ -495,3 +494,5 @@ export default function RankingPageWrapper() {
         </Suspense>
     )
 }
+
+    
