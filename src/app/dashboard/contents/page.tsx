@@ -574,6 +574,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
   const [description, setDescription] = useState(video?.description || '');
   const [src, setSrc] = useState(video?.src || '');
   const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnailUrl || '');
+  const [priority, setPriority] = useState<'normal' | 'high'>(video?.priority || 'normal');
   
   const { userPermissions } = usePermissions();
   const canProxyPost = userPermissions.includes('proxy_post_video');
@@ -600,6 +601,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
     setDescription('');
     setSrc('');
     setThumbnailUrl('');
+    setPriority('normal');
     setTags(Array(5).fill(''));
     setAuthorId(canProxyPost ? '' : (currentUser?.uid || ''));
   };
@@ -610,6 +612,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
       setDescription(video?.description || '');
       setSrc(video?.src || '');
       setThumbnailUrl(video?.thumbnailUrl || '');
+      setPriority(video?.priority || 'normal');
       setAuthorId(mode === 'add' && canProxyPost ? '' : (video?.authorId || currentUser?.uid || ''));
       
       const newInitialTags = Array(5).fill('');
@@ -640,6 +643,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
       description,
       src,
       thumbnailUrl,
+      priority,
       tags: tags.map(tag => tag.trim()).filter(tag => tag),
       authorId: authorId,
       authorName: selectedAuthor?.displayName || '不明な投稿者',
@@ -692,6 +696,18 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
             <div className="grid gap-2">
               <Label htmlFor="video-title">タイトル (30文字以内)</Label>
               <Input id="video-title" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={30} disabled={isLoading} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="video-priority">重要度</Label>
+              <Select value={priority} onValueChange={(v: 'normal' | 'high') => setPriority(v)} disabled={isLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="重要度を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">通常</SelectItem>
+                  <SelectItem value="high">高</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label>タグ (最大5個)</Label>
@@ -811,6 +827,7 @@ function VideosTable({
           <TableHead className="w-[120px]">サムネイル</TableHead>
           <TableHead>タイトル</TableHead>
           <TableHead className="hidden sm:table-cell">タグ</TableHead>
+          <TableHead className="w-[120px]">重要度</TableHead>
           <TableHead className="hidden md:table-cell">投稿者 / 作成者 / 作成日</TableHead>
           <TableHead className="hidden lg:table-cell">Counts</TableHead>
           <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -833,6 +850,11 @@ function VideosTable({
                 <div className="flex flex-wrap gap-1">
                   {video.tags.map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
                 </div>
+              </TableCell>
+              <TableCell>
+                <Badge variant={video.priority === 'high' ? 'destructive' : 'secondary'}>
+                  {video.priority === 'high' ? '高' : '通常'}
+                </Badge>
               </TableCell>
               <TableCell className="hidden md:table-cell">
                 <div>投稿: {video.authorName || '不明'}</div>
@@ -910,6 +932,7 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         title: '第4四半期 全社ミーティング',
         description: 'CEOからのメッセージ',
         thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+        priority: 'high',
         tags: ['全社', '戦略'],
       },
       {
@@ -917,6 +940,7 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         title: 'デザインチームより',
         description: '新プロダクトのコンセプト紹介',
         thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
+        priority: 'normal',
         tags: ['新製品', 'デザイン'],
       },
       {
@@ -924,6 +948,7 @@ function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
         title: 'エンジニアチームより',
         description: 'ベータ版新機能のデモ',
         thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg',
+        priority: 'normal',
         tags: ['開発', 'デモ'],
       },
     ];
@@ -1147,8 +1172,7 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     const commentsColRef = collection(contentRef, 'comments');
 
     const batch = writeBatch(firestore);
-    let totalDeleted = 0;
-
+    
     // Helper function to recursively find all descendants
     const findDescendants = async (parentId: string): Promise<string[]> => {
       const childrenQuery = query(commentsColRef, where('parentCommentId', '==', parentId));
@@ -1165,19 +1189,13 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     };
     
     try {
-        // Find all descendants of the comment to be deleted
-        const descendantIds = await findDescendants(commentId);
+        const allIdsToDelete = [commentId, ...(await findDescendants(commentId))];
         
-        // Add the main comment and all its descendants to the batch delete
-        const allIdsToDelete = [commentId, ...descendantIds];
         allIdsToDelete.forEach(id => {
             batch.delete(doc(commentsColRef, id));
         });
         
-        totalDeleted = allIdsToDelete.length;
-
-        // Decrement the commentsCount by the total number of deleted comments
-        batch.update(contentRef, { commentsCount: increment(-totalDeleted) });
+        batch.update(contentRef, { commentsCount: increment(-allIdsToDelete.length) });
 
         await batch.commit();
 

@@ -275,6 +275,13 @@
           "type": "string",
           "description": "URL to the video thumbnail image."
         },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "high"
+          ]
+        },
         "tags": {
           "type": "array",
           "items": {
@@ -310,6 +317,7 @@
         "description",
         "src",
         "thumbnailUrl",
+        "priority",
         "authorId",
         "creatorId",
         "uploadedAt",

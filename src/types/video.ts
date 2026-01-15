@@ -7,6 +7,7 @@ export type Video = {
   description: string;
   src: string;
   thumbnailUrl: string;
+  priority: 'normal' | 'high';
   tags: string[];
   authorId: string;
   authorName: string;
