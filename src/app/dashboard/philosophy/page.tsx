@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -6,33 +7,67 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Edit, Trash2, GripVertical, Loader2, Sparkles } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, GripVertical, Loader2, Sparkles, FolderPlus } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { IconPicker } from '@/components/philosophy/icon-picker';
 import { DynamicIcon } from '@/components/philosophy/dynamic-icon';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, orderBy } from 'firebase/firestore';
+import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, orderBy, where, getDocs } from 'firebase/firestore';
 import type { PhilosophyItem } from '@/types/philosophy';
+import type { PhilosophyCategory } from '@/types/philosophy-category';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { RichTextEditor } from '@/components/tiptap/editor';
 
-type Category = 'mission_vision' | 'values';
+function CategoryDialog({ category, onSave, children }: { category?: PhilosophyCategory; onSave: (data: Partial<Omit<PhilosophyCategory, 'id' | 'createdAt' | 'updatedAt'>>) => void; children: React.ReactNode; }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setName(category?.name || '');
+    }
+  }, [category, open]);
+
+  const handleSave = () => {
+    if (!name.trim()) return;
+    onSave({ name });
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{category ? 'カテゴリを編集' : '新しいカテゴリを追加'}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <Label htmlFor="category-name">カテゴリ名</Label>
+          <Input id="category-name" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <DialogFooter>
+          <Button onClick={handleSave}>保存</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function PhilosophyItemDialog({
   item,
   onSave,
   children,
-  category,
+  categoryId,
   order
 }: {
   item?: PhilosophyItem | null;
   onSave: (data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
   children: React.ReactNode;
-  category: Category;
+  categoryId: string;
   order: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -45,15 +80,11 @@ function PhilosophyItemDialog({
       setTitle(item?.title || '');
       setContent(item?.content || '');
       setIcon(item?.icon || 'Smile');
-    } else {
-      setTitle('');
-      setContent('');
-      setIcon('Smile');
     }
   }, [item, open]);
 
   const handleSave = () => {
-    onSave({ title, content, icon, category, order });
+    onSave({ title, content, icon, categoryId, order });
     setOpen(false);
   };
 
@@ -63,9 +94,7 @@ function PhilosophyItemDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{item ? '項目を編集' : '新規項目を追加'}</DialogTitle>
-          <DialogDescription>
-            タイトル、内容、アイコンを入力してください。
-          </DialogDescription>
+          <DialogDescription>タイトル、内容、アイコンを入力してください。</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
@@ -78,12 +107,10 @@ function PhilosophyItemDialog({
               <IconPicker currentIcon={icon} onIconChange={setIcon} />
             </div>
           </div>
-          
           <div className="space-y-2">
             <Label htmlFor="content">内容</Label>
             <RichTextEditor content={content} onChange={setContent} />
           </div>
-
         </div>
         <DialogFooter>
           <Button onClick={handleSave}>保存</Button>
@@ -94,20 +121,8 @@ function PhilosophyItemDialog({
 }
 
 function SortableItem({ item, onEditItem, onDeleteItem }: { item: PhilosophyItem; onEditItem: (id: string, data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => void; onDeleteItem: (id: string) => void; }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 1 : 0,
-  };
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 1 : 0 };
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-start gap-4 p-3 rounded-md border bg-background">
@@ -119,35 +134,20 @@ function SortableItem({ item, onEditItem, onDeleteItem }: { item: PhilosophyItem
       </div>
       <div className="flex-1 overflow-hidden">
         <p className="font-semibold">{item.title}</p>
-        <div 
-            className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&_p]:my-1" 
-            dangerouslySetInnerHTML={{ __html: item.content }} 
-        />
+        <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&_p]:my-1" dangerouslySetInnerHTML={{ __html: item.content }} />
       </div>
       <div className="flex items-center gap-2">
-        <PhilosophyItemDialog
-          item={item}
-          category={item.category}
-          order={item.order}
-          onSave={(data) => onEditItem(item.id, data)}
-        >
-          <Button variant="ghost" size="icon">
-            <Edit className="h-4 w-4" />
-          </Button>
+        <PhilosophyItemDialog item={item} categoryId={item.categoryId} order={item.order} onSave={(data) => onEditItem(item.id, data)}>
+          <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
         </PhilosophyItemDialog>
-        
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-              <AlertDialogDescription>
-                「{item.title}」を削除します。この操作は元に戻せません。
-              </AlertDialogDescription>
+              <AlertDialogDescription>「{item.title}」を削除します。この操作は元に戻せません。</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>キャンセル</AlertDialogCancel>
@@ -160,73 +160,68 @@ function SortableItem({ item, onEditItem, onDeleteItem }: { item: PhilosophyItem
   );
 }
 
-
-function PhilosophyListSection({ 
-  title,
+function PhilosophyCategorySection({
   category,
   items,
-  setItems, 
-  onAddItem, 
-  onEditItem, 
+  onSaveCategory,
+  onDeleteCategory,
+  onAddItem,
+  onEditItem,
   onDeleteItem,
-  onOrderChange
-}: { 
-  title: string, 
-  category: Category,
-  items: PhilosophyItem[],
-  setItems: React.Dispatch<React.SetStateAction<PhilosophyItem[]>>,
-  onAddItem: (data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => void, 
-  onEditItem: (id: string, data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => void, 
-  onDeleteItem: (id: string) => void,
-  onOrderChange: (reorderedItems: PhilosophyItem[]) => void,
+  onItemOrderChange,
+}: {
+  category: PhilosophyCategory;
+  items: PhilosophyItem[];
+  onSaveCategory: (id: string, data: Partial<Omit<PhilosophyCategory, 'id' | 'createdAt' | 'updatedAt'>>) => void;
+  onDeleteCategory: (id: string) => void;
+  onAddItem: (data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onEditItem: (id: string, data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onDeleteItem: (id: string) => void;
+  onItemOrderChange: (categoryId: string, reorderedItems: PhilosophyItem[]) => void;
 }) {
-  
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    })
-  );
-  
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const oldIndex = items.findIndex((item) => item.id === active.id);
       const newIndex = items.findIndex((item) => item.id === over.id);
-      
       if (oldIndex === -1 || newIndex === -1) return;
-
-      const reorderedCategoryItems = arrayMove(items, oldIndex, newIndex);
-      
-      setItems(prevItems => {
-        const otherCategoryItems = prevItems.filter(i => i.category !== category);
-        const updatedItems = [...otherCategoryItems, ...reorderedCategoryItems]
-          .sort((a, b) => a.category.localeCompare(b.category) || a.order - b.order);
-        return updatedItems;
-      });
-      
-      const itemsToUpdate = reorderedCategoryItems.map((item, index) => ({
-        ...item,
-        order: index,
-      }));
-      onOrderChange(itemsToUpdate);
+      const reorderedItems = arrayMove(items, oldIndex, newIndex);
+      onItemOrderChange(category.id, reorderedItems);
     }
   };
-
-  const getNextOrder = () => {
-    if (items.length === 0) return 0;
-    return Math.max(...items.map(i => i.order)) + 1;
-  };
   
+  const getNextItemOrder = () => items.length > 0 ? Math.max(...items.map(i => i.order)) + 1 : 0;
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>{category.name}</CardTitle>
+        <div className="flex items-center gap-2">
+            <CategoryDialog category={category} onSave={(data) => onSaveCategory(category.id, data)}>
+                 <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
+            </CategoryDialog>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>本当にこのカテゴリを削除しますか？</AlertDialogTitle>
+                        <AlertDialogDescription>カテゴリ「{category.name}」と、それに含まれる全ての項目が削除されます。この操作は元に戻せません。</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDeleteCategory(category.id)}>削除</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={items} strategy={verticalListSortingStrategy}>
+          <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-2">
               {items.map((item) => (
                 <SortableItem key={item.id} item={item} onEditItem={onEditItem} onDeleteItem={onDeleteItem} />
@@ -234,65 +229,76 @@ function PhilosophyListSection({
             </div>
           </SortableContext>
         </DndContext>
-        <PhilosophyItemDialog onSave={onAddItem} category={category} order={getNextOrder()}>
-            <Button variant="outline" className="w-full">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                新規項目を追加
-            </Button>
+        <PhilosophyItemDialog onSave={onAddItem} categoryId={category.id} order={getNextItemOrder()}>
+          <Button variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4" />新規項目を追加</Button>
         </PhilosophyItemDialog>
       </CardContent>
     </Card>
   );
 }
 
-
 export default function PhilosophyPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
+  const { isUserLoading } = useUser();
 
-  const philosophyQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading) return null;
-    return query(collection(firestore, 'philosophy'), orderBy('order'));
-  }, [firestore, isUserLoading]);
+  const categoriesQuery = useMemoFirebase(() => !firestore || isUserLoading ? null : query(collection(firestore, 'philosophyCategories'), orderBy('order')), [firestore, isUserLoading]);
+  const itemsQuery = useMemoFirebase(() => !firestore || isUserLoading ? null : query(collection(firestore, 'philosophy'), orderBy('order')), [firestore, isUserLoading]);
 
-  const { data: dbItems, isLoading: isDbLoading } = useCollection<PhilosophyItem>(philosophyQuery);
+  const { data: dbCategories, isLoading: isLoadingCategories } = useCollection<PhilosophyCategory>(categoriesQuery);
+  const { data: dbItems, isLoading: isLoadingItems } = useCollection<PhilosophyItem>(itemsQuery);
+
+  const [categories, setCategories] = useState<PhilosophyCategory[]>([]);
   const [items, setItems] = useState<PhilosophyItem[]>([]);
 
-  useEffect(() => {
-    if(dbItems) {
-      setItems(dbItems);
-    } else if (!isDbLoading && !user) {
-      // If loading is finished and there's no user, clear items
-      setItems([]);
-    }
-  }, [dbItems, isDbLoading, user]);
-
-
-  const { mission_vision, values } = useMemo(() => {
-    const mission_vision_items: PhilosophyItem[] = [];
-    const values_items: PhilosophyItem[] = [];
-    items?.forEach(item => {
-      if (item.category === 'mission_vision') {
-        mission_vision_items.push(item);
-      } else if (item.category === 'values') {
-        values_items.push(item);
-      }
-    });
-    return { mission_vision: mission_vision_items, values: values_items };
-  }, [items]);
+  useEffect(() => { if (dbCategories) setCategories(dbCategories); }, [dbCategories]);
+  useEffect(() => { if (dbItems) setItems(dbItems); }, [dbItems]);
   
+  const handleSaveCategory = async (id: string, data: Partial<Omit<PhilosophyCategory, 'id'|'createdAt'|'updatedAt'>>) => {
+      if (!firestore) return;
+      try {
+        await updateDoc(doc(firestore, 'philosophyCategories', id), { ...data, updatedAt: serverTimestamp() });
+        toast({ title: '成功', description: 'カテゴリを更新しました。' });
+      } catch (error) {
+        toast({ title: 'エラー', description: 'カテゴリの更新に失敗しました。', variant: 'destructive' });
+      }
+  };
+
+  const handleAddCategory = async (data: Partial<Omit<PhilosophyCategory, 'id'|'createdAt'|'updatedAt'>>) => {
+    if (!firestore) return;
+    const newOrder = categories.length > 0 ? Math.max(...categories.map(c => c.order)) + 1 : 0;
+    try {
+        await addDoc(collection(firestore, 'philosophyCategories'), { ...data, order: newOrder, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        toast({ title: '成功', description: '新しいカテゴリを追加しました。' });
+    } catch (error) {
+        toast({ title: 'エラー', description: 'カテゴリの追加に失敗しました。', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!firestore) return;
+    const batch = writeBatch(firestore);
+    // Delete category
+    batch.delete(doc(firestore, 'philosophyCategories', id));
+    // Delete items in category
+    const itemsToDelete = items.filter(item => item.categoryId === id);
+    itemsToDelete.forEach(item => {
+        batch.delete(doc(firestore, 'philosophy', item.id));
+    });
+    try {
+        await batch.commit();
+        toast({ title: '成功', description: 'カテゴリと関連する項目を削除しました。' });
+    } catch (error) {
+        toast({ title: 'エラー', description: 'カテゴリの削除に失敗しました。', variant: 'destructive' });
+    }
+  };
+
   const handleAddItem = async (data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!firestore) return;
     try {
-      await addDoc(collection(firestore, 'philosophy'), {
-        ...data,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      await addDoc(collection(firestore, 'philosophy'), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       toast({ title: '成功', description: '新しい項目を追加しました。' });
     } catch (error) {
-      console.error('Error adding document: ', error);
       toast({ title: 'エラー', description: '項目の追加に失敗しました。', variant: 'destructive' });
     }
   };
@@ -300,14 +306,9 @@ export default function PhilosophyPage() {
   const handleEditItem = async (id: string, data: Omit<PhilosophyItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!firestore) return;
     try {
-      const itemRef = doc(firestore, 'philosophy', id);
-      await updateDoc(itemRef, {
-        ...data,
-        updatedAt: serverTimestamp(),
-      });
+      await updateDoc(doc(firestore, 'philosophy', id), { ...data, updatedAt: serverTimestamp() });
       toast({ title: '成功', description: '項目を更新しました。' });
     } catch (error) {
-      console.error('Error updating document: ', error);
       toast({ title: 'エラー', description: '項目の更新に失敗しました。', variant: 'destructive' });
     }
   };
@@ -318,99 +319,120 @@ export default function PhilosophyPage() {
       await deleteDoc(doc(firestore, 'philosophy', id));
       toast({ title: '成功', description: '項目を削除しました。' });
     } catch (error) {
-      console.error('Error deleting document: ', error);
       toast({ title: 'エラー', description: '項目の削除に失敗しました。', variant: 'destructive' });
     }
   };
-  
-  const handleOrderChange = async (reorderedItems: PhilosophyItem[]) => {
+
+  const handleItemOrderChange = async (categoryId: string, reorderedItems: PhilosophyItem[]) => {
     if (!firestore) return;
+    setItems(prev => {
+        const otherItems = prev.filter(i => i.categoryId !== categoryId);
+        return [...otherItems, ...reorderedItems.map((item, index) => ({...item, order: index}))]
+            .sort((a, b) => a.categoryId.localeCompare(b.categoryId) || a.order - b.order);
+    });
+
     const batch = writeBatch(firestore);
     reorderedItems.forEach((item, index) => {
-      const docRef = doc(firestore, 'philosophy', item.id);
-      batch.update(docRef, { order: index });
+      batch.update(doc(firestore, 'philosophy', item.id), { order: index });
     });
+
     try {
       await batch.commit();
-      toast({ title: '成功', description: '表示順を更新しました。' });
+      toast({ title: '成功', description: '項目の順序を更新しました。' });
     } catch (error) {
-      console.error('Error updating order:', error);
-      toast({ title: 'エラー', description: '表示順の更新に失敗しました。', variant: 'destructive' });
+      toast({ title: 'エラー', description: '項目の順序更新に失敗しました。', variant: 'destructive' });
     }
   };
 
   const handleSeedData = async () => {
     if (!firestore) return;
-    const batch = writeBatch(firestore);
-    const philosophyCollection = collection(firestore, 'philosophy');
-    
-    const sampleData = [
-      // Mission & Vision
-      { title: '企業理念', content: '<p>1.五方正義</p><p>2.顧客満足を実現する総合情報サービスの提供</p><p>3.高品質・高付加価値の追求</p><p>4.世界視野での斬新な挑戦</p><p>5.業界・地域・社会貢献</p>', icon: 'Building2', category: 'mission_vision' as Category, order: 1 },
-      { title: 'コーポレートステートメント', content: '<p>情報技術で<span style="color: #E03131">笑顔</span>を創る<b>知的集団</b></p>', icon: 'Rocket', category: 'mission_vision' as Category, order: 2 },
-      { title: 'パーパス', content: '多様な人材と技術力で、日本のITを支える', icon: 'Heart', category: 'mission_vision' as Category, order: 3 },
-      { title: '経営目標', content: '続ける努力、止まらぬ歩み、進め、みんなでプライム市場', icon: 'Target', category: 'mission_vision' as Category, order: 4 },
-      // Values
-      { title: '営業戦略', content: '市場の変化に対応し、顧客との強固な関係を築くための戦略。', icon: 'Briefcase', category: 'values' as Category, order: 1 },
-      { title: 'BP様戦略', content: 'ビジネスパートナー様との連携を強化し、共存共栄を目指す戦略。', icon: 'Handshake', category: 'values' as Category, order: 2 },
-      { title: '人事戦略', content: '多様な人材が活躍できる組織作りと、個々の成長を支援する戦略。', icon: 'Users', category: 'values' as Category, order: 3 },
-      { title: '経営リスクと危機管理', content: 'あらゆるリスクを想定し、事業の継続性を確保するための管理体制。', icon: 'Shield', category: 'values' as Category, order: 4 },
-      { title: '組織改革', content: '変化に迅速に対応できる、柔軟で強靭な組織構造への変革。', icon: 'GitBranch', category: 'values' as Category, order: 5 },
-    ];
 
+    const categoriesToSeed = [
+        { name: '理念・ビジョン', order: 0 },
+        { name: '考え方の継承', order: 1 },
+    ];
+    const itemsToSeed = {
+        '理念・ビジョン': [
+            { title: '企業理念', content: '<p>1.五方正義</p><p>2.顧客満足を実現する総合情報サービスの提供</p><p>3.高品質・高付加価値の追求</p><p>4.世界視野での斬新な挑戦</p><p>5.業界・地域・社会貢献</p>', icon: 'Building2', order: 0 },
+            { title: 'コーポレートステートメント', content: '<p>情報技術で<span style="color: #E03131">笑顔</span>を創る<b>知的集団</b></p>', icon: 'Rocket', order: 1 },
+            { title: 'パーパス', content: '多様な人材と技術力で、日本のITを支える', icon: 'Heart', order: 2 },
+        ],
+        '考え方の継承': [
+            { title: '営業戦略', content: '市場の変化に対応し、顧客との強固な関係を築くための戦略。', icon: 'Briefcase', order: 0 },
+            { title: 'BP様戦略', content: 'ビジネスパートナー様との連携を強化し、共存共栄を目指す戦略。', icon: 'Handshake', order: 1 },
+        ]
+    };
+    
     try {
-      sampleData.forEach(item => {
-        const docRef = doc(philosophyCollection);
-        batch.set(docRef, { ...item, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-      });
+      const batch = writeBatch(firestore);
+      const categoryRefs: Record<string, string> = {};
+
+      for (const cat of categoriesToSeed) {
+        const catRef = doc(collection(firestore, 'philosophyCategories'));
+        batch.set(catRef, { ...cat, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        categoryRefs[cat.name] = catRef.id;
+      }
+      
+      for (const [catName, catItems] of Object.entries(itemsToSeed)) {
+          const categoryId = categoryRefs[catName];
+          if (categoryId) {
+              for (const item of catItems) {
+                const itemRef = doc(collection(firestore, 'philosophy'));
+                batch.set(itemRef, { ...item, categoryId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+              }
+          }
+      }
+        
       await batch.commit();
       toast({ title: '成功', description: 'サンプルデータを登録しました。' });
-    } catch(error) {
+    } catch (error) {
       console.error(error);
       toast({ title: 'エラー', description: 'サンプルデータの登録に失敗しました。', variant: 'destructive' });
     }
   };
-
-  const isLoading = isUserLoading || isDbLoading;
+  
+  const isLoading = isUserLoading || isLoadingCategories || isLoadingItems;
 
   return (
     <div className="w-full space-y-6 max-w-5xl">
        <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">理念・ビジョン管理</h1>
-        {items && items.length === 0 && !isLoading && (
-          <Button onClick={handleSeedData} size="sm" variant="outline" className="ml-auto flex items-center gap-2">
-            <Sparkles />
-            サンプルデータを生成
-          </Button>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+            <CategoryDialog onSave={handleAddCategory}>
+              <Button variant="outline"><FolderPlus className="mr-2 h-4 w-4" />新規カテゴリを追加</Button>
+            </CategoryDialog>
+            {categories.length === 0 && !isLoading && (
+            <Button onClick={handleSeedData} size="sm" variant="outline" className="flex items-center gap-2">
+                <Sparkles />サンプルデータを生成
+            </Button>
+            )}
+        </div>
       </div>
-
       {isLoading ? (
          <div className="flex h-64 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
        <div className="grid gap-6">
-          <PhilosophyListSection 
-            title="理念・ビジョン"
-            category="mission_vision"
-            items={mission_vision}
-            setItems={setItems}
-            onAddItem={(data) => handleAddItem(data)}
-            onEditItem={handleEditItem}
-            onDeleteItem={handleDeleteItem}
-            onOrderChange={handleOrderChange}
-          />
-          <PhilosophyListSection 
-            title="考え方の継承"
-            category="values"
-            items={values}
-            setItems={setItems}
-            onAddItem={(data) => handleAddItem(data)}
-            onEditItem={handleEditItem}
-            onDeleteItem={handleDeleteItem}
-            onOrderChange={handleOrderChange}
-          />
+          {categories.map(category => (
+            <PhilosophyCategorySection
+              key={category.id}
+              category={category}
+              items={items.filter(item => item.categoryId === category.id).sort((a,b) => a.order - b.order)}
+              onSaveCategory={handleSaveCategory}
+              onDeleteCategory={handleDeleteCategory}
+              onAddItem={handleAddItem}
+              onEditItem={handleEditItem}
+              onDeleteItem={handleDeleteItem}
+              onItemOrderChange={handleItemOrderChange}
+            />
+          ))}
+          {categories.length === 0 && (
+             <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
+                <p>カテゴリがまだ登録されていません。</p>
+                <p className="text-sm">右上の「新規カテゴリを追加」ボタンから最初のカテゴリを登録してください。</p>
+            </div>
+          )}
        </div>
       )}
     </div>

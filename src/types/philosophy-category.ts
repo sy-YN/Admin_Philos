@@ -1,12 +1,12 @@
 
 import type { Timestamp } from 'firebase/firestore';
 
-export type PhilosophyItem = {
+/**
+ * A category for grouping philosophy items.
+ */
+export type PhilosophyCategory = {
   id: string;
-  title: string;
-  content: string;
-  icon: string;
-  categoryId: string;
+  name: string;
   order: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;

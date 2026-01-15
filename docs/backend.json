@@ -318,6 +318,30 @@
         "viewsCount"
       ]
     },
+    "PhilosophyCategory": {
+      "title": "Philosophy Category",
+      "description": "A category for grouping philosophy items, such as 'Mission/Vision' or 'Values'.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The display name of the category."
+        },
+        "order": {
+          "type": "number",
+          "description": "A number to determine the display order of the categories themselves."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "order", "createdAt", "updatedAt"]
+    },
     "PhilosophyItem": {
       "title": "Philosophy Item",
       "description": "A single item representing a company philosophy, vision, or value.",
@@ -335,14 +359,13 @@
           "type": "string",
           "description": "The name of the Lucide icon to display."
         },
-        "category": {
+        "categoryId": {
           "type": "string",
-          "description": "The category for grouping items.",
-          "enum": ["mission_vision", "values"]
+          "description": "A reference to the ID of the category this item belongs to in the 'philosophyCategories' collection."
         },
         "order": {
           "type": "number",
-          "description": "A number to determine the display order."
+          "description": "A number to determine the display order within its category."
         },
         "createdAt": {
           "type": "string",
@@ -353,7 +376,7 @@
           "format": "date-time"
         }
       },
-      "required": ["title", "content", "icon", "category", "order", "createdAt", "updatedAt"]
+      "required": ["title", "content", "icon", "categoryId", "order", "createdAt", "updatedAt"]
     },
      "CalendarDisplaySettings": {
       "title": "Calendar Display Settings",
@@ -682,10 +705,12 @@
       },
       "description": "Stores views on videos, keyed by user UID."
     },
+    "/philosophyCategories/{categoryId}": {
+        "schema": { "$ref": "#/entities/PhilosophyCategory" },
+        "description": "Stores the categories for philosophy items."
+    },
     "/philosophy/{philosophyId}": {
-        "schema": {
-            "$ref": "#/entities/PhilosophyItem"
-        },
+        "schema": { "$ref": "#/entities/PhilosophyItem" },
         "description": "Stores company philosophy, vision, and value items."
     },
     "/settings/calendarDisplay": {
