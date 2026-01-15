@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, getDocs, Timestamp, where } from 'firebase/firestore';
 import { Loader2, Trophy, Crown, Medal, Award, Building, Video as VideoIcon, MessageSquare } from 'lucide-react';
 import type { Member } from '@/types/member';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -29,10 +29,9 @@ type RankItem = {
 type ScoreData = {
     likes: Map<string, number>;
     comments: Map<string, number>;
-    goal_progress: Map<string, number>;
 };
 
-function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'comments' | 'goal_progress'; scope: 'all' | 'department' }) {
+function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'comments'; scope: 'all' | 'department' }) {
     const firestore = useFirestore();
     
     const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]));
@@ -54,7 +53,6 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
         const scores: ScoreData = {
             likes: new Map(),
             comments: new Map(),
-            goal_progress: new Map(),
         };
 
         const today = new Date();
@@ -66,8 +64,8 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
         for (const content of allContent) {
             const collectionName = 'src' in content ? 'videos' : 'executiveMessages';
             const [likesSnapshot, commentsSnapshot] = await Promise.all([
-                getDocs(collection(firestore, collectionName, content.id, 'likes')),
-                getDocs(collection(firestore, collectionName, content.id, 'comments'))
+                getDocs(query(collection(firestore, collectionName, content.id, 'likes'), where('likedAt', '>=', startOfCurrentMonth), where('likedAt', '<=', endOfCurrentMonth))),
+                getDocs(query(collection(firestore, collectionName, content.id, 'comments'), where('createdAt', '>=', startOfCurrentMonth), where('createdAt', '<=', endOfCurrentMonth)))
             ]);
             likesSnapshot.forEach(likeDoc => {
                 const userId = likeDoc.id;
@@ -79,26 +77,6 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
                     scores.comments.set(authorId, (scores.comments.get(authorId) || 0) + 1);
                 }
             });
-        }
-
-        // Goal Progress
-        for (const member of members) {
-            const goalsSnapshot = await getDocs(collection(firestore, 'users', member.uid, 'personalGoals'));
-            const activeGoalsInPeriod = goalsSnapshot.docs
-                .map(doc => ({ ...doc.data() } as PersonalGoal))
-                .filter(goal => {
-                    const startDate = goal.startDate?.toDate();
-                    const endDate = goal.endDate?.toDate();
-                    if(!startDate || !endDate) return false;
-                    // Active in the current month (overlaps with the period)
-                    return startDate <= endOfCurrentMonth && endDate >= startOfCurrentMonth;
-                });
-
-            if (activeGoalsInPeriod.length > 0) {
-                const totalProgress = activeGoalsInPeriod.reduce((sum, goal) => sum + goal.progress, 0);
-                const averageProgress = totalProgress / activeGoalsInPeriod.length;
-                scores.goal_progress.set(member.uid, averageProgress);
-            }
         }
         
         return scores;
@@ -230,7 +208,7 @@ function RankingList({ category, scope }: { category: 'overall' | 'likes' | 'com
         )
     }
 
-    const scoreUnit = category === 'goal_progress' ? '%' : 'pt';
+    const scoreUnit = 'pt';
 
     return (
         <Table>
@@ -397,11 +375,10 @@ export default function RankingPage() {
                         </CardHeader>
                         <CardContent>
                              <Tabs defaultValue="overall" className="w-full">
-                                <TabsList className="grid w-full grid-cols-4">
+                                <TabsList className="grid w-full grid-cols-3">
                                     <TabsTrigger value="overall">総合</TabsTrigger>
                                     <TabsTrigger value="likes">いいね数</TabsTrigger>
                                     <TabsTrigger value="comments">コメント数</TabsTrigger>
-                                    <TabsTrigger value="goal_progress">目標達成</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="overall">
                                     <RankingList category="overall" scope="all" />
@@ -411,9 +388,6 @@ export default function RankingPage() {
                                 </TabsContent>
                                  <TabsContent value="comments">
                                     <RankingList category="comments" scope="all" />
-                                </TabsContent>
-                                <TabsContent value="goal_progress">
-                                    <RankingList category="goal_progress" scope="all" />
                                 </TabsContent>
                             </Tabs>
                         </CardContent>
