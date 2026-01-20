@@ -54,7 +54,7 @@ function TagSelector({ availableTags, selectedTags, onSelectionChange }: { avail
             </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-            <ScrollArea className="h-48">
+            <ScrollArea className="h-48" onWheelCapture={(e) => e.stopPropagation()}>
               <div className="p-2 space-y-1">
                 {availableTags.map((tag, index) => {
                   const checkboxId = `tag-selector-${tag.replace(/\s+/g, '-')}-${index}`;
@@ -543,93 +543,6 @@ function MessagesTable({
     </Table>
   );
 }
-
-// サンプルメッセージ生成コンポーネント
-function SeedMessagesButton({ allUsers }: { allUsers: Member[] }) {
-  const [isSeeding, setIsSeeding] = useState(false);
-  const [isDone, setIsDone] = useState(false);
-  const firestore = useFirestore();
-  const { user } = useUser();
-  const { toast } = useToast();
-
-  const handleSeedData = async () => {
-    if (!firestore || !user) {
-      toast({ title: "エラー", description: "ユーザー情報が見つかりません。", variant: 'destructive' });
-      return;
-    }
-    setIsSeeding(true);
-
-    const executive = allUsers.find(u => u.role === 'executive');
-    const author = executive || user;
-
-    const sampleMessages = [
-      {
-        title: "2024年下期 事業戦略について",
-        content: "CEOの山田です。2024年下期の全社事業戦略についてご説明します。今期は「顧客中心主義の徹底」と「データ駆動型経営へのシフト」を二本柱とし、全社一丸となって取り組みます...",
-        priority: 'high',
-        tags: ['全社', '経営方針', '戦略'],
-        authorId: author.uid,
-        authorName: author.displayName,
-      },
-      {
-        title: "新技術スタック導入に関する技術戦略説明会",
-        content: "CTOの佐藤です。来月より、開発部門全体で新しい技術スタックを導入します。この変更は、我々の開発速度とプロダクト品質を飛躍的に向上させるものです。詳細は添付資料をご確認ください。",
-        priority: 'normal',
-        tags: ['開発部', '技術', 'DX'],
-        authorId: author.uid,
-        authorName: author.displayName,
-      },
-      {
-        title: "新しい人事評価制度の導入について",
-        content: "人事部長の鈴木です。従業員の皆様の成長と公正な評価を実現するため、来期より新しい人事評価制度を導入いたします。新制度の目的は、透明性の高い評価プロセスと、個人の目標達成への手厚いサポートです。",
-        priority: 'normal',
-        tags: ['人事', '制度', '全社'],
-        authorId: author.uid,
-        authorName: author.displayName,
-      },
-    ];
-
-    try {
-      const batch = writeBatch(firestore);
-      const messagesCollection = collection(firestore, "executiveMessages");
-
-      sampleMessages.forEach(msg => {
-        const docRef = doc(messagesCollection); 
-        batch.set(docRef, {
-          ...msg,
-          creatorId: user.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          likesCount: Math.floor(Math.random() * 50),
-          commentsCount: Math.floor(Math.random() * 20),
-          viewsCount: Math.floor(Math.random() * 200),
-        });
-      });
-
-      await batch.commit();
-      
-      toast({ title: "成功", description: "3件のサンプルメッセージを生成しました。" });
-      setIsDone(true);
-    } catch (error) {
-      console.error("サンプルデータの生成に失敗しました:", error);
-      toast({ title: "エラー", description: "サンプルデータの生成に失敗しました。", variant: "destructive" });
-    } finally {
-      setIsSeeding(false);
-    }
-  };
-
-  if (isDone) {
-    return null; 
-  }
-
-  return (
-    <Button onClick={handleSeedData} disabled={isSeeding} variant="outline" size="sm">
-      {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-      {isSeeding ? '生成中...' : 'サンプルメッセージ生成'}
-    </Button>
-  );
-}
-
 
 // --- Video Section (Firestore) ---
 
@@ -1382,7 +1295,6 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
                         </AlertDialogContent>
                       </AlertDialog>
                     )}
-                  {canManageMessages && <SeedMessagesButton allUsers={allUsers || []} />}
                   {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
                 </div>
               </CardHeader>
