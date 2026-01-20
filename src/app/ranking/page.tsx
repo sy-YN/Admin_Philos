@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, getDocs, Timestamp, doc, where } from 'firebase/firestore';
-import { Loader2, Trophy, Crown, Medal, Award, Building, Video as VideoIcon, MessageSquare } from 'lucide-react';
+import { Loader2, Trophy, Crown, Medal, Award, Building, Video as VideoIcon, MessageSquare, Eye } from 'lucide-react';
 import type { RankingSettings } from '@/types/ranking';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -33,9 +33,10 @@ type RankItem = {
 type ScoreData = {
     likes: Map<string, number>;
     comments: Map<string, number>;
+    views: Map<string, number>;
 };
 
-function RankingList({ category, scope, personalScope }: { category: 'overall' | 'likes' | 'comments'; scope: 'all' | 'department'; personalScope?: 'all' | 'my-department' }) {
+function RankingList({ category, scope, personalScope }: { category: 'overall' | 'likes' | 'comments' | 'views'; scope: 'all' | 'department'; personalScope?: 'all' | 'my-department' }) {
     const firestore = useFirestore();
     const { user: currentUser } = useUser();
     
@@ -58,6 +59,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
         const scores: ScoreData = {
             likes: new Map(),
             comments: new Map(),
+            views: new Map(),
         };
         
         const today = new Date();
@@ -68,9 +70,10 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
         const allContent = [...(videos || []), ...(messages || [])];
         for (const content of allContent) {
             const collectionName = 'src' in content ? 'videos' : 'executiveMessages';
-            const [likesSnapshot, commentsSnapshot] = await Promise.all([
+            const [likesSnapshot, commentsSnapshot, viewsSnapshot] = await Promise.all([
                 getDocs(query(collection(firestore, collectionName, content.id, 'likes'), where('likedAt', '>=', startOfCurrentMonth), where('likedAt', '<=', endOfCurrentMonth))),
-                getDocs(query(collection(firestore, collectionName, content.id, 'comments'), where('createdAt', '>=', startOfCurrentMonth), where('createdAt', '<=', endOfCurrentMonth)))
+                getDocs(query(collection(firestore, collectionName, content.id, 'comments'), where('createdAt', '>=', startOfCurrentMonth), where('createdAt', '<=', endOfCurrentMonth))),
+                getDocs(query(collection(firestore, collectionName, content.id, 'views'), where('viewedAt', '>=', startOfCurrentMonth), where('viewedAt', '<=', endOfCurrentMonth)))
             ]);
             likesSnapshot.forEach(likeDoc => {
                 const userId = likeDoc.id;
@@ -81,6 +84,10 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                 if (authorId) {
                     scores.comments.set(authorId, (scores.comments.get(authorId) || 0) + 1);
                 }
+            });
+            viewsSnapshot.forEach(viewDoc => {
+                const userId = viewDoc.id;
+                scores.views.set(userId, (scores.views.get(userId) || 0) + 1);
             });
         }
         
@@ -122,7 +129,8 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                     if (!orgId) return;
                     const likeScore = individualScores.likes.get(member.uid) || 0;
                     const commentScore = individualScores.comments.get(member.uid) || 0;
-                    const totalScore = likeScore + commentScore;
+                    const viewScore = individualScores.views.get(member.uid) || 0;
+                    const totalScore = likeScore + commentScore + viewScore;
                     
                     const stats = departmentStats.get(orgId) || { totalScore: 0, memberCount: 0 };
                     stats.totalScore += totalScore;
@@ -208,7 +216,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
         )
     }
 
-    const scoreUnit = 'pt';
+    const scoreUnit = category === 'views' ? '回' : 'pt';
 
     return (
         <Table>
@@ -416,26 +424,30 @@ function RankingPageComponent() {
                                         </TabsList>
                                         <TabsContent value="all">
                                             <Tabs defaultValue="overall" className="w-full">
-                                                <TabsList className="grid w-full grid-cols-3">
+                                                <TabsList className="grid w-full grid-cols-4">
                                                     <TabsTrigger value="overall">総合</TabsTrigger>
                                                     <TabsTrigger value="likes">いいね数</TabsTrigger>
                                                     <TabsTrigger value="comments">コメント数</TabsTrigger>
+                                                    <TabsTrigger value="views">視聴回数</TabsTrigger>
                                                 </TabsList>
                                                 <TabsContent value="overall"><RankingList category="overall" scope="all" personalScope="all" /></TabsContent>
                                                 <TabsContent value="likes"><RankingList category="likes" scope="all" personalScope="all" /></TabsContent>
                                                 <TabsContent value="comments"><RankingList category="comments" scope="all" personalScope="all" /></TabsContent>
+                                                <TabsContent value="views"><RankingList category="views" scope="all" personalScope="all" /></TabsContent>
                                             </Tabs>
                                         </TabsContent>
                                         <TabsContent value="my-department">
                                             <Tabs defaultValue="overall" className="w-full">
-                                                <TabsList className="grid w-full grid-cols-3">
+                                                <TabsList className="grid w-full grid-cols-4">
                                                     <TabsTrigger value="overall">総合</TabsTrigger>
                                                     <TabsTrigger value="likes">いいね数</TabsTrigger>
                                                     <TabsTrigger value="comments">コメント数</TabsTrigger>
+                                                    <TabsTrigger value="views">視聴回数</TabsTrigger>
                                                 </TabsList>
                                                 <TabsContent value="overall"><RankingList category="overall" scope="all" personalScope="my-department" /></TabsContent>
                                                 <TabsContent value="likes"><RankingList category="likes" scope="all" personalScope="my-department" /></TabsContent>
                                                 <TabsContent value="comments"><RankingList category="comments" scope="all" personalScope="my-department" /></TabsContent>
+                                                <TabsContent value="views"><RankingList category="views" scope="all" personalScope="my-department" /></TabsContent>
                                             </Tabs>
                                         </TabsContent>
                                     </Tabs>
@@ -445,7 +457,7 @@ function RankingPageComponent() {
                     )}
                     {selectedTab === 'department' && (
                         <TabsContent value="department">
-                            <Card>
+                             <Card>
                                 <CardHeader>
                                     <CardTitle>部署ランキング</CardTitle>
                                     <CardDescription>部署全体の活動を平均化した総合ランキングです。</CardDescription>
@@ -456,30 +468,28 @@ function RankingPageComponent() {
                             </Card>
                         </TabsContent>
                     )}
-                    {selectedTab === 'contents' && (
-                        <TabsContent value="contents">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>コンテンツランキング</CardTitle>
-                                    <CardDescription>閲覧数が多いコンテンツのランキングです。</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Tabs defaultValue="videos" className="w-full">
-                                        <TabsList className="grid w-full grid-cols-2">
-                                            <TabsTrigger value="videos"><VideoIcon className="mr-2 h-4 w-4"/>ビデオ</TabsTrigger>
-                                            <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4"/>メッセージ</TabsTrigger>
-                                        </TabsList>
-                                        <TabsContent value="videos">
-                                            <ContentRankingList contentType="videos" />
-                                        </TabsContent>
-                                        <TabsContent value="messages">
-                                            <ContentRankingList contentType="executiveMessages" />
-                                        </TabsContent>
-                                    </Tabs>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-                    )}
+                     <TabsContent value="contents">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>コンテンツランキング</CardTitle>
+                                <CardDescription>閲覧数が多いコンテンツのランキングです。</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Tabs defaultValue="videos" className="w-full">
+                                    <TabsList className="grid w-full grid-cols-2">
+                                        <TabsTrigger value="videos"><VideoIcon className="mr-2 h-4 w-4"/>ビデオ</TabsTrigger>
+                                        <TabsTrigger value="messages"><MessageSquare className="mr-2 h-4 w-4"/>メッセージ</TabsTrigger>
+                                    </TabsList>
+                                    <TabsContent value="videos">
+                                        <ContentRankingList contentType="videos" />
+                                    </TabsContent>
+                                    <TabsContent value="messages">
+                                        <ContentRankingList contentType="executiveMessages" />
+                                    </TabsContent>
+                                </Tabs>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
                 </Tabs>
             </div>
         </main>
