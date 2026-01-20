@@ -549,5 +549,3 @@ export default function RankingPageWrapper() {
         </Suspense>
     )
 }
-
-    
