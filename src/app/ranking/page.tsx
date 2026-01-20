@@ -124,16 +124,25 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                     setIsCalculating(false);
                     return;
                 }
+
+                const memberRankPoints = new Map<string, number>();
+                const MAX_POINTS = members?.length || 50;
+                (Object.keys(individualScores) as Array<keyof ScoreData>).forEach(cat => {
+                    const sortedScores = Array.from(individualScores[cat].entries()).sort(([, a], [, b]) => b - a);
+                    sortedScores.forEach(([userId, score], index) => {
+                        const points = Math.max(0, MAX_POINTS - (index + 1));
+                        memberRankPoints.set(userId, (memberRankPoints.get(userId) || 0) + points);
+                    });
+                });
+
                 members.forEach(member => {
                     const orgId = member.organizationId;
                     if (!orgId) return;
-                    const likeScore = individualScores.likes.get(member.uid) || 0;
-                    const commentScore = individualScores.comments.get(member.uid) || 0;
-                    const viewScore = individualScores.views.get(member.uid) || 0;
-                    const totalScore = likeScore + commentScore + viewScore;
+
+                    const totalScoreForMember = memberRankPoints.get(member.uid) || 0;
                     
                     const stats = departmentStats.get(orgId) || { totalScore: 0, memberCount: 0 };
-                    stats.totalScore += totalScore;
+                    stats.totalScore += totalScoreForMember;
                     stats.memberCount += 1;
                     departmentStats.set(orgId, stats);
                 });
