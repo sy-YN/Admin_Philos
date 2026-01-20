@@ -56,15 +56,24 @@ function TagSelector({ availableTags, selectedTags, onSelectionChange }: { avail
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
             <ScrollArea className="h-48">
               <div className="p-2 space-y-1">
-                {availableTags.map((tag, index) => (
-                   <Label key={index} className="flex items-center gap-2 font-normal p-2 rounded-md hover:bg-muted">
+                {availableTags.map((tag, index) => {
+                  const checkboxId = `tag-selector-${tag.replace(/\s+/g, '-')}-${index}`;
+                  return (
+                    <div key={index} className="flex items-center space-x-2">
                       <Checkbox
+                        id={checkboxId}
                         checked={selectedTags.includes(tag)}
                         onCheckedChange={(checked) => handleCheckedChange(tag, !!checked)}
                       />
-                      {tag}
-                   </Label>
-                ))}
+                      <Label
+                        htmlFor={checkboxId}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer py-2"
+                      >
+                        {tag}
+                      </Label>
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
         </PopoverContent>
@@ -879,7 +888,7 @@ function VideosTable({
               </TableCell>
               <TableCell className="hidden sm:table-cell">
                 <div className="flex flex-wrap gap-1">
-                  {video.tags.map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
+                  {(video.tags || []).map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
                 </div>
               </TableCell>
               <TableCell>
