@@ -96,7 +96,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
 
     useEffect(() => {
         const processRankings = async () => {
-            if (isLoadingMembers || isLoadingVideos || isLoadingMessages || isLoadingOrgs) {
+            if (isLoadingMembers || isLoadingVideos || isLoadingMessages || isLoadingOrgs || !members) {
                 return;
             }
             setIsCalculating(true);
@@ -116,7 +116,22 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                     targetMembers = members?.filter(m => m.organizationId === currentUserData.organizationId);
                 }
             }
+            
+            const calculateRanks = (scores: Map<string, number>): Map<string, number> => {
+                const sortedScores = Array.from(scores.entries()).sort(([, a], [, b]) => b - a);
+                const ranks = new Map<string, number>();
+                if (sortedScores.length === 0) return ranks;
 
+                let rank = 1;
+                ranks.set(sortedScores[0][0], rank);
+                for (let i = 1; i < sortedScores.length; i++) {
+                    if (sortedScores[i][1] < sortedScores[i - 1][1]) {
+                        rank = i + 1;
+                    }
+                    ranks.set(sortedScores[i][0], rank);
+                }
+                return ranks;
+            };
 
             if (scope === 'department') {
                 const departmentStats = new Map<string, { totalScore: number, memberCount: number }>();
@@ -126,11 +141,12 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                 }
 
                 const memberRankPoints = new Map<string, number>();
-                const MAX_POINTS = members?.length || 50;
-                (Object.keys(individualScores) as Array<keyof ScoreData>).forEach(cat => {
-                    const sortedScores = Array.from(individualScores[cat].entries()).sort(([, a], [, b]) => b - a);
-                    sortedScores.forEach(([userId, score], index) => {
-                        const points = Math.max(0, MAX_POINTS - (index + 1));
+                (['likes', 'comments', 'views'] as Array<keyof ScoreData>).forEach(cat => {
+                    const categoryScores = individualScores[cat];
+                    const categoryRanks = calculateRanks(categoryScores);
+
+                    categoryRanks.forEach((rank, userId) => {
+                        const points = Math.max(1, 50 - (rank - 1));
                         memberRankPoints.set(userId, (memberRankPoints.get(userId) || 0) + points);
                     });
                 });
@@ -156,13 +172,19 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
             } else { // scope === 'all' (personal)
                 if (category === 'overall') {
                     const rankPoints = new Map<string, number>();
-                    const MAX_POINTS = targetMembers?.length || 50;
-                    (Object.keys(individualScores) as Array<keyof ScoreData>).forEach(cat => {
-                        const sortedScores = Array.from(individualScores[cat].entries()).sort(([, a], [, b]) => b - a);
-                        sortedScores.forEach(([userId], index) => {
+                    
+                    targetMembers?.forEach(member => {
+                        rankPoints.set(member.uid, 0);
+                    });
+
+                    (['likes', 'comments', 'views'] as Array<keyof ScoreData>).forEach(cat => {
+                        const categoryScores = individualScores[cat];
+                        const categoryRanks = calculateRanks(categoryScores);
+                        
+                        categoryRanks.forEach((rank, userId) => {
                             if (targetMembers?.find(m => m.uid === userId)) {
-                                const points = Math.max(0, MAX_POINTS - (index + 1));
-                                rankPoints.set(userId, (rankPoints.get(userId) || 0) + points);
+                               const points = Math.max(1, 50 - (rank - 1));
+                               rankPoints.set(userId, (rankPoints.get(userId) || 0) + points);
                             }
                         });
                     });
@@ -179,15 +201,27 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
             }
 
             const sortedScores = Array.from(finalScores.entries()).sort(([, a], [, b]) => b - a);
-            const rankedList: RankItem[] = sortedScores.map(([id, score], index) => {
-                 if (scope === 'department') {
+            
+            const rankedList: RankItem[] = [];
+            let currentRank = 1;
+            for (let i = 0; i < sortedScores.length; i++) {
+                if (i > 0 && sortedScores[i][1] < sortedScores[i-1][1]) {
+                    currentRank = i + 1;
+                }
+                const [id, score] = sortedScores[i];
+                
+                if (scope === 'department') {
                     const org = orgsMap.get(id);
-                    return { id, name: org?.name || '不明な部署', score, rank: index + 1 };
+                    if (org) {
+                      rankedList.push({ id, name: org.name, score, rank: currentRank });
+                    }
                 } else {
                     const member = membersMap.get(id);
-                    return { id, name: member?.displayName || '不明なユーザー', avatarUrl: member?.avatarUrl, score, rank: index + 1 };
+                    if (member) {
+                      rankedList.push({ id, name: member.displayName, avatarUrl: member.avatarUrl, score, rank: currentRank });
+                    }
                 }
-            });
+            }
 
             setRankingData(rankedList);
             setIsCalculating(false);
@@ -225,7 +259,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
         )
     }
 
-    const scoreUnit = category === 'views' ? '回' : 'pt';
+    const scoreUnit = category === 'overall' || scope === 'department' ? 'pt' : '回';
 
     return (
         <Table>
