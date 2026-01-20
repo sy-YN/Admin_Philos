@@ -126,7 +126,7 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                 ranks.set(sortedScores[0][0], rank);
                 for (let i = 1; i < sortedScores.length; i++) {
                     if (sortedScores[i][1] < sortedScores[i - 1][1]) {
-                        rank = i + 1;
+                        rank = i + 1; // "1224" ranking
                     }
                     ranks.set(sortedScores[i][0], rank);
                 }
@@ -195,6 +195,8 @@ function RankingList({ category, scope, personalScope }: { category: 'overall' |
                         const score = individualScores[category].get(member.uid);
                         if (score !== undefined) {
                             finalScores.set(member.uid, score);
+                        } else {
+                            finalScores.set(member.uid, 0);
                         }
                     })
                 }
@@ -547,3 +549,5 @@ export default function RankingPageWrapper() {
         </Suspense>
     )
 }
+
+    
