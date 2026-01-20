@@ -435,6 +435,23 @@
       },
       "required": ["title", "content", "startDate", "endDate", "order", "authorId", "authorName", "createdAt", "updatedAt"]
     },
+    "ContentTagSettings": {
+      "title": "Content Tag Settings",
+      "description": "Stores the predefined list of tags for content (up to 10).",
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "An array of predefined tags."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["tags"]
+    },
     "Goal": {
       "title": "Goal",
       "description": "Represents a goal for a company, team, or individual.",
@@ -732,6 +749,10 @@
             "$ref": "#/entities/RankingSettings"
         },
         "description": "Stores the global settings for ranking calculations."
+    },
+    "/settings/contentTags": {
+        "schema": { "$ref": "#/entities/ContentTagSettings" },
+        "description": "Stores the predefined list of tags for video and executive message content."
     },
     "/calendarMessages/{messageId}": {
       "schema": {

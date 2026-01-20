@@ -11,12 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle as MessageCircleIcon, Eye } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
+import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle as MessageCircleIcon, Eye, Tag } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where, getDocs, Query } from 'firebase/firestore';
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where, getDocs, Query, setDoc } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -30,12 +30,119 @@ import type { Comment } from '@/types/comment';
 import type { Member } from '@/types/member';
 import { usePermissions } from '@/context/PermissionContext';
 import { useSearchParams } from 'next/navigation';
+import type { ContentTagSettings } from '@/types/content-tags';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
+// --- Tag Management ---
+
+function TagSelector({ availableTags, selectedTags, onSelectionChange }: { availableTags: string[], selectedTags: string[], onSelectionChange: (tags: string[]) => void }) {
+  
+  const handleCheckedChange = (tag: string, checked: boolean) => {
+    const newSelection = checked
+      ? [...selectedTags, tag]
+      : selectedTags.filter(t => t !== tag);
+    onSelectionChange(newSelection);
+  };
+  
+  return (
+    <Popover>
+        <PopoverTrigger asChild>
+            <Button variant="outline" className="w-full justify-start font-normal">
+              <Tag className="mr-2 h-4 w-4" />
+              {selectedTags.length > 0 ? `${selectedTags.length}個のタグを選択中` : "タグを選択..."}
+            </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+            <ScrollArea className="h-48">
+              <div className="p-2 space-y-1">
+                {availableTags.map((tag, index) => (
+                   <Label key={index} className="flex items-center gap-2 font-normal p-2 rounded-md hover:bg-muted">
+                      <Checkbox
+                        checked={selectedTags.includes(tag)}
+                        onCheckedChange={(checked) => handleCheckedChange(tag, !!checked)}
+                      />
+                      {tag}
+                   </Label>
+                ))}
+              </div>
+            </ScrollArea>
+        </PopoverContent>
+    </Popover>
+  );
+}
+
+
+function TagManagementDialog({ currentTags, onSave }: { currentTags: string[], onSave: (tags: string[]) => Promise<void> }) {
+    const [open, setOpen] = useState(false);
+    const [tags, setTags] = useState<string[]>(Array(10).fill(''));
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if(open) {
+            const initialTags = Array(10).fill('');
+            currentTags.slice(0, 10).forEach((tag, i) => {
+                initialTags[i] = tag;
+            });
+            setTags(initialTags);
+        }
+    }, [open, currentTags]);
+    
+    const handleTagChange = (index: number, value: string) => {
+        const newTags = [...tags];
+        newTags[index] = value;
+        setTags(newTags);
+    };
+
+    const handleSave = async () => {
+        setIsLoading(true);
+        // 空のタグを除外して保存
+        await onSave(tags.map(t => t.trim()).filter(t => t));
+        setIsLoading(false);
+        setOpen(false);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm"><Tag className="mr-2 h-4 w-4"/>タグを管理</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>コンテンツタグの管理</DialogTitle>
+                    <DialogDescription>
+                        コンテンツで使用するタグを最大10個まで設定できます。ここで設定したタグが選択肢として表示されます。
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-2">
+                    {tags.map((tag, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                           <Label htmlFor={`tag-${index}`} className="w-12 text-right text-muted-foreground">{index + 1}.</Label>
+                           <Input
+                             id={`tag-${index}`}
+                             value={tag}
+                             onChange={(e) => handleTagChange(index, e.target.value)}
+                             maxLength={20}
+                             disabled={isLoading}
+                           />
+                        </div>
+                    ))}
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleSave} disabled={isLoading}>
+                       {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                       保存
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 // --- Message Section (Firestore) ---
 
 // 新規メッセージ追加用ダイアログ
-function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessageAdded?: () => void, allUsers: Member[], currentUser: Member | null }) {
+function AddMessageDialog({ onMessageAdded, allUsers, currentUser, availableTags }: { onMessageAdded?: () => void, allUsers: Member[], currentUser: Member | null, availableTags: string[] }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -45,24 +152,18 @@ function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessage
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [priority, setPriority] = useState<'normal' | 'high'>('normal');
-  const [tags, setTags] = useState<string[]>(Array(5).fill(''));
+  const [tags, setTags] = useState<string[]>([]);
 
   const { userPermissions } = usePermissions();
   const canProxyPost = userPermissions.includes('proxy_post_message');
   
   const [authorId, setAuthorId] = useState(canProxyPost ? '' : (currentUser?.uid || ''));
 
-  const handleTagChange = (index: number, value: string) => {
-    const newTags = [...tags];
-    newTags[index] = value;
-    setTags(newTags);
-  };
-
   const resetForm = () => {
     setTitle('');
     setContent('');
     setPriority('normal');
-    setTags(Array(5).fill(''));
+    setTags([]);
     setAuthorId(canProxyPost ? '' : (currentUser?.uid || ''));
   }
 
@@ -79,7 +180,7 @@ function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessage
         title,
         content,
         priority,
-        tags: tags.map(tag => tag.trim()).filter(tag => tag),
+        tags,
         authorId: authorId,
         authorName: selectedAuthor?.displayName || '不明な作成者',
         creatorId: user.uid, // Always log who actually created it
@@ -150,19 +251,8 @@ function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessage
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label>タグ (最大5個)</Label>
-              <div className='grid grid-cols-2 md:grid-cols-3 gap-2'>
-                {tags.map((tag, index) => (
-                    <Input 
-                      key={index}
-                      value={tag}
-                      onChange={e => handleTagChange(index, e.target.value)}
-                      placeholder={`タグ ${index + 1}`} 
-                      disabled={isLoading}
-                      maxLength={20}
-                    />
-                ))}
-              </div>
+              <Label>タグ</Label>
+              <TagSelector availableTags={availableTags} selectedTags={tags} onSelectionChange={setTags} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="msg-content">内容 (2000文字以内)</Label>
@@ -182,7 +272,7 @@ function AddMessageDialog({ onMessageAdded, allUsers, currentUser }: { onMessage
 }
 
 // 既存メッセージ編集用ダイアログ
-function EditMessageDialog({ message, onMessageUpdated, children, allUsers, currentUser }: { message: ExecutiveMessage, onMessageUpdated?: () => void, children: React.ReactNode, allUsers: Member[], currentUser: Member | null }) {
+function EditMessageDialog({ message, onMessageUpdated, children, allUsers, currentUser, availableTags }: { message: ExecutiveMessage, onMessageUpdated?: () => void, children: React.ReactNode, allUsers: Member[], currentUser: Member | null, availableTags: string[] }) {
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -192,25 +282,10 @@ function EditMessageDialog({ message, onMessageUpdated, children, allUsers, curr
   const [content, setContent] = useState(message.content);
   const [priority, setPriority] = useState(message.priority);
   const [authorId, setAuthorId] = useState(message.authorId);
+  const [tags, setTags] = useState(message.tags || []);
 
   const { userPermissions } = usePermissions();
   const canProxyPost = userPermissions.includes('proxy_post_message');
-
-  
-  const initialTags = Array(5).fill('');
-  if (message.tags) {
-    for(let i = 0; i < Math.min(message.tags.length, 5); i++) {
-      initialTags[i] = message.tags[i];
-    }
-  }
-  const [tags, setTags] = useState<string[]>(initialTags);
-
-  const handleTagChange = (index: number, value: string) => {
-    const newTags = [...tags];
-    newTags[index] = value;
-    setTags(newTags);
-  };
-
 
   const handleEditMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,7 +303,7 @@ function EditMessageDialog({ message, onMessageUpdated, children, allUsers, curr
         priority,
         authorId,
         authorName: selectedAuthor?.displayName || message.authorName,
-        tags: tags.map(tag => tag.trim()).filter(tag => tag),
+        tags: tags,
         updatedAt: serverTimestamp(),
       });
 
@@ -249,13 +324,7 @@ function EditMessageDialog({ message, onMessageUpdated, children, allUsers, curr
       setContent(message.content);
       setPriority(message.priority);
       setAuthorId(message.authorId);
-       const newInitialTags = Array(5).fill('');
-      if (message.tags) {
-        for (let i = 0; i < Math.min(message.tags.length, 5); i++) {
-          newInitialTags[i] = message.tags[i];
-        }
-      }
-      setTags(newInitialTags);
+      setTags(message.tags || []);
     }
   }, [open, message])
 
@@ -298,19 +367,8 @@ function EditMessageDialog({ message, onMessageUpdated, children, allUsers, curr
               </Select>
             </div>
              <div className="grid gap-2">
-              <Label>タグ (最大5個)</Label>
-              <div className='grid grid-cols-2 md:grid-cols-3 gap-2'>
-                {tags.map((tag, index) => (
-                    <Input 
-                      key={index}
-                      value={tag}
-                      onChange={e => handleTagChange(index, e.target.value)}
-                      placeholder={`タグ ${index + 1}`} 
-                      disabled={isLoading}
-                      maxLength={20}
-                    />
-                ))}
-              </div>
+              <Label>タグ</Label>
+               <TagSelector availableTags={availableTags} selectedTags={tags} onSelectionChange={setTags} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-msg-content">内容 (2000文字以内)</Label>
@@ -337,6 +395,7 @@ function MessagesTable({
   isLoading,
   allUsers,
   currentUser,
+  availableTags,
   onAddComment,
   onDeleteComment,
 }: { 
@@ -346,6 +405,7 @@ function MessagesTable({
   isLoading: boolean,
   allUsers: Member[],
   currentUser: Member | null,
+  availableTags: string[],
   onAddComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
   onDeleteComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentId: string) => Promise<void>;
 }) {
@@ -442,7 +502,7 @@ function MessagesTable({
                     <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <EditMessageDialog message={msg} allUsers={allUsers} currentUser={currentUser}>
+                    <EditMessageDialog message={msg} allUsers={allUsers} currentUser={currentUser} availableTags={availableTags}>
                        <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
                     </EditMessageDialog>
                     <AlertDialog>
@@ -564,7 +624,7 @@ function SeedMessagesButton({ allUsers }: { allUsers: Member[] }) {
 
 // --- Video Section (Firestore) ---
 
-function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: { video?: VideoType, onSave: (video: Partial<VideoType>) => void, children?: React.ReactNode, mode: 'add' | 'edit', allUsers: Member[], currentUser: Member | null }) {
+function VideoDialog({ video, onSave, children, mode, allUsers, currentUser, availableTags }: { video?: VideoType, onSave: (video: Partial<VideoType>) => void, children?: React.ReactNode, mode: 'add' | 'edit', allUsers: Member[], currentUser: Member | null, availableTags: string[] }) {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -575,6 +635,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
   const [src, setSrc] = useState(video?.src || '');
   const [thumbnailUrl, setThumbnailUrl] = useState(video?.thumbnailUrl || '');
   const [priority, setPriority] = useState<'normal' | 'high'>(video?.priority || 'normal');
+  const [tags, setTags] = useState<string[]>(video?.tags || []);
   
   const { userPermissions } = usePermissions();
   const canProxyPost = userPermissions.includes('proxy_post_video');
@@ -582,27 +643,13 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
   const [authorId, setAuthorId] = useState(mode === 'add' && canProxyPost ? '' : (video?.authorId || currentUser?.uid || ''));
 
   
-  const initialTags = Array(5).fill('');
-  if (video?.tags) {
-    for (let i = 0; i < Math.min(video.tags.length, 5); i++) {
-      initialTags[i] = video.tags[i];
-    }
-  }
-  const [tags, setTags] = useState<string[]>(initialTags);
-
-  const handleTagChange = (index: number, value: string) => {
-    const newTags = [...tags];
-    newTags[index] = value;
-    setTags(newTags);
-  };
-  
   const resetForm = () => {
     setTitle('');
     setDescription('');
     setSrc('');
     setThumbnailUrl('');
     setPriority('normal');
-    setTags(Array(5).fill(''));
+    setTags([]);
     setAuthorId(canProxyPost ? '' : (currentUser?.uid || ''));
   };
 
@@ -614,14 +661,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
       setThumbnailUrl(video?.thumbnailUrl || '');
       setPriority(video?.priority || 'normal');
       setAuthorId(mode === 'add' && canProxyPost ? '' : (video?.authorId || currentUser?.uid || ''));
-      
-      const newInitialTags = Array(5).fill('');
-      if (video?.tags) {
-        for (let i = 0; i < Math.min(video.tags.length, 5); i++) {
-          newInitialTags[i] = video.tags[i];
-        }
-      }
-      setTags(newInitialTags);
+      setTags(video?.tags || []);
     }
   }, [video, open, currentUser, mode, canProxyPost]);
   
@@ -644,7 +684,7 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
       src,
       thumbnailUrl,
       priority,
-      tags: tags.map(tag => tag.trim()).filter(tag => tag),
+      tags,
       authorId: authorId,
       authorName: selectedAuthor?.displayName || '不明な投稿者',
     };
@@ -710,19 +750,8 @@ function VideoDialog({ video, onSave, children, mode, allUsers, currentUser }: {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label>タグ (最大5個)</Label>
-              <div className='grid grid-cols-2 md:grid-cols-3 gap-2'>
-                {tags.map((tag, index) => (
-                    <Input 
-                      key={index}
-                      value={tag}
-                      onChange={e => handleTagChange(index, e.target.value)}
-                      placeholder={`タグ ${index + 1}`} 
-                      maxLength={20}
-                      disabled={isLoading}
-                    />
-                ))}
-              </div>
+              <Label>タグ</Label>
+              <TagSelector availableTags={availableTags} selectedTags={tags} onSelectionChange={setTags} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="video-desc">概要 (500文字以内)</Label>
@@ -756,6 +785,7 @@ function VideosTable({
   isLoading,
   allUsers,
   currentUser,
+  availableTags,
   onAddComment,
   onDeleteComment,
 }: { 
@@ -765,6 +795,7 @@ function VideosTable({
   isLoading: boolean,
   allUsers: Member[],
   currentUser: Member | null,
+  availableTags: string[],
   onAddComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
   onDeleteComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentId: string) => Promise<void>;
 }) {
@@ -882,7 +913,7 @@ function VideosTable({
                     <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <VideoDialog mode="edit" video={video} onSave={(data) => handleUpdateVideo(video.id, data)} allUsers={allUsers} currentUser={currentUser}>
+                    <VideoDialog mode="edit" video={video} onSave={(data) => handleUpdateVideo(video.id, data)} allUsers={allUsers} currentUser={currentUser} availableTags={availableTags}>
                       <DropdownMenuItem onSelect={e => e.preventDefault()}>編集</DropdownMenuItem>
                     </VideoDialog>
                     <AlertDialog>
@@ -1032,6 +1063,21 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
   const canProxyPostVideo = userPermissions.includes('proxy_post_video');
   const canManageMessages = userPermissions.includes('message_management');
   const canProxyPostMessage = userPermissions.includes('proxy_post_message');
+
+  const { data: tagSettingsDoc, isLoading: isLoadingTags } = useDoc<ContentTagSettings>(useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'contentTags') : null, [firestore]));
+  const availableTags = useMemo(() => tagSettingsDoc?.tags || [], [tagSettingsDoc]);
+
+  const handleSaveTags = async (newTags: string[]) => {
+      if (!firestore) return;
+      const tagSettingsRef = doc(firestore, 'settings', 'contentTags');
+      try {
+          await setDoc(tagSettingsRef, { tags: newTags, updatedAt: serverTimestamp() }, { merge: true });
+          toast({ title: '成功', description: 'タグリストを更新しました。' });
+      } catch (error) {
+          console.error("Error updating tags:", error);
+          toast({ title: 'エラー', description: 'タグの更新に失敗しました。', variant: 'destructive' });
+      }
+  };
 
 
   const videosQuery = useMemoFirebase(() => {
@@ -1206,7 +1252,7 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
   }, [firestore, toast]);
 
 
-  const isLoading = isUserLoading || isCheckingPermissions || isLoadingUsers;
+  const isLoading = isUserLoading || isCheckingPermissions || isLoadingUsers || isLoadingTags;
 
   const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
   
@@ -1240,6 +1286,9 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     <div className="w-full max-w-7xl mx-auto">
       <div className="flex items-center mb-6">
         <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
+         <div className="ml-auto">
+            <TagManagementDialog currentTags={availableTags} onSave={handleSaveTags} />
+        </div>
       </div>
       <Tabs value={defaultTab} onValueChange={onTabChange}>
         {(canAccessVideoTab && canAccessMessageTab) && (
@@ -1278,7 +1327,7 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
                     </AlertDialog>
                   )}
                   {showSeedButton && canManageVideos && <SeedInitialVideosButton onSeeded={() => setInitialVideosSeeded(true)} />}
-                  {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} allUsers={allUsers || []} currentUser={currentUser}/>}
+                  {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
                 </div>
               </CardHeader>
               <CardContent>
@@ -1289,6 +1338,7 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
                     isLoading={videosLoading} 
                     allUsers={allUsers || []}
                     currentUser={currentUser}
+                    availableTags={availableTags}
                     onAddComment={handleAddComment}
                     onDeleteComment={handleDeleteComment}
                 />
@@ -1324,7 +1374,7 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
                       </AlertDialog>
                     )}
                   {canManageMessages && <SeedMessagesButton allUsers={allUsers || []} />}
-                  {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} />}
+                  {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
                 </div>
               </CardHeader>
               <CardContent>
@@ -1335,6 +1385,7 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
                     isLoading={messagesLoading}
                     allUsers={allUsers || []}
                     currentUser={currentUser}
+                    availableTags={availableTags}
                     onAddComment={handleAddComment}
                     onDeleteComment={handleDeleteComment}
                   />
