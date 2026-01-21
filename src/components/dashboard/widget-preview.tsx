@@ -44,32 +44,32 @@ export type ChartData = {
 export type ChartGranularity = 'daily' | 'weekly' | 'monthly';
 
 export const salesChartConfig = {
-  salesActual: { label: '実績(達成)', color: 'hsl(var(--primary))' },
+  salesActual: { label: '実績(達成)', color: 'hsl(var(--chart-1))' },
   salesTarget: { label: '目標', color: 'hsl(var(--secondary))' },
-  achievementRate: { label: '達成率', color: 'hsl(38 92% 50%)' },
-  overAchievement: { label: '実績(超過)', color: 'hsl(221 83% 53%)' }, // Blue
-  shortfall: { label: '目標(不足分)', color: 'hsl(var(--primary))'},
+  achievementRate: { label: '達成率', color: 'hsl(var(--chart-3))' },
+  overAchievement: { label: '実績(超過)', color: 'hsl(var(--chart-2))' },
+  shortfall: { label: '目標(不足分)', color: 'hsl(var(--chart-1))'},
 };
 
 const profitChartConfig = {
-  profitMargin: { label: "営業利益率", color: "hsl(var(--primary))" },
+  profitMargin: { label: "営業利益率", color: "hsl(var(--chart-1))" },
 };
 
 const customerChartConfig = {
-  totalCustomers: { label: "総顧客数", color: "hsl(var(--primary))" },
+  totalCustomers: { label: "総顧客数", color: "hsl(var(--chart-1))" },
 };
 
 const projectComplianceChartConfig = {
-  compliant: { label: "遵守", color: "hsl(var(--primary))" },
-  minor_delay: { label: "軽微な遅延", color: "hsl(180 80% 40%)" },
+  compliant: { label: "遵守", color: "hsl(var(--chart-1))" },
+  minor_delay: { label: "軽微な遅延", color: "hsl(var(--chart-2))" },
   delayed: { label: "遅延", color: "hsl(var(--destructive))" },
 };
 
 const teamGoalChartConfig = {
-  periodActual: { label: "期間実績", color: "hsl(var(--primary))" },
-  cumulativeActual: { label: "累計実績", color: "hsl(var(--primary))" },
-  overAchievement: { label: "超過達成", color: "hsl(221 83% 53%)" },
-  cumulativeAchievementRate: { label: '累計達成率', color: 'hsl(38 92% 50%)' },
+  periodActual: { label: "期間実績", color: "hsl(var(--chart-1))" },
+  cumulativeActual: { label: "累計実績", color: "hsl(var(--chart-1))" },
+  overAchievement: { label: "超過達成", color: "hsl(var(--chart-2))" },
+  cumulativeAchievementRate: { label: '累計達成率', color: 'hsl(var(--chart-3))' },
   targetLine: { label: "期間目標", color: "hsl(var(--muted-foreground))" },
 };
 
@@ -269,7 +269,7 @@ function TargetAndActualLineChart({ chartData, unit, xTickFormatter }: { chartDa
     }, [chartData]);
     
     const lineChartConfig = {
-        projected: { label: "実績", color: "hsl(var(--primary))" },
+        projected: { label: "実績", color: "hsl(var(--chart-1))" },
         target: { label: "目標", color: "hsl(var(--muted-foreground))" },
     };
     const displayUnit = unit === '百万円' ? 'M' : (unit || '');
@@ -475,13 +475,13 @@ const pieData = [
   { name: '未完了', value: 25 },
 ];
 
-const PIE_CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--muted))'];
+const PIE_CHART_COLORS = ['hsl(var(--chart-1))', 'hsl(var(--muted))'];
 
 function BarChartPreview() {
   return (
-    <ChartContainer config={{value: {label: 'Value', color: 'hsl(var(--primary))'}}} className="h-full w-full">
+    <ChartContainer config={{value: {label: 'Value', color: 'hsl(var(--chart-1))'}}} className="h-full w-full">
       <ComposedChart data={previewData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-        <Bar dataKey="value" fill="hsl(var(--primary))" />
+        <Bar dataKey="value" fill="hsl(var(--chart-1))" />
         <XAxis dataKey="name" tick={{ fontSize: 10 }}/>
         <YAxis tick={{ fontSize: 10 }}/>
         <Tooltip content={<ChartTooltipContent />} />
@@ -492,9 +492,9 @@ function BarChartPreview() {
 
 function LineChartPreview() {
   return (
-     <ChartContainer config={{value: {label: 'Value', color: 'hsl(var(--primary))'}}} className="h-full w-full">
+     <ChartContainer config={{value: {label: 'Value', color: 'hsl(var(--chart-1))'}}} className="h-full w-full">
         <ComposedChart data={previewData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-          <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" />
+          <Line type="monotone" dataKey="value" stroke="hsl(var(--chart-1))" />
           <XAxis dataKey="name" tick={{ fontSize: 10 }}/>
           <YAxis tick={{ fontSize: 10 }}/>
           <Tooltip content={<ChartTooltipContent />} />
@@ -505,7 +505,7 @@ function LineChartPreview() {
 
 function PieChartPreview({ isDonut = false }: { isDonut?: boolean }) {
   const chartConfig = {
-    完了: { label: '完了', color: 'hsl(var(--primary))' },
+    完了: { label: '完了', color: 'hsl(var(--chart-1))' },
     未完了: { label: '未完了', color: 'hsl(var(--muted))' },
   };
   return (
@@ -528,12 +528,12 @@ function DonutChartWidget({ widget }: { widget: Goal }) {
   const progress = targetValue > 0 ? Math.min(Math.round((currentValue / targetValue) * 100), 100) : 0;
   
   const chartData = [
-    { name: 'Progress', value: progress, fill: 'hsl(var(--primary))' },
+    { name: 'Progress', value: progress, fill: 'hsl(var(--chart-1))' },
     { name: 'Remaining', value: 100 - progress, fill: 'hsl(var(--muted))' },
   ];
 
   const chartConfig = {
-    progress: { label: '進捗', color: 'hsl(var(--primary))' },
+    progress: { label: '進捗', color: 'hsl(var(--chart-1))' },
     remaining: { label: '残り', color: 'hsl(var(--muted))' },
   };
 
