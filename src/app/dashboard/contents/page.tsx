@@ -55,7 +55,7 @@ function TagSelector({ availableTags, selectedTags, onSelectionChange }: { avail
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onWheelCapture={(e) => e.stopPropagation()}>
             <ScrollArea className="h-48">
               <div className="p-2 space-y-1">
-                {availableTags.map((tag, index) => {
+                {(availableTags || []).map((tag, index) => {
                   const checkboxId = `tag-selector-${tag.replace(/\s+/g, '-')}-${index}`;
                   return (
                     <div key={index} className="flex items-center space-x-2">
@@ -1097,6 +1097,9 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 
 
   const isLoading = isUserLoading || isCheckingPermissions || isLoadingUsers || isLoadingTags;
+  
+  const canAccessVideoTab = canManageVideos || canProxyPostVideo;
+  const canAccessMessageTab = canManageMessages || canProxyPostMessage;
 
   const defaultTab = useMemo(() => {
     if (selectedTab === 'videos' && canAccessVideoTab) return 'videos';
@@ -1233,3 +1236,5 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 }
 
 export default ContentsPage;
+
+    
