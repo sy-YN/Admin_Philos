@@ -44,11 +44,13 @@ function TagSelector({ availableTags, selectedTags, onSelectionChange }: { avail
       : selectedTags.filter(t => t !== tag);
     
     if (newSelection.length > 5) {
-        // Optionally show a toast or message
+        toast({ title: '上限到達', description: 'タグは5個までしか選択できません。', variant: 'destructive' });
         return;
     }
     onSelectionChange(newSelection);
   };
+  
+  const { toast } = useToast();
   
   return (
     <Popover>
@@ -921,6 +923,9 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const canManageMessages = userPermissions.includes('message_management');
   const canProxyPostMessage = userPermissions.includes('proxy_post_message');
   const canManageTags = userPermissions.includes('tag_management');
+  
+  const canAccessVideoTab = canManageVideos || canProxyPostVideo;
+  const canAccessMessageTab = canManageMessages || canProxyPostMessage;
 
   const { data: tagSettingsDoc, isLoading: isLoadingTags } = useDoc<ContentTagSettings>(useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'contentTags') : null, [firestore]));
   const availableTags = useMemo(() => tagSettingsDoc?.tags || [], [tagSettingsDoc]);
@@ -1112,9 +1117,6 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 
   const isLoading = isUserLoading || isCheckingPermissions || isLoadingUsers || isLoadingTags;
   
-  const canAccessVideoTab = canManageVideos || canProxyPostVideo;
-  const canAccessMessageTab = canManageMessages || canProxyPostMessage;
-
   const defaultTab = useMemo(() => {
     if (selectedTab === 'videos' && canAccessVideoTab) return 'videos';
     if (selectedTab === 'messages' && canAccessMessageTab) return 'messages';
@@ -1126,8 +1128,9 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const pageSubTitle = useMemo(() => {
     if (defaultTab === 'videos') return 'ビデオ管理';
     if (defaultTab === 'messages') return 'メッセージ管理';
+    if (canManageTags && !canAccessVideoTab && !canAccessMessageTab) return 'タグ管理';
     return '';
-  }, [defaultTab]);
+  }, [defaultTab, canManageTags, canAccessVideoTab, canAccessMessageTab]);
 
   if (isLoading) {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -1247,11 +1250,11 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
           </CardContent>
         </Card>
       )}
-
+      
       {!canAccessVideoTab && !canAccessMessageTab && canManageTags && (
          <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
-            <p>タグ管理権限のみが付与されています。</p>
-            <p className="text-sm">右上の「タグを管理」ボタンからタグの編集を行ってください。</p>
+            <p>表示できるコンテンツはありません。</p>
+            <p className="text-sm">コンテンツを閲覧・編集するには、ビデオ管理またはメッセージ管理の権限が必要です。</p>
         </div>
       )}
     </div>

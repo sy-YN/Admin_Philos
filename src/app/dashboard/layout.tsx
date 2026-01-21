@@ -62,7 +62,7 @@ const allNavItems: NavItem[] = [
     label: 'コンテンツ管理',
     icon: Film,
     id: 'contents',
-    requiredPermissions: ['video_management', 'message_management', 'proxy_post_video', 'proxy_post_message'],
+    requiredPermissions: ['video_management', 'message_management', 'proxy_post_video', 'proxy_post_message', 'tag_management'],
     children: [
       { href: '/dashboard/contents?tab=videos', label: 'ビデオ管理', id: 'video_management', requiredPermissions: ['video_management', 'proxy_post_video'] },
       { href: '/dashboard/contents?tab=messages', label: 'メッセージ管理', id: 'message_management', requiredPermissions: ['message_management', 'proxy_post_message'] },
