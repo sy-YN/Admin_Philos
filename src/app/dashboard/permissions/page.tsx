@@ -23,9 +23,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const permissionGroups = [
-  { name: 'メンバー管理', permissions: [{ id: 'members', name: 'メンバー管理' }] },
-  { name: '組織管理', permissions: [{ id: 'organization', name: '組織管理' }] },
-  { name: '権限管理', permissions: [{ id: 'permissions', name: '権限管理' }] },
+  { name: 'ユーザー・組織', permissions: [{ id: 'members', name: 'メンバー管理' }, { id: 'organization', name: '組織管理' }] },
+  { name: '管理機能', permissions: [{ id: 'permissions', name: '権限管理' }, { id: 'appearance_management', name: '外観設定' }] },
   {
     name: 'コンテンツ管理',
     permissions: [

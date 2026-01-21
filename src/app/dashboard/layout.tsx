@@ -17,6 +17,7 @@ import {
   Network,
   Shield,
   ChevronDown,
+  Palette,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser } from '@/firebase';
@@ -43,6 +44,9 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { PermissionProvider, usePermissions } from '@/context/PermissionContext';
+import { useBranding } from '@/context/BrandingProvider';
+import { DynamicIcon } from '@/components/philosophy/dynamic-icon';
+
 
 type NavItem = {
   id: string;
@@ -57,6 +61,7 @@ const allNavItems: NavItem[] = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members', requiredPermissions: ['members'] },
   { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization', requiredPermissions: ['organization'] },
   { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions', requiredPermissions: ['permissions'] },
+  { href: '/dashboard/appearance', label: '外観設定', icon: Palette, id: 'appearance', requiredPermissions: ['appearance_management'] },
   {
     href: '/dashboard/contents',
     label: 'コンテンツ管理',
@@ -109,6 +114,8 @@ function DashboardNav() {
   const auth = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { userPermissions } = usePermissions();
+  const { settings: brandingSettings } = useBranding();
+
 
   const activeTab = searchParams.get('tab');
 
@@ -145,8 +152,8 @@ function DashboardNav() {
             isCollapsed && "px-2 justify-center"
           )}>
           <Link href="/" className="flex items-center gap-2 font-semibold">
-            <Building2 className="h-6 w-6 text-primary" />
-            {!isCollapsed && <span className="">Philos Admin</span>}
+            <DynamicIcon name={brandingSettings.logoIcon} className="h-6 w-6 text-primary" />
+            {!isCollapsed && <span className="">{brandingSettings.appName} Admin</span>}
           </Link>
           <Button 
             variant="ghost" 

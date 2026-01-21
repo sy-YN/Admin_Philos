@@ -656,6 +656,26 @@
         "calculatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["periodId", "scope", "scopeId", "category", "ranks", "calculatedAt"]
+    },
+    "BrandingSettings": {
+      "title": "Branding Settings",
+      "description": "Stores application-wide branding settings like app name, logo, and theme color.",
+      "type": "object",
+      "properties": {
+        "appName": {
+          "type": "string",
+          "description": "The name of the application."
+        },
+        "logoIcon": {
+          "type": "string",
+          "description": "The name of the Lucide icon to use as the logo."
+        },
+        "primaryColor": {
+          "type": "string",
+          "description": "The HSL value for the primary theme color (e.g., '142.1 76.2% 36.3%')."
+        }
+      },
+      "required": ["appName", "logoIcon", "primaryColor"]
     }
   },
   "auth": {
@@ -753,6 +773,10 @@
     "/settings/contentTags": {
         "schema": { "$ref": "#/entities/ContentTagSettings" },
         "description": "Stores the predefined list of tags for video and executive message content."
+    },
+     "/settings/branding": {
+        "schema": { "$ref": "#/entities/BrandingSettings" },
+        "description": "Stores global branding settings for the application. This is a single document with the ID 'branding'."
     },
     "/calendarMessages/{messageId}": {
       "schema": {

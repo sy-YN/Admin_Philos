@@ -3,6 +3,7 @@
 import React, { type ReactNode } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
+import { BrandingProvider } from '@/context/BrandingProvider';
 
 // Initialize Firebase services once at the module level.
 // This ensures that Firebase is set up only once for the entire client-side application.
@@ -21,7 +22,9 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
       auth={firebaseServices.auth}
       firestore={firebaseServices.firestore}
     >
-      {children}
+      <BrandingProvider>
+        {children}
+      </BrandingProvider>
     </FirebaseProvider>
   );
 }

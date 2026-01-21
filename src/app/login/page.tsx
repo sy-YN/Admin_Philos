@@ -17,6 +17,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import type { Member } from '@/types/member';
 import type { Role } from '@/types/role';
 import type { UserPermission } from '@/types/user-permission';
+import { useBranding } from '@/context/BrandingProvider';
+import { DynamicIcon } from '@/components/philosophy/dynamic-icon';
 
 
 export default function LoginPage() {
@@ -25,6 +27,8 @@ export default function LoginPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const { settings: brandingSettings, isLoading: isLoadingBranding } = useBranding();
+
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -141,7 +145,7 @@ export default function LoginPage() {
   };
   
   // Show a loading spinner while checking auth state or role
-  if (isUserLoading || isCheckingRole) {
+  if (isUserLoading || isCheckingRole || isLoadingBranding) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -154,8 +158,8 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="flex justify-center items-center gap-2 mb-4">
-            <Building2 className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold text-foreground">Philos</h1>
+            <DynamicIcon name={brandingSettings.logoIcon} className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold text-foreground">{brandingSettings.appName}</h1>
           </div>
           <CardTitle className="text-2xl">管理者ログイン</CardTitle>
           <CardDescription>管理用アカウントでログインしてください</CardDescription>
