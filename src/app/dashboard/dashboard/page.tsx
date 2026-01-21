@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input';
 import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle, CalendarClock, Check } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import dynamic from 'next/dynamic';
 import type { ChartData, ChartGranularity } from '@/components/dashboard/widget-preview';
@@ -1869,6 +1868,13 @@ function DashboardSettingsPageComponent() {
         }
     }, [tab, canManageCompanyGoals, canManageOrgPersonalGoals, getDefaultTab]);
     
+    const pageSubTitle = useMemo(() => {
+      if (activeTab === 'company') return '会社単位';
+      if (activeTab === 'team') return '組織単位';
+      if (activeTab === 'personal') return '個人単位';
+      return '';
+    }, [activeTab]);
+
     const goalsQuery = useMemoFirebase(() => {
         if (!firestore || isCheckingPermissions) return null;
         if (activeTab === 'personal') return null;
@@ -2182,124 +2188,105 @@ function DashboardSettingsPageComponent() {
   
   return (
     <div className="w-full space-y-8">
-      <div>
-         <div className="flex items-center justify-between mb-6">
-            <div className='flex flex-col'>
-              <h1 className="text-lg font-semibold md:text-2xl">目標設定</h1>
-              <p className="text-sm text-muted-foreground">表示する指標やグラフの種類をカスタマイズします。</p>
+      <div className="flex items-center justify-between mb-6">
+          <div className='flex flex-col'>
+            <h1 className="text-lg font-semibold md:text-2xl">目標設定</h1>
+            {pageSubTitle && <p className="text-sm text-muted-foreground">{pageSubTitle}</p>}
+          </div>
+          {(activeTab !== 'personal' && (
+            (activeTab === 'company' && canManageCompanyGoals) ||
+            (activeTab === 'team' && canManageOrgPersonalGoals)
+          )) && (
+            <div className='flex items-center gap-4'>
+                <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab as WidgetScope} currentUser={currentUserData} organizations={allOrganizations || []}>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        新規ウィジェット追加
+                    </Button>
+                </WidgetDialog>
             </div>
-            {(activeTab !== 'personal' && (
-              (activeTab === 'company' && canManageCompanyGoals) ||
-              (activeTab === 'team' && canManageOrgPersonalGoals)
-            )) && (
-              <div className='flex items-center gap-4'>
-                  <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab as WidgetScope} currentUser={currentUserData} organizations={allOrganizations || []}>
-                      <Button>
-                          <PlusCircle className="mr-2 h-4 w-4" />
-                          新規ウィジェット追加
-                      </Button>
-                  </WidgetDialog>
-              </div>
-            )}
-        </div>
-
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WidgetScope | 'personal')}>
-          <TabsList className={cn("grid w-full mb-6", (canManageCompanyGoals && canManageOrgPersonalGoals) ? "grid-cols-3" : (canManageOrgPersonalGoals ? "grid-cols-2" : (canManageCompanyGoals ? "grid-cols-1" : "hidden")))}>
-              {canManageCompanyGoals && <TabsTrigger value="company">会社単位</TabsTrigger>}
-              {canManageOrgPersonalGoals && (
-                <>
-                  <TabsTrigger value="team">組織単位</TabsTrigger>
-                  <TabsTrigger value="personal">個人単位</TabsTrigger>
-                </>
-              )}
-          </TabsList>
-            {activeTab === 'company' && (
-            <TabsContent value="company">
-                {canManageCompanyGoals ? (
-                  isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
-                  <WidgetList 
-                      widgets={widgetsForTab} 
-                      onSave={handleSaveWidget} 
-                      onDelete={handleDeleteWidget}
-                      onSetActive={handleSetActiveWidget}
-                      onSaveDisplaySettings={handleSaveDisplaySettings}
-                      onSaveSalesRecords={handleSaveSalesRecords}
-                      onSaveProfitRecords={handleSaveProfitRecords}
-                      onSaveCustomerRecords={handleSaveCustomerRecords}
-                      onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
-                      onSaveTeamGoalData={handleSaveTeamGoalData}
-                      onSaveTeamGoalTimeSeriesData={handleSaveTeamGoalTimeSeriesData}
-                      currentUser={currentUserData}
-                      canEdit={canManageCompanyGoals}
-                      organizations={allOrganizations || []}
-                      scope="company"
-                  />
-                ) : (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <p>会社単位の目標を管理する権限がありません。</p>
-                  </div>
-                )}
-            </TabsContent>
-            )}
-            {activeTab === 'team' && (
-            <TabsContent value="team">
-                {canManageOrgPersonalGoals ? (
-                    <>
-                    <div className="max-w-xs mb-6">
-                        <OrganizationPicker
-                          organizations={editableOrgs}
-                          value={selectedOrgId}
-                          onChange={setSelectedOrgId}
-                          disabled={(org) => org.type === 'holding' || org.type === 'company'}
-                        />
-                    </div>
-                     {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
-                      <WidgetList 
-                          widgets={widgetsForTab} 
-                          onSave={handleSaveWidget} 
-                          onDelete={handleDeleteWidget}
-                          onSetActive={handleSetActiveWidget}
-                          onSaveDisplaySettings={handleSaveDisplaySettings}
-                          onSaveSalesRecords={handleSaveSalesRecords}
-                          onSaveProfitRecords={handleSaveProfitRecords}
-                          onSaveCustomerRecords={handleSaveCustomerRecords}
-                          onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
-                          onSaveTeamGoalData={handleSaveTeamGoalData}
-                          onSaveTeamGoalTimeSeriesData={handleSaveTeamGoalTimeSeriesData}
-                          currentUser={currentUserData}
-                          canEdit={canManageOrgPersonalGoals}
-                          organizations={allOrganizations || []}
-                          scope="team"
-                      />}
-                    </>
-                ) : (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <p>組織単位の目標を管理する権限がありません。</p>
-                  </div>
-                )}
-            </TabsContent>
-             )}
-             {activeTab === 'personal' && (
-            <TabsContent value="personal">
-                 {canManageOrgPersonalGoals ? (
-                    !currentUserData ? (
-                      <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                    ) : (
-                      <PersonalGoalsList
-                        user={currentUserData}
-                        onSave={handleSavePersonalGoal}
-                        onDelete={handleDeletePersonalGoal}
-                      />
-                    )
-                ) : (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <p>個人単位の目標を管理する権限がありません。</p>
-                  </div>
-                )}
-            </TabsContent>
-            )}
-        </Tabs>
+          )}
       </div>
+
+      {activeTab === 'company' && (
+        canManageCompanyGoals ? (
+          isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
+          <WidgetList 
+              widgets={widgetsForTab} 
+              onSave={handleSaveWidget} 
+              onDelete={handleDeleteWidget}
+              onSetActive={handleSetActiveWidget}
+              onSaveDisplaySettings={handleSaveDisplaySettings}
+              onSaveSalesRecords={handleSaveSalesRecords}
+              onSaveProfitRecords={handleSaveProfitRecords}
+              onSaveCustomerRecords={handleSaveCustomerRecords}
+              onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
+              onSaveTeamGoalData={handleSaveTeamGoalData}
+              onSaveTeamGoalTimeSeriesData={handleSaveTeamGoalTimeSeriesData}
+              currentUser={currentUserData}
+              canEdit={canManageCompanyGoals}
+              organizations={allOrganizations || []}
+              scope="company"
+          />
+        ) : (
+          <div className="text-center py-10 text-muted-foreground">
+            <p>会社単位の目標を管理する権限がありません。</p>
+          </div>
+        )
+      )}
+      {activeTab === 'team' && (
+        canManageOrgPersonalGoals ? (
+            <>
+            <div className="max-w-xs">
+                <OrganizationPicker
+                  organizations={editableOrgs}
+                  value={selectedOrgId}
+                  onChange={setSelectedOrgId}
+                  disabled={(org) => org.type === 'holding' || org.type === 'company'}
+                />
+            </div>
+              {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
+              <WidgetList 
+                  widgets={widgetsForTab} 
+                  onSave={handleSaveWidget} 
+                  onDelete={handleDeleteWidget}
+                  onSetActive={handleSetActiveWidget}
+                  onSaveDisplaySettings={handleSaveDisplaySettings}
+                  onSaveSalesRecords={handleSaveSalesRecords}
+                  onSaveProfitRecords={handleSaveProfitRecords}
+                  onSaveCustomerRecords={handleSaveCustomerRecords}
+                  onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
+                  onSaveTeamGoalData={handleSaveTeamGoalData}
+                  onSaveTeamGoalTimeSeriesData={handleSaveTeamGoalTimeSeriesData}
+                  currentUser={currentUserData}
+                  canEdit={canManageOrgPersonalGoals}
+                  organizations={allOrganizations || []}
+                  scope="team"
+              />}
+            </>
+        ) : (
+          <div className="text-center py-10 text-muted-foreground">
+            <p>組織単位の目標を管理する権限がありません。</p>
+          </div>
+        )
+      )}
+      {activeTab === 'personal' && (
+        canManageOrgPersonalGoals ? (
+            !currentUserData ? (
+              <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>
+            ) : (
+              <PersonalGoalsList
+                user={currentUserData}
+                onSave={handleSavePersonalGoal}
+                onDelete={handleDeletePersonalGoal}
+              />
+            )
+        ) : (
+          <div className="text-center py-10 text-muted-foreground">
+            <p>個人単位の目標を管理する権限がありません。</p>
+          </div>
+        )
+      )}
     </div>
   );
 }

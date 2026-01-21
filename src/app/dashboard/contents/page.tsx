@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle as MessageCircleIcon, Eye, Tag } from 'lucide-react';
 import Image from 'next/image';
@@ -53,8 +52,8 @@ function TagSelector({ availableTags, selectedTags, onSelectionChange }: { avail
               {selectedTags.length > 0 ? `${selectedTags.length}個のタグを選択中` : "タグを選択..."}
             </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-            <ScrollArea className="h-48" onWheelCapture={(e) => e.stopPropagation()}>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onWheelCapture={(e) => e.stopPropagation()}>
+            <ScrollArea className="h-48">
               <div className="p-2 space-y-1">
                 {availableTags.map((tag, index) => {
                   const checkboxId = `tag-selector-${tag.replace(/\s+/g, '-')}-${index}`;
@@ -868,82 +867,6 @@ function VideosTable({
   );
 }
 
-// 初期ビデオデータ登録ボタン
-function SeedInitialVideosButton({ onSeeded }: { onSeeded: () => void }) {
-  const [isSeeding, setIsSeeding] = useState(false);
-  const firestore = useFirestore();
-  const { user } = useUser();
-  const { toast } = useToast();
-
-  const handleSeedData = async () => {
-    if (!firestore || !user) return;
-    setIsSeeding(true);
-
-    const sampleVideos = [
-      {
-        src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        title: '第4四半期 全社ミーティング',
-        description: 'CEOからのメッセージ',
-        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
-        priority: 'high',
-        tags: ['全社', '戦略'],
-      },
-      {
-        src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-        title: 'デザインチームより',
-        description: '新プロダクトのコンセプト紹介',
-        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
-        priority: 'normal',
-        tags: ['新製品', 'デザイン'],
-      },
-      {
-        src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        title: 'エンジニアチームより',
-        description: 'ベータ版新機能のデモ',
-        thumbnailUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg',
-        priority: 'normal',
-        tags: ['開発', 'デモ'],
-      },
-    ];
-
-    try {
-      const batch = writeBatch(firestore);
-      const videosCollection = collection(firestore, "videos");
-
-      sampleVideos.forEach(video => {
-        const docRef = doc(videosCollection);
-        batch.set(docRef, {
-          ...video,
-          authorId: user.uid,
-          authorName: user.displayName,
-          creatorId: user.uid,
-          uploadedAt: serverTimestamp(),
-          likesCount: Math.floor(Math.random() * 50),
-          commentsCount: Math.floor(Math.random() * 20),
-          viewsCount: Math.floor(Math.random() * 200),
-        });
-      });
-
-      await batch.commit();
-      
-      toast({ title: "成功", description: `${sampleVideos.length}件の初期ビデオを登録しました。` });
-      onSeeded();
-    } catch (error) {
-      console.error("初期ビデオデータの登録に失敗しました:", error);
-      toast({ title: "エラー", description: "初期ビデオデータの登録に失敗しました。", variant: "destructive" });
-    } finally {
-      setIsSeeding(false);
-    }
-  };
-
-  return (
-    <Button onClick={handleSeedData} disabled={isSeeding} variant="outline" size="sm">
-      {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-      {isSeeding ? '登録中...' : '初期ビデオデータを登録'}
-    </Button>
-  );
-}
-
 function ContentsPage() {
     const searchParams = useSearchParams();
     const [selectedTab, setSelectedTab] = useState(searchParams.get('tab') || 'videos');
@@ -957,19 +880,18 @@ function ContentsPage() {
 
   return (
     <Suspense fallback={<div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-        <ContentsPageContent selectedTab={selectedTab} onTabChange={setSelectedTab}/>
+        <ContentsPageContent selectedTab={selectedTab} />
     </Suspense>
   )
 }
 
 
-function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string, onTabChange: (tab: string) => void }) {
+function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user: authUser, isUserLoading } = useUser();
-  const [initialVideosSeeded, setInitialVideosSeeded] = useState(false);
 
   const { userPermissions, isCheckingPermissions } = usePermissions();
   
@@ -1176,11 +1098,6 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
 
   const isLoading = isUserLoading || isCheckingPermissions || isLoadingUsers || isLoadingTags;
 
-  const showSeedButton = !videosLoading && (!videos || videos.length === 0) && !initialVideosSeeded;
-  
-  const canAccessVideoTab = userPermissions.includes('video_management') || userPermissions.includes('proxy_post_video');
-  const canAccessMessageTab = userPermissions.includes('message_management') || userPermissions.includes('proxy_post_message');
-
   const defaultTab = useMemo(() => {
     if (selectedTab === 'videos' && canAccessVideoTab) return 'videos';
     if (selectedTab === 'messages' && canAccessMessageTab) return 'messages';
@@ -1188,6 +1105,12 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
     if (canAccessMessageTab) return 'messages';
     return '';
   }, [selectedTab, canAccessVideoTab, canAccessMessageTab]);
+
+  const pageSubTitle = useMemo(() => {
+    if (defaultTab === 'videos') return 'ビデオ管理';
+    if (defaultTab === 'messages') return 'メッセージ管理';
+    return '';
+  }, [defaultTab]);
 
   if (isLoading) {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -1207,114 +1130,104 @@ function ContentsPageContent({ selectedTab, onTabChange }: { selectedTab: string
   return (
     <div className="w-full max-w-7xl mx-auto">
       <div className="flex items-center mb-6">
-        <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
+        <div>
+          <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
+          {pageSubTitle && <p className="text-sm text-muted-foreground">{pageSubTitle}</p>}
+        </div>
          <div className="ml-auto">
             <TagManagementDialog currentTags={availableTags} onSave={handleSaveTags} />
         </div>
       </div>
-      <Tabs value={defaultTab} onValueChange={onTabChange}>
-        {(canAccessVideoTab && canAccessMessageTab) && (
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
-            <TabsTrigger value="videos" disabled={!canAccessVideoTab}><Video className="mr-2 h-4 w-4" />ビデオ管理</TabsTrigger>
-            <TabsTrigger value="messages" disabled={!canAccessMessageTab}><MessageSquare className="mr-2 h-4 w-4" />メッセージ管理</TabsTrigger>
-          </TabsList>
-        )}
+      
+      {canAccessVideoTab && defaultTab === 'videos' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>ビデオ一覧</CardTitle>
+            <CardDescription>
+              全社に共有するビデオコンテンツを管理します。
+            </CardDescription>
+            <div className="flex justify-end items-center gap-2">
+              {selectedVideos.length > 0 && canManageVideos && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedVideos.length}件を削除</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        選択した{selectedVideos.length}件のビデオを削除します。この操作は元に戻せません。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleBulkDelete('videos')}>削除</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <VideosTable 
+                selected={selectedVideos} 
+                onSelectedChange={setSelectedVideos} 
+                videos={sortedVideos} 
+                isLoading={videosLoading} 
+                allUsers={allUsers || []}
+                currentUser={currentUser}
+                availableTags={availableTags}
+                onAddComment={handleAddComment}
+                onDeleteComment={handleDeleteComment}
+            />
+          </CardContent>
+        </Card>
+      )}
 
-        {canAccessVideoTab && defaultTab === 'videos' && (
-          <TabsContent value="videos">
-            <Card>
-              <CardHeader>
-                <CardTitle>ビデオ一覧</CardTitle>
-                <CardDescription>
-                  全社に共有するビデオコンテンツを管理します。
-                </CardDescription>
-                <div className="flex justify-end items-center gap-2">
-                  {selectedVideos.length > 0 && canManageVideos && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedVideos.length}件を削除</Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            選択した{selectedVideos.length}件のビデオを削除します。この操作は元に戻せません。
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleBulkDelete('videos')}>削除</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-                  {showSeedButton && canManageVideos && <SeedInitialVideosButton onSeeded={() => setInitialVideosSeeded(true)} />}
-                  {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <VideosTable 
-                    selected={selectedVideos} 
-                    onSelectedChange={setSelectedVideos} 
-                    videos={sortedVideos} 
-                    isLoading={videosLoading} 
-                    allUsers={allUsers || []}
-                    currentUser={currentUser}
-                    availableTags={availableTags}
-                    onAddComment={handleAddComment}
-                    onDeleteComment={handleDeleteComment}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-
-        {canAccessMessageTab && defaultTab === 'messages' && (
-          <TabsContent value="messages">
-            <Card>
-              <CardHeader>
-                <CardTitle>メッセージ一覧</CardTitle>
-                <CardDescription>経営層からのメッセージを管理します。</CardDescription>
-                <div className="flex justify-end items-center gap-2">
-                  {selectedMessages.length > 0 && canManageMessages && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedMessages.length}件を削除</Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              選択した{selectedMessages.length}件のメッセージを削除します。この操作は元に戻せません。
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleBulkDelete('messages')}>削除</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
-                </div>
-              </CardHeader>
-              <CardContent>
-                 <MessagesTable 
-                    selected={selectedMessages} 
-                    onSelectedChange={setSelectedMessages}
-                    messages={sortedMessages}
-                    isLoading={messagesLoading}
-                    allUsers={allUsers || []}
-                    currentUser={currentUser}
-                    availableTags={availableTags}
-                    onAddComment={handleAddComment}
-                    onDeleteComment={handleDeleteComment}
-                  />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-      </Tabs>
+      {canAccessMessageTab && defaultTab === 'messages' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>メッセージ一覧</CardTitle>
+            <CardDescription>経営層からのメッセージを管理します。</CardDescription>
+            <div className="flex justify-end items-center gap-2">
+              {selectedMessages.length > 0 && canManageMessages && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedMessages.length}件を削除</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          選択した{selectedMessages.length}件のメッセージを削除します。この操作は元に戻せません。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleBulkDelete('messages')}>削除</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
+            </div>
+          </CardHeader>
+          <CardContent>
+              <MessagesTable 
+                selected={selectedMessages} 
+                onSelectedChange={setSelectedMessages}
+                messages={sortedMessages}
+                isLoading={messagesLoading}
+                allUsers={allUsers || []}
+                currentUser={currentUser}
+                availableTags={availableTags}
+                onAddComment={handleAddComment}
+                onDeleteComment={handleDeleteComment}
+              />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

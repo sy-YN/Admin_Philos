@@ -2,7 +2,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +20,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -470,28 +469,27 @@ function CalendarSettingsPage() {
         setSelectedTab(tab);
       }
     }, [tab]);
+    
+    const pageSubTitle = useMemo(() => {
+        if (selectedTab === 'daily') return '日替わりメッセージ';
+        if (selectedTab === 'scheduled') return '期間指定メッセージ';
+        return '';
+    }, [selectedTab]);
   
     return (
       <div className="w-full max-w-4xl mx-auto space-y-6">
         <div className="flex items-center">
-          <h1 className="text-lg font-semibold md:text-2xl">カレンダー設定</h1>
+          <div>
+            <h1 className="text-lg font-semibold md:text-2xl">カレンダー設定</h1>
+            {pageSubTitle && <p className="text-sm text-muted-foreground">{pageSubTitle}</p>}
+          </div>
         </div>
-        <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="daily">日替わりメッセージ</TabsTrigger>
-            <TabsTrigger value="scheduled">期間指定メッセージ</TabsTrigger>
-          </TabsList>
-          {selectedTab === 'daily' && (
-            <TabsContent value="daily">
-              <DailyMessageListTab />
-            </TabsContent>
-          )}
-          {selectedTab === 'scheduled' && (
-            <TabsContent value="scheduled">
-              <ScheduledMessageListTab />
-            </TabsContent>
-          )}
-        </Tabs>
+        {selectedTab === 'daily' && (
+            <DailyMessageListTab />
+        )}
+        {selectedTab === 'scheduled' && (
+            <ScheduledMessageListTab />
+        )}
       </div>
     );
   }
