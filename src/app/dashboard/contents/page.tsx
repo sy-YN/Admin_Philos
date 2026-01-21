@@ -32,6 +32,7 @@ import { useSearchParams } from 'next/navigation';
 import type { ContentTagSettings } from '@/types/content-tags';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 // --- Tag Management ---
 
@@ -53,20 +54,27 @@ function TagSelector({ availableTags, selectedTags, onSelectionChange }: { avail
             </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onWheelCapture={(e) => e.stopPropagation()}>
+            <div className="p-2 text-xs text-muted-foreground border-b">
+                最大5個まで選択できます。 ({selectedTags.length} / 5)
+            </div>
             <ScrollArea className="h-48">
               <div className="p-2 space-y-1">
                 {(availableTags || []).map((tag, index) => {
                   const checkboxId = `tag-selector-${tag.replace(/\s+/g, '-')}-${index}`;
+                  const isChecked = selectedTags.includes(tag);
+                  const isDisabled = !isChecked && selectedTags.length >= 5;
+
                   return (
-                    <div key={index} className="flex items-center space-x-2">
+                    <div key={index} className={cn("flex items-center space-x-2", isDisabled ? "opacity-50" : "")}>
                       <Checkbox
                         id={checkboxId}
-                        checked={selectedTags.includes(tag)}
+                        checked={isChecked}
                         onCheckedChange={(checked) => handleCheckedChange(tag, !!checked)}
+                        disabled={isDisabled}
                       />
                       <Label
                         htmlFor={checkboxId}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer py-2"
+                        className={cn("text-sm font-medium leading-none flex-1 cursor-pointer py-2", isDisabled ? "cursor-not-allowed" : "")}
                       >
                         {tag}
                       </Label>
@@ -1104,7 +1112,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const defaultTab = useMemo(() => {
     if (selectedTab === 'videos' && canAccessVideoTab) return 'videos';
     if (selectedTab === 'messages' && canAccessMessageTab) return 'messages';
-    if (canAccessVideoTab) return 'videos';
+    if (canManageVideos) return 'videos';
     if (canAccessMessageTab) return 'messages';
     return '';
   }, [selectedTab, canAccessVideoTab, canAccessMessageTab]);
@@ -1237,4 +1245,5 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 
 export default ContentsPage;
 
+    
     
