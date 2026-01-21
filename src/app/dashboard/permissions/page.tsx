@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense } from 'react';
@@ -32,6 +33,7 @@ const permissionGroups = [
       { id: 'message_management', name: 'メッセージ' },
       { id: 'proxy_post_video', name: '代理投稿(ビデオ)' },
       { id: 'proxy_post_message', name: '代理投稿(メッセージ)' },
+      { id: 'tag_management', name: 'タグ管理' },
     ],
   },
   { name: 'コメント投稿', permissions: [{ id: 'can_comment', name: 'コメント投稿' }] },
@@ -59,7 +61,8 @@ const roleDefinitions: Omit<Role, 'id'>[] = [
         'philosophy', 
         'calendar', 
         'company_goal_setting', 'org_personal_goal_setting', 
-        'ranking'
+        'ranking',
+        'tag_management'
     ]},
     { id: 'manager', name: 'マネージャー', permissions: ['can_comment', 'org_personal_goal_setting'] },
     { id: 'employee', name: '従業員', permissions: ['can_comment'] },

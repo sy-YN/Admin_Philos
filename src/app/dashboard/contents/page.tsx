@@ -42,6 +42,11 @@ function TagSelector({ availableTags, selectedTags, onSelectionChange }: { avail
     const newSelection = checked
       ? [...selectedTags, tag]
       : selectedTags.filter(t => t !== tag);
+    
+    if (newSelection.length > 5) {
+        // Optionally show a toast or message
+        return;
+    }
     onSelectionChange(newSelection);
   };
   
@@ -915,6 +920,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const canProxyPostVideo = userPermissions.includes('proxy_post_video');
   const canManageMessages = userPermissions.includes('message_management');
   const canProxyPostMessage = userPermissions.includes('proxy_post_message');
+  const canManageTags = userPermissions.includes('tag_management');
 
   const { data: tagSettingsDoc, isLoading: isLoadingTags } = useDoc<ContentTagSettings>(useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'contentTags') : null, [firestore]));
   const availableTags = useMemo(() => tagSettingsDoc?.tags || [], [tagSettingsDoc]);
@@ -1112,7 +1118,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const defaultTab = useMemo(() => {
     if (selectedTab === 'videos' && canAccessVideoTab) return 'videos';
     if (selectedTab === 'messages' && canAccessMessageTab) return 'messages';
-    if (canManageVideos) return 'videos';
+    if (canAccessVideoTab) return 'videos';
     if (canAccessMessageTab) return 'messages';
     return '';
   }, [selectedTab, canAccessVideoTab, canAccessMessageTab]);
@@ -1127,7 +1133,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
   
-  if (!canAccessVideoTab && !canAccessMessageTab) {
+  if (!canAccessVideoTab && !canAccessMessageTab && !canManageTags) {
     return (
       <div className="w-full max-w-7xl mx-auto">
         <div className="flex items-center mb-6">
@@ -1146,7 +1152,9 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
           {pageSubTitle && <p className="text-sm text-muted-foreground">{pageSubTitle}</p>}
         </div>
          <div className="ml-auto">
-            <TagManagementDialog currentTags={availableTags} onSave={handleSaveTags} />
+            {canManageTags && (
+              <TagManagementDialog currentTags={availableTags} onSave={handleSaveTags} />
+            )}
         </div>
       </div>
       
@@ -1239,11 +1247,15 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
           </CardContent>
         </Card>
       )}
+
+      {!canAccessVideoTab && !canAccessMessageTab && canManageTags && (
+         <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
+            <p>タグ管理権限のみが付与されています。</p>
+            <p className="text-sm">右上の「タグを管理」ボタンからタグの編集を行ってください。</p>
+        </div>
+      )}
     </div>
   );
 }
 
 export default ContentsPage;
-
-    
-    
