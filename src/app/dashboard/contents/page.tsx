@@ -922,7 +922,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const canProxyPostVideo = userPermissions.includes('proxy_post_video');
   const canManageMessages = userPermissions.includes('message_management');
   const canProxyPostMessage = userPermissions.includes('proxy_post_message');
-  const canManageTags = userPermissions.includes('tag_management');
+  const canManageTags = userPermissions.includes('video_management') || userPermissions.includes('message_management');
   
   const canAccessVideoTab = canManageVideos || canProxyPostVideo;
   const canAccessMessageTab = canManageMessages || canProxyPostMessage;
