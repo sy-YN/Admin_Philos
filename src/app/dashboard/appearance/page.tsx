@@ -103,12 +103,10 @@ export default function AppearancePage() {
   const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newHex = e.target.value;
     setPrimaryColorHex(newHex);
-    // Live update CSS variable for preview
     try {
         if (/^#[0-9A-F]{6}$/i.test(newHex)) {
             const newHsl = hexToHsl(newHex);
             setPrimaryColorHsl(newHsl);
-            document.documentElement.style.setProperty('--primary', newHsl);
         }
     } catch (e) {
         console.error("Failed to convert HEX to HSL", e);
