@@ -32,7 +32,7 @@
     
     --chart-1: var(--primary-h) var(--primary-s) var(--primary-l); /* Actuals: Primary Color */
     --chart-2: calc(var(--primary-h) + 180) var(--primary-s) var(--primary-l); /* Overachievement: Complementary Color */
-    --chart-3: calc(var(--primary-h) + 90) var(--primary-s) var(--primary-l); /* Line: Intermediate Color (Square) */
+    --chart-3: calc(var(--primary-h) + 270) var(--primary-s) var(--primary-l); /* Line: Intermediate Color (Square) */
     --chart-4: var(--primary-h) var(--primary-s) 92%; /* Shortfall: Light primary color */
     --chart-5: var(--primary-h) var(--primary-s) 85%; /* Another light shade */
   }
