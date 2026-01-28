@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useCallback } from 'react';
@@ -48,7 +47,7 @@ export const salesChartConfig = {
   salesTarget: { label: '目標', color: 'hsl(var(--secondary))' },
   achievementRate: { label: '達成率', color: 'hsl(var(--chart-3))' },
   overAchievement: { label: '実績(超過)', color: 'hsl(var(--chart-2))' },
-  shortfall: { label: '目標(不足分)', color: 'hsl(var(--chart-1))'},
+  shortfall: { label: '目標(不足分)', color: 'hsl(var(--chart-4))'},
 };
 
 const profitChartConfig = {
@@ -167,7 +166,7 @@ function ActualSalesComposedChart({ chartData, unit, granularity, xTickFormatter
                       payload={[
                         { value: '実績(未達/達成)', type: 'square', id: 'base', color: salesChartConfig.salesActual.color },
                         { value: '実績(超過)', type: 'square', id: 'over', color: salesChartConfig.overAchievement.color },
-                        { value: '目標(不足分)', type: 'square', id: 'shortfall', color: 'hsl(var(--primary))', inactive: true },
+                        { value: '目標(不足分)', type: 'square', id: 'shortfall', color: salesChartConfig.shortfall.color, inactive: true },
                         { value: '達成率', type: 'line', id: 'achievementRate', color: salesChartConfig.achievementRate.color },
                       ]}
                       nameKey="value"
@@ -177,7 +176,7 @@ function ActualSalesComposedChart({ chartData, unit, granularity, xTickFormatter
                 />
 
                 <Bar dataKey="base" name="実績" fill="var(--color-salesActual)" stackId="a" yAxisId="left" />
-                <Bar dataKey="shortfall" name="不足分" fill="var(--color-shortfall)" stackId="a" yAxisId="left" fillOpacity={0.4} />
+                <Bar dataKey="shortfall" name="不足分" fill="var(--color-shortfall)" stackId="a" yAxisId="left" />
                 <Bar dataKey="over" name="超過達成" fill="var(--color-overAchievement)" stackId="a" yAxisId="left" />
                 
                 <Line type="monotone" dataKey="achievementRate" stroke="var(--color-achievementRate)" yAxisId="right" dot={false} strokeWidth={2} name="達成率" />
@@ -240,7 +239,7 @@ function ActualSalesBarChart({ chartData, unit, xTickFormatter }: { chartData: C
                       payload={[
                         { value: '実績(未達/達成)', type: 'square', id: 'base', color: salesChartConfig.salesActual.color },
                         { value: '実績(超過)', type: 'square', id: 'over', color: salesChartConfig.overAchievement.color },
-                        { value: '目標(不足分)', type: 'square', id: 'shortfall', color: 'hsl(var(--primary))', inactive: true },
+                        { value: '目標(不足分)', type: 'square', id: 'shortfall', color: salesChartConfig.shortfall.color, inactive: true },
                       ]}
                       nameKey="value"
                     />
@@ -248,7 +247,7 @@ function ActualSalesBarChart({ chartData, unit, xTickFormatter }: { chartData: C
                   wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
                 />
                 <Bar dataKey="base" name="実績" fill="var(--color-salesActual)" stackId="a" yAxisId="left" />
-                <Bar dataKey="shortfall" name="不足分" fill="var(--color-shortfall)" stackId="a" yAxisId="left" fillOpacity={0.4} />
+                <Bar dataKey="shortfall" name="不足分" fill="var(--color-shortfall)" stackId="a" yAxisId="left" />
                 <Bar dataKey="over" name="超過達成" fill="var(--color-overAchievement)" stackId="a" yAxisId="left" />
             </ComposedChart>
         </ChartContainer>

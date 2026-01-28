@@ -24,11 +24,17 @@
     --input: 220 13% 91%;
     --ring: var(--primary);
     --radius: 0.5rem;
-    --chart-1: 38 92% 50%;
-    --chart-2: 175 70% 40%;
-    --chart-3: 0 0% 50%;
-    --chart-4: 220 13% 80%;
-    --chart-5: 0 0% 50%;
+    
+    /* Chart Colors based on Primary HSL */
+    --primary-h: 142.1;
+    --primary-s: 76.2%;
+    --primary-l: 36.3%;
+    
+    --chart-1: var(--primary-h) var(--primary-s) var(--primary-l); /* Actuals: Primary Color */
+    --chart-2: calc(var(--primary-h) + 180) var(--primary-s) var(--primary-l); /* Overachievement: Complementary Color */
+    --chart-3: calc(var(--primary-h) + 120) var(--primary-s) var(--primary-l); /* Line: Intermediate Color */
+    --chart-4: var(--primary-h) var(--primary-s) 92%; /* Shortfall: Light primary color */
+    --chart-5: var(--primary-h) var(--primary-s) 85%; /* Another light shade */
   }
 
   .dark {
@@ -51,11 +57,14 @@
     --border: 215 27.9% 16.9%;
     --input: 215 27.9% 16.9%;
     --ring: var(--primary);
-    --chart-1: 38 92% 60%;
-    --chart-2: 175 70% 50%;
-    --chart-3: 0 0% 70%;
-    --chart-4: 220 13% 30%;
-    --chart-5: 0 0% 70%;
+    
+    /* Dark Theme Chart Colors */
+    /* Lightness values are adjusted for dark background */
+    --chart-1: var(--primary-h) var(--primary-s) var(--primary-l);
+    --chart-2: calc(var(--primary-h) + 180) var(--primary-s) var(--primary-l);
+    --chart-3: calc(var(--primary-h) + 120) var(--primary-s) 65%; /* A brighter line for dark mode */
+    --chart-4: var(--primary-h) 20% 25%; /* A more muted, less saturated 'light' color for dark mode */
+    --chart-5: var(--primary-h) 20% 35%;
   }
 }
 

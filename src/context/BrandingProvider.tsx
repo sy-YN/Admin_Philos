@@ -29,6 +29,15 @@ export const BrandingProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const color = settings?.primaryColor || defaultSettings.primaryColor;
     document.documentElement.style.setProperty('--primary', color);
+    
+    // Set H, S, L components for dynamic chart colors
+    const [h, s, l] = color.replace(/%/g, '').split(' ').map(s => s.trim());
+    if (h && s && l) {
+        document.documentElement.style.setProperty('--primary-h', h);
+        document.documentElement.style.setProperty('--primary-s', `${s}%`);
+        document.documentElement.style.setProperty('--primary-l', `${l}%`);
+    }
+
   }, [settings]);
 
   const providedSettings = settings ?? defaultSettings;
