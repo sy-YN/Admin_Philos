@@ -1,8 +1,7 @@
-
 'use client';
 
 import * as React from 'react';
-import { Check, ChevronsUpDown, ChevronRight, Building } from 'lucide-react';
+import { Check, ChevronsUpDown, ChevronRight } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -56,46 +55,47 @@ const OrganizationNode = ({
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
       <div
         className={cn(
-          'flex items-center gap-1 rounded-md',
+          'flex items-center rounded-md',
           selectedValue === node.id && 'bg-accent'
         )}
-        style={{ paddingLeft: `${level * 16}px` }}
       >
-        {hasChildren ? (
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
-              <ChevronRight
-                className={cn(
-                  'h-4 w-4 transition-transform',
-                  isOpen && 'rotate-90'
-                )}
-              />
-            </Button>
-          </CollapsibleTrigger>
-        ) : (
-          <div className="w-6 shrink-0" />
-        )}
-        <Button
-          variant="ghost"
-          className={cn(
-              "flex-1 justify-start h-8 px-2",
-              isNodeDisabled && "text-muted-foreground cursor-not-allowed opacity-50"
-            )}
-          onClick={() => !isNodeDisabled && onSelect(node.id)}
-          disabled={isNodeDisabled}
-        >
-          {node.name}
-        </Button>
+        <div style={{ paddingLeft: `${level * 20}px` }} className="flex flex-1 items-center gap-1">
+          {hasChildren ? (
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
+                <ChevronRight
+                  className={cn(
+                    'h-4 w-4 transition-transform',
+                    isOpen && 'rotate-90'
+                  )}
+                />
+              </Button>
+            </CollapsibleTrigger>
+          ) : (
+            <div className="w-6 shrink-0" />
+          )}
+          <Button
+            variant="ghost"
+            className={cn(
+                "flex-1 justify-start h-8 px-2 text-left",
+                isNodeDisabled && "text-muted-foreground cursor-not-allowed opacity-50"
+              )}
+            onClick={() => !isNodeDisabled && onSelect(node.id)}
+            disabled={isNodeDisabled}
+          >
+            <span className="truncate">{node.name}</span>
+          </Button>
+        </div>
         <Check
           className={cn(
-            'mr-2 h-4 w-4',
+            'mr-2 h-4 w-4 shrink-0',
             selectedValue === node.id ? 'opacity-100' : 'opacity-0'
           )}
         />
       </div>
       <CollapsibleContent>
         {hasChildren && (
-          <div className="pl-2">
+          <div>
             {node.children.map((child) => (
               <OrganizationNode
                 key={child.id}
