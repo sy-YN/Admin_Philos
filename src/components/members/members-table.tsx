@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -239,7 +238,7 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
   }
 
   return (
-    <Table>
+    <Table className="min-w-[1200px]">
       <TableHeader className="sticky top-0 z-10 bg-card">
         <TableRow>
           <TableHead>
