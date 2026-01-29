@@ -215,7 +215,7 @@ export default function MembersPage() {
                       onChange={(value) => setOrganizationFilter(value || 'all')}
                       placeholder="すべての組織"
                       searchPlaceholder="組織を検索..."
-                      className="w-full max-w-[240px]"
+                      className="w-full max-w-sm"
                       clearButtonText="すべての組織"
                   />
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
