@@ -4,6 +4,8 @@ import React, { useState, type ReactNode } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
 import { BrandingProvider } from '@/context/BrandingProvider';
+import { PermissionProvider } from '@/context/PermissionContext';
+import { Toaster } from '@/components/ui/toaster';
 
 interface FirebaseClientProviderProps {
   children: ReactNode;
@@ -21,7 +23,10 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
       firestore={firebaseServices.firestore}
     >
       <BrandingProvider>
-        {children}
+        <PermissionProvider>
+          {children}
+          <Toaster />
+        </PermissionProvider>
       </BrandingProvider>
     </FirebaseProvider>
   );

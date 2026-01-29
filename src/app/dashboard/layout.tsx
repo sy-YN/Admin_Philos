@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -43,7 +42,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { PermissionProvider, usePermissions } from '@/context/PermissionContext';
+import { usePermissions } from '@/context/PermissionContext';
 import { useBranding } from '@/context/BrandingProvider';
 import { DynamicIcon } from '@/components/philosophy/dynamic-icon';
 
@@ -411,10 +410,8 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-      <PermissionProvider>
-        <LayoutAuthWrapper>
-          {children}
-        </LayoutAuthWrapper>
-      </PermissionProvider>
+    <LayoutAuthWrapper>
+      {children}
+    </LayoutAuthWrapper>
   );
 }
