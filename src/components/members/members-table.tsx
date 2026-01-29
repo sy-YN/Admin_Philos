@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, Loader2, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { MoreHorizontal, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -218,7 +218,7 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
             <ArrowDown className="ml-2 h-4 w-4" />
         );
     }
-    return <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />;
+    return <ArrowUp className="ml-2 h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />;
   };
 
   if (isLoading) {
