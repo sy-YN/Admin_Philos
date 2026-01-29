@@ -244,12 +244,12 @@ function PermissionsPageComponent() {
   const isLoading = isUserLoading || isLoadingRoles || isLoadingUserPerms || isLoadingUsers;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 h-full">
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">権限管理</h1>
       </div>
       
-       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="roles">役割別権限</TabsTrigger>
           <TabsTrigger value="users">ユーザー個別権限</TabsTrigger>
@@ -317,7 +317,7 @@ function PermissionsPageComponent() {
                   </div>
                 </CardContent>
                 {rolesData && rolesData.length > 0 && (
-                    <CardFooter className="border-t">
+                    <CardFooter>
                         <div className="flex w-full justify-end mt-4">
                             <Button onClick={handleSaveRolePermissions} disabled={isSaving}>
                                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
@@ -328,8 +328,8 @@ function PermissionsPageComponent() {
                 )}
             </Card>
         </TabsContent>
-        <TabsContent value="users" className="mt-6">
-            <Card>
+        <TabsContent value="users" className="mt-6 flex-1 flex flex-col">
+            <Card className="flex-1 flex flex-col overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>ユーザー個別権限の管理</CardTitle>
@@ -340,8 +340,8 @@ function PermissionsPageComponent() {
                         個別権限を保存
                     </Button>
                 </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-auto">
+                <CardContent className="p-0 flex-1 relative">
+                  <div className="overflow-auto absolute inset-0">
                     {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin" /></div> : (
                         <Table>
                             <TableHeader className="sticky top-0 bg-background z-10">
