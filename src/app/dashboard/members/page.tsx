@@ -1,8 +1,9 @@
+
 'use client';
 import { useMemo, useState, useEffect } from 'react';
 import { File, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { MembersTable } from '@/components/members/members-table';
 import { AddMemberDialog } from '@/components/members/add-member-dialog';
@@ -13,6 +14,8 @@ import type { Organization } from '@/types/organization';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns-tz';
 import { ImportMembersDialog } from '@/components/members/import-members-dialog';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
+
 
 export default function MembersPage() {
   const firestore = useFirestore();
@@ -20,6 +23,8 @@ export default function MembersPage() {
   const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   
   const membersQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading) return null;
@@ -44,6 +49,17 @@ export default function MembersPage() {
       member.email.toLowerCase().includes(lowercasedTerm)
     );
   }, [members, searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm]);
+
+  const paginatedMembers = useMemo(() => {
+    const startIndex = currentPage * rowsPerPage;
+    return filteredMembers.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredMembers, currentPage, rowsPerPage]);
+
+  const pageCount = Math.ceil(filteredMembers.length / rowsPerPage);
 
   const { organizationsMap } = useMemo(() => {
     if (!organizations) {
@@ -145,12 +161,21 @@ export default function MembersPage() {
         </CardHeader>
         <CardContent>
           <MembersTable 
-            members={filteredMembers} 
+            members={paginatedMembers} 
             isLoading={isLoading} 
             organizations={organizations || []}
             organizationsMap={organizationsMap}
           />
         </CardContent>
+        <CardFooter>
+            <DataTablePagination
+              count={filteredMembers.length}
+              rowsPerPage={rowsPerPage}
+              page={currentPage}
+              onPageChange={setCurrentPage}
+              onRowsPerPageChange={setRowsPerPage}
+            />
+        </CardFooter>
       </Card>
     </>
   );
