@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -39,11 +39,19 @@ import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { EditMemberDialog } from './edit-member-dialog';
 
+export type SortDirection = 'asc' | 'desc';
+export type SortDescriptor = {
+  column: keyof Member;
+  direction: SortDirection;
+};
+
 interface MembersTableProps {
   members: Member[];
   isLoading: boolean;
   organizations: Organization[];
   organizationsMap: Map<string, Organization>;
+  sortDescriptor: SortDescriptor;
+  onSortChange: (descriptor: SortDescriptor) => void;
 }
 
 const getBadgeVariantForRole = (role: Member['role']): 'default' | 'secondary' | 'destructive' | 'outline' => {
@@ -195,8 +203,18 @@ function MemberTableRow({
 }
 
 
-export function MembersTable({ members, isLoading, organizations, organizationsMap }: MembersTableProps) {
+export function MembersTable({ members, isLoading, organizations, organizationsMap, sortDescriptor, onSortChange }: MembersTableProps) {
   
+  const createSortHandler = (column: keyof Member) => () => {
+    const direction: SortDirection = sortDescriptor.column === column && sortDescriptor.direction === 'asc' ? 'desc' : 'asc';
+    onSortChange({ column, direction });
+  };
+  
+  const SortIndicator = ({ column }: { column: keyof Member }) => {
+    if (sortDescriptor.column !== column) return null;
+    return sortDescriptor.direction === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />;
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-10">
@@ -217,12 +235,36 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>氏名/メール</TableHead>
-          <TableHead className="hidden sm:table-cell">社員番号</TableHead>
-          <TableHead className="hidden md:table-cell">所属部署</TableHead>
-          <TableHead className="hidden md:table-cell">所属会社</TableHead>
-          <TableHead>権限</TableHead>
-          <TableHead className="hidden md:table-cell">登録日</TableHead>
+          <TableHead>
+            <Button variant="ghost" onClick={createSortHandler('displayName')} className="-ml-4 h-8">
+              氏名/メール <SortIndicator column="displayName" />
+            </Button>
+          </TableHead>
+          <TableHead className="hidden sm:table-cell">
+            <Button variant="ghost" onClick={createSortHandler('employeeId')} className="-ml-4 h-8">
+              社員番号 <SortIndicator column="employeeId" />
+            </Button>
+          </TableHead>
+          <TableHead className="hidden md:table-cell">
+            <Button variant="ghost" onClick={createSortHandler('organizationId')} className="-ml-4 h-8">
+              所属部署 <SortIndicator column="organizationId" />
+            </Button>
+          </TableHead>
+           <TableHead className="hidden md:table-cell">
+            <Button variant="ghost" onClick={createSortHandler('company')} className="-ml-4 h-8">
+              所属会社 <SortIndicator column="company" />
+            </Button>
+          </TableHead>
+          <TableHead>
+            <Button variant="ghost" onClick={createSortHandler('role')} className="-ml-4 h-8">
+              権限 <SortIndicator column="role" />
+            </Button>
+          </TableHead>
+          <TableHead className="hidden md:table-cell">
+            <Button variant="ghost" onClick={createSortHandler('createdAt')} className="-ml-4 h-8">
+              登録日 <SortIndicator column="createdAt" />
+            </Button>
+          </TableHead>
           <TableHead>
             <span className="sr-only">Actions</span>
           </TableHead>

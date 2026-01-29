@@ -5,7 +5,7 @@ import { File, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { MembersTable } from '@/components/members/members-table';
+import { MembersTable, type SortDescriptor } from '@/components/members/members-table';
 import { AddMemberDialog } from '@/components/members/add-member-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
@@ -25,6 +25,10 @@ export default function MembersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
+    column: 'createdAt',
+    direction: 'desc',
+  });
   
   const membersQuery = useMemoFirebase(() => {
     if (!firestore || isUserLoading) return null;
@@ -39,28 +43,6 @@ export default function MembersPage() {
   const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(membersQuery);
   const { data: organizations, isLoading: isLoadingOrgs } = useCollection<Organization>(organizationsQuery);
 
-  const filteredMembers = useMemo(() => {
-    if (!members) return [];
-    if (!searchTerm) return members;
-
-    const lowercasedTerm = searchTerm.toLowerCase();
-    return members.filter(member => 
-      member.displayName.toLowerCase().includes(lowercasedTerm) ||
-      member.email.toLowerCase().includes(lowercasedTerm)
-    );
-  }, [members, searchTerm]);
-
-  useEffect(() => {
-    setCurrentPage(0);
-  }, [searchTerm]);
-
-  const paginatedMembers = useMemo(() => {
-    const startIndex = currentPage * rowsPerPage;
-    return filteredMembers.slice(startIndex, startIndex + rowsPerPage);
-  }, [filteredMembers, currentPage, rowsPerPage]);
-
-  const pageCount = Math.ceil(filteredMembers.length / rowsPerPage);
-
   const { organizationsMap } = useMemo(() => {
     if (!organizations) {
       return { organizationsMap: new Map() };
@@ -69,6 +51,44 @@ export default function MembersPage() {
     return { organizationsMap: orgMap };
   }, [organizations]);
 
+  const sortedAndFilteredMembers = useMemo(() => {
+    if (!members) return [];
+    
+    let filtered = members;
+    if (searchTerm) {
+        const lowercasedTerm = searchTerm.toLowerCase();
+        filtered = members.filter(member => 
+            member.displayName.toLowerCase().includes(lowercasedTerm) ||
+            member.email.toLowerCase().includes(lowercasedTerm)
+        );
+    }
+    
+    return [...filtered].sort((a, b) => {
+        const first = a[sortDescriptor.column as keyof Member] ?? '';
+        const second = b[sortDescriptor.column as keyof Member] ?? '';
+
+        const valA = first instanceof Timestamp ? first.toMillis() : first;
+        const valB = second instanceof Timestamp ? second.toMillis() : second;
+
+        let cmp = String(valA).localeCompare(String(valB));
+        if (sortDescriptor.direction === 'desc') {
+            cmp *= -1;
+        }
+        return cmp;
+    });
+
+  }, [members, searchTerm, sortDescriptor]);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm, sortDescriptor, rowsPerPage]);
+
+  const paginatedMembers = useMemo(() => {
+    const startIndex = currentPage * rowsPerPage;
+    return sortedAndFilteredMembers.slice(startIndex, startIndex + rowsPerPage);
+  }, [sortedAndFilteredMembers, currentPage, rowsPerPage]);
+
+  const pageCount = Math.ceil(sortedAndFilteredMembers.length / rowsPerPage);
 
   const handleExport = () => {
     if (!members || members.length === 0) {
@@ -165,11 +185,13 @@ export default function MembersPage() {
             isLoading={isLoading} 
             organizations={organizations || []}
             organizationsMap={organizationsMap}
+            sortDescriptor={sortDescriptor}
+            onSortChange={setSortDescriptor}
           />
         </CardContent>
         <CardFooter>
             <DataTablePagination
-              count={filteredMembers.length}
+              count={sortedAndFilteredMembers.length}
               rowsPerPage={rowsPerPage}
               page={currentPage}
               onPageChange={setCurrentPage}
