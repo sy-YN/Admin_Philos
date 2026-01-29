@@ -164,7 +164,7 @@ function DashboardNav() {
             <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
           </Button>
         </div>
-        <nav className="flex flex-col gap-1 py-4 text-sm font-medium flex-grow px-2">
+        <nav className="flex flex-col gap-1 py-4 text-sm font-medium flex-grow px-2 overflow-y-auto">
          {isCollapsed ? (
               // Collapsed View: Popover for sub-items
               <TooltipProvider>
