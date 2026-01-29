@@ -64,7 +64,8 @@ export default function MembersPage() {
         const lowercasedTerm = searchTerm.toLowerCase();
         filtered = filtered.filter(member => 
             member.displayName.toLowerCase().includes(lowercasedTerm) ||
-            member.email.toLowerCase().includes(lowercasedTerm)
+            member.email.toLowerCase().includes(lowercasedTerm) ||
+            (member.employeeId && member.employeeId.toLowerCase().includes(lowercasedTerm))
         );
     }
     
@@ -75,9 +76,6 @@ export default function MembersPage() {
     if (organizationFilter !== 'all') {
       const getDescendantIds = (parentId: string, orgs: Organization[]): string[] => {
           const directChildren = orgs.filter(o => o.parentId === parentId);
-          if (directChildren.length === 0) {
-              return [];
-          }
           let allDescendants: string[] = directChildren.map(c => c.id);
           directChildren.forEach(child => {
               allDescendants = [...allDescendants, ...getDescendantIds(child.id, orgs)];
@@ -205,7 +203,7 @@ export default function MembersPage() {
                   <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input 
-                          placeholder="名前やメールアドレスで検索..." 
+                          placeholder="名前、メールアドレス、社員番号で検索..." 
                           className="pl-10" 
                           value={searchTerm}
                           onChange={e => setSearchTerm(e.target.value)}
