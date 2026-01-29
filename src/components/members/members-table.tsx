@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
+import { MoreHorizontal, Loader2, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -211,8 +211,14 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
   };
   
   const SortIndicator = ({ column }: { column: keyof Member }) => {
-    if (sortDescriptor.column !== column) return null;
-    return sortDescriptor.direction === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />;
+    if (sortDescriptor.column === column) {
+        return sortDescriptor.direction === 'asc' ? (
+            <ArrowUp className="ml-2 h-4 w-4" />
+        ) : (
+            <ArrowDown className="ml-2 h-4 w-4" />
+        );
+    }
+    return <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />;
   };
 
   if (isLoading) {
@@ -236,32 +242,32 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
       <TableHeader>
         <TableRow>
           <TableHead>
-            <Button variant="ghost" onClick={createSortHandler('displayName')} className="-ml-4 h-8">
+            <Button variant="ghost" onClick={createSortHandler('displayName')} className="-ml-4 h-8 group">
               氏名/メール <SortIndicator column="displayName" />
             </Button>
           </TableHead>
           <TableHead className="hidden sm:table-cell">
-            <Button variant="ghost" onClick={createSortHandler('employeeId')} className="-ml-4 h-8">
+            <Button variant="ghost" onClick={createSortHandler('employeeId')} className="-ml-4 h-8 group">
               社員番号 <SortIndicator column="employeeId" />
             </Button>
           </TableHead>
           <TableHead className="hidden md:table-cell">
-            <Button variant="ghost" onClick={createSortHandler('organizationId')} className="-ml-4 h-8">
+            <Button variant="ghost" onClick={createSortHandler('organizationId')} className="-ml-4 h-8 group">
               所属部署 <SortIndicator column="organizationId" />
             </Button>
           </TableHead>
            <TableHead className="hidden md:table-cell">
-            <Button variant="ghost" onClick={createSortHandler('company')} className="-ml-4 h-8">
+            <Button variant="ghost" onClick={createSortHandler('company')} className="-ml-4 h-8 group">
               所属会社 <SortIndicator column="company" />
             </Button>
           </TableHead>
           <TableHead>
-            <Button variant="ghost" onClick={createSortHandler('role')} className="-ml-4 h-8">
+            <Button variant="ghost" onClick={createSortHandler('role')} className="-ml-4 h-8 group">
               権限 <SortIndicator column="role" />
             </Button>
           </TableHead>
           <TableHead className="hidden md:table-cell">
-            <Button variant="ghost" onClick={createSortHandler('createdAt')} className="-ml-4 h-8">
+            <Button variant="ghost" onClick={createSortHandler('createdAt')} className="-ml-4 h-8 group">
               登録日 <SortIndicator column="createdAt" />
             </Button>
           </TableHead>
