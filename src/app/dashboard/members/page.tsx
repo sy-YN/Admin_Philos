@@ -209,6 +209,15 @@ export default function MembersPage() {
                           onChange={e => setSearchTerm(e.target.value)}
                       />
                   </div>
+                  <OrganizationPicker
+                      organizations={organizations || []}
+                      value={organizationFilter}
+                      onChange={(value) => setOrganizationFilter(value || 'all')}
+                      placeholder="すべての組織"
+                      searchPlaceholder="組織を検索..."
+                      className="w-full max-w-[240px]"
+                      clearButtonText="すべての組織"
+                  />
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
                       <SelectTrigger className="w-full max-w-[200px]">
                           <SelectValue placeholder="権限で絞り込み" />
@@ -221,15 +230,6 @@ export default function MembersPage() {
                           <SelectItem value="employee">従業員 (employee)</SelectItem>
                       </SelectContent>
                   </Select>
-                  <OrganizationPicker
-                      organizations={organizations || []}
-                      value={organizationFilter}
-                      onChange={(value) => setOrganizationFilter(value || 'all')}
-                      placeholder="すべての組織"
-                      searchPlaceholder="組織を検索..."
-                      className="w-full max-w-[240px]"
-                      clearButtonText="すべての組織"
-                  />
               </div>
           </div>
         </CardHeader>
