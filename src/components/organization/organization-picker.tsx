@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -18,6 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Organization } from '@/types/organization';
+import { Separator } from '@/components/ui/separator';
 
 type OrganizationWithChildren = Organization & { children: OrganizationWithChildren[] };
 
@@ -30,6 +32,7 @@ interface OrganizationPickerProps {
   emptyResultText?: string;
   className?: string;
   disabled?: boolean | ((org: Organization) => boolean);
+  clearButtonText?: string;
 }
 
 const OrganizationNode = ({
@@ -120,6 +123,7 @@ export function OrganizationPicker({
   emptyResultText = '組織が見つかりません。',
   className,
   disabled = false,
+  clearButtonText,
 }: OrganizationPickerProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
@@ -199,21 +203,36 @@ export function OrganizationPicker({
             />
         </div>
         <ScrollArea className="h-72">
-            {organizationTree.length > 0 ? (
-                 <div className="p-2">
-                    {organizationTree.map(node => (
-                        <OrganizationNode 
-                            key={node.id} 
-                            node={node} 
-                            onSelect={handleSelect} 
-                            selectedValue={value} 
-                            disabled={disabled instanceof Function ? disabled : undefined}
-                        />
-                    ))}
-                 </div>
-            ) : (
+            <div className="p-2">
+              {clearButtonText && !search && (
+                <>
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      'w-full justify-start h-8 px-2 font-normal',
+                      (!value || value === 'all') && 'bg-accent text-accent-foreground'
+                    )}
+                    onClick={() => handleSelect('')}
+                  >
+                    {clearButtonText}
+                  </Button>
+                  <Separator className="my-1" />
+                </>
+              )}
+              {organizationTree.length > 0 ? (
+                  organizationTree.map(node => (
+                      <OrganizationNode 
+                          key={node.id} 
+                          node={node} 
+                          onSelect={handleSelect} 
+                          selectedValue={value} 
+                          disabled={disabled instanceof Function ? disabled : undefined}
+                      />
+                  ))
+              ) : (
                 <p className="p-4 text-center text-sm text-muted-foreground">{emptyResultText}</p>
-            )}
+              )}
+            </div>
         </ScrollArea>
       </PopoverContent>
     </Popover>

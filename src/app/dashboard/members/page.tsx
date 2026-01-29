@@ -1,3 +1,4 @@
+
 'use client';
 import { useMemo, useState, useEffect } from 'react';
 import { File, Search } from 'lucide-react';
@@ -213,6 +214,7 @@ export default function MembersPage() {
                       placeholder="すべての組織"
                       searchPlaceholder="組織を検索..."
                       className="w-full max-w-[240px]"
+                      clearButtonText="すべての組織"
                   />
               </div>
           </div>
