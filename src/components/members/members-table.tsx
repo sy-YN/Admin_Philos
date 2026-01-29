@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
+import { MoreHorizontal, Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -213,12 +213,13 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
   const SortIndicator = ({ column }: { column: keyof Member }) => {
     if (sortDescriptor.column === column) {
         return sortDescriptor.direction === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
+            <ChevronUp className="ml-2 h-4 w-4" />
         ) : (
-            <ArrowDown className="ml-2 h-4 w-4" />
+            <ChevronDown className="ml-2 h-4 w-4" />
         );
     }
-    return <ArrowUp className="ml-2 h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />;
+    // Show a dimmed up arrow on hover for non-active columns
+    return <ChevronUp className="ml-2 h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />;
   };
 
   if (isLoading) {
