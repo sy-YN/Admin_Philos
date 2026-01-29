@@ -433,7 +433,7 @@ function PermissionsPageComponent() {
                     )}
                   </div>
                 </CardContent>
-                 <CardFooter className="border-t">
+                <CardFooter className="border-t">
                     <DataTablePagination
                     count={usersData?.length || 0}
                     rowsPerPage={rowsPerPage}
@@ -446,8 +446,7 @@ function PermissionsPageComponent() {
                     />
                 </CardFooter>
             </Card>
-            </TabsContent>
-        )}
+        </TabsContent>
        </Tabs>
     </div>
   );
