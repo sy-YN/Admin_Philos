@@ -244,69 +244,67 @@ function PermissionsPageComponent() {
   const isLoading = isUserLoading || isLoadingRoles || isLoadingUserPerms || isLoadingUsers;
 
   return (
-    <div className="flex h-full flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">権限管理</h1>
       </div>
       
-       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex flex-1 flex-col">
+       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="roles">役割別権限</TabsTrigger>
           <TabsTrigger value="users">ユーザー個別権限</TabsTrigger>
         </TabsList>
-        <TabsContent value="roles" className="flex-1">
-            <Card className="flex h-full flex-col">
+        <TabsContent value="roles" className="mt-6">
+            <Card>
                 <CardHeader>
                 <CardTitle>役割別メニューアクセス設定</CardTitle>
                 <CardDescription>役割（ロール）ごとに、管理画面でアクセスできる機能を設定します。</CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 relative p-0">
-                  <div className="absolute inset-0 overflow-auto">
-                    {isLoading ? <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin" /></div> : rolesData && rolesData.length > 0 ? (
-                        <>
-                            <Table className="border-collapse">
-                            <TableHeader className="sticky top-0 bg-background z-20">
-                                <TableRow>
-                                    <TableHead rowSpan={2} className="w-[120px] sticky left-0 bg-background z-30 px-2 align-middle border-b">役割</TableHead>
-                                    {permissionGroups.map(group => (
-                                        <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
-                                    ))}
-                                </TableRow>
-                                <TableRow>
-                                    {permissionColumns.map(col => {
-                                    const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
-                                    const isFirstInGroup = group?.permissions[0].id === col.id;
-                                    return (
-                                        <TableHead key={col.id} className={`text-center px-1 text-xs text-muted-foreground font-normal ${isFirstInGroup ? 'border-l' : ''}`}>
-                                        {col.name}
-                                        </TableHead>
-                                    )
-                                    })}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {rolesData.sort((a,b) => roleDefinitions.findIndex(def => def.id === a.id) - roleDefinitions.findIndex(def => def.id === b.id)).map(role => (
-                                <TableRow key={role.id}>
-                                    <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">{role.name}</TableCell>
-                                    {permissionColumns.map(col => {
-                                    const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
-                                    const isFirstInGroup = group?.permissions[0].id === col.id;
-                                    return (
-                                    <TableCell key={col.id} className={`text-center p-1 ${isFirstInGroup ? 'border-l' : ''}`}>
-                                        <Checkbox
-                                        checked={rolePermissions[role.id]?.includes(col.id)}
-                                        onCheckedChange={(checked) => handleRolePermissionChange(role.id, col.id, !!checked)}
-                                        disabled={role.id === 'admin' || isSaving}
-                                        aria-label={`${role.name} - ${col.name}`}
-                                        />
-                                    </TableCell>
-                                    )
-                                    })}
-                                </TableRow>
+                <CardContent className="p-0">
+                  <div className="overflow-auto">
+                    {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin" /></div> : rolesData && rolesData.length > 0 ? (
+                        <Table>
+                        <TableHeader className="sticky top-0 bg-background z-10">
+                            <TableRow>
+                                <TableHead rowSpan={2} className="w-[120px] sticky left-0 bg-background z-20 px-2 align-middle border-b">役割</TableHead>
+                                {permissionGroups.map(group => (
+                                    <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
                                 ))}
-                            </TableBody>
-                            </Table>
-                        </>
+                            </TableRow>
+                            <TableRow>
+                                {permissionColumns.map(col => {
+                                const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
+                                const isFirstInGroup = group?.permissions[0].id === col.id;
+                                return (
+                                    <TableHead key={col.id} className={'text-center px-1 text-xs text-muted-foreground font-normal ' + (isFirstInGroup ? 'border-l' : '')}>
+                                    {col.name}
+                                    </TableHead>
+                                )
+                                })}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {rolesData.sort((a,b) => roleDefinitions.findIndex(def => def.id === a.id) - roleDefinitions.findIndex(def => def.id === b.id)).map(role => (
+                            <TableRow key={role.id}>
+                                <TableCell className="font-medium sticky left-0 bg-background z-10 px-2">{role.name}</TableCell>
+                                {permissionColumns.map(col => {
+                                const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
+                                const isFirstInGroup = group?.permissions[0].id === col.id;
+                                return (
+                                <TableCell key={col.id} className={'text-center p-1 ' + (isFirstInGroup ? 'border-l' : '')}>
+                                    <Checkbox
+                                    checked={rolePermissions[role.id]?.includes(col.id)}
+                                    onCheckedChange={(checked) => handleRolePermissionChange(role.id, col.id, !!checked)}
+                                    disabled={role.id === 'admin' || isSaving}
+                                    aria-label={`${role.name} - ${col.name}`}
+                                    />
+                                </TableCell>
+                                )
+                                })}
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                        </Table>
                     ) : (
                         <div className="text-center py-10 text-muted-foreground">
                             <p>役割データが見つかりません。</p>
@@ -330,8 +328,8 @@ function PermissionsPageComponent() {
                 )}
             </Card>
         </TabsContent>
-        <TabsContent value="users" className="flex-1">
-            <Card className="flex h-full flex-col">
+        <TabsContent value="users" className="mt-6">
+            <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>ユーザー個別権限の管理</CardTitle>
@@ -342,24 +340,24 @@ function PermissionsPageComponent() {
                         個別権限を保存
                     </Button>
                 </CardHeader>
-                <CardContent className="flex-1 p-0 relative">
-                  <div className="absolute inset-0 overflow-auto">
+                <CardContent className="p-0">
+                  <div className="overflow-auto">
                     {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin" /></div> : (
                         <Table>
-                            <TableHeader className="sticky top-0 bg-background z-20">
+                            <TableHeader className="sticky top-0 bg-background z-10">
                             <TableRow>
-                                <TableHead rowSpan={2} className="w-[180px] sticky left-0 bg-background z-30 px-2 align-middle border-b">ユーザー</TableHead>
+                                <TableHead rowSpan={2} className="w-[180px] sticky left-0 bg-background z-20 px-2 align-middle border-b">ユーザー</TableHead>
                                 {permissionGroups.map(group => (
                                     <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
                                 ))}
-                                <TableHead rowSpan={2} className="w-[80px] sticky right-0 bg-background z-30 px-2 align-middle border-b text-center">操作</TableHead>
+                                <TableHead rowSpan={2} className="w-[80px] sticky right-0 bg-background z-20 px-2 align-middle border-b text-center">操作</TableHead>
                             </TableRow>
                             <TableRow>
                                 {permissionColumns.map(col => {
                                     const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
                                     const isFirstInGroup = group?.permissions[0].id === col.id;
                                     return (
-                                    <TableHead key={col.id} className={`text-center px-1 text-xs text-muted-foreground font-normal ${isFirstInGroup ? 'border-l' : ''}`}>
+                                    <TableHead key={col.id} className={'text-center px-1 text-xs text-muted-foreground font-normal ' + (isFirstInGroup ? 'border-l' : '')}>
                                         {col.name}
                                     </TableHead>
                                     )
@@ -390,7 +388,7 @@ function PermissionsPageComponent() {
                                                 const group = permissionGroups.find(g => g.permissions.some(p => p.id === col.id));
                                                 const isFirstInGroup = group?.permissions[0].id === col.id;
                                                 return (
-                                                    <TableCell key={col.id} className={`text-center p-1 ${isFirstInGroup ? 'border-l' : ''}`}>
+                                                    <TableCell key={col.id} className={'text-center p-1 ' + (isFirstInGroup ? 'border-l' : '')}>
                                                         <Checkbox
                                                             checked={effectivePerms.includes(col.id)}
                                                             onCheckedChange={(checked) => handleIndividualPermissionChange(user.uid, col.id, !!checked)}
