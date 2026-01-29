@@ -4,7 +4,7 @@
 import { Suspense } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
 
 const permissionGroups = [
   { name: 'ユーザー・組織', permissions: [{ id: 'members', name: 'メンバー管理' }, { id: 'organization', name: '組織管理' }] },
@@ -85,8 +86,25 @@ function PermissionsPageComponent() {
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({});
   const [individualPermissions, setIndividualPermissions] = useState<Record<string, string[]>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   
   const rolesMap = useMemo(() => new Map(rolesData?.map(role => [role.id, role.permissions])), [rolesData]);
+
+  const paginatedUsers = useMemo(() => {
+    if (!usersData) return [];
+    const startIndex = currentPage * rowsPerPage;
+    return usersData.slice(startIndex, startIndex + rowsPerPage);
+  }, [usersData, currentPage, rowsPerPage]);
+
+  const pageCount = useMemo(() => {
+      return Math.ceil((usersData?.length || 0) / rowsPerPage);
+  }, [usersData, rowsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [selectedTab, rowsPerPage]);
+
 
   useEffect(() => {
     if (rolesData) {
@@ -351,14 +369,14 @@ function PermissionsPageComponent() {
                             </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {(usersData || []).length === 0 && (
+                                {(paginatedUsers || []).length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={permissionColumns.length + 2} className="h-24 text-center text-muted-foreground">
                                         管理対象のユーザーがいません。
                                         </TableCell>
                                     </TableRow>
                                 )}
-                                {(usersData || []).map(user => {
+                                {(paginatedUsers || []).map(user => {
                                     const hasIndividualSetting = individualPermissions[user.uid] !== undefined;
                                     const effectivePerms = hasIndividualSetting
                                     ? individualPermissions[user.uid]
@@ -421,6 +439,18 @@ function PermissionsPageComponent() {
                     </>
                     )}
                 </CardContent>
+                 <CardFooter>
+                    <DataTablePagination
+                    count={usersData?.length || 0}
+                    rowsPerPage={rowsPerPage}
+                    page={currentPage}
+                    onPageChange={setCurrentPage}
+                    onRowsPerPageChange={(value) => {
+                        setRowsPerPage(value);
+                        setCurrentPage(0);
+                    }}
+                    />
+                </CardFooter>
             </Card>
             </TabsContent>
         )}

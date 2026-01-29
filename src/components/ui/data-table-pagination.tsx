@@ -37,6 +37,16 @@ export function DataTablePagination({
     onPageChange(Math.max(0, Math.min(pageCount - 1, newPage)));
   };
 
+  if (pageCount <= 1) {
+    return (
+       <div className="flex w-full items-center justify-between px-2">
+            <div className="flex-1 text-sm text-muted-foreground">
+                全 {count} 件
+            </div>
+       </div>
+    );
+  }
+
   return (
     <div className="flex w-full items-center justify-between px-2">
       <div className="flex-1 text-sm text-muted-foreground">
@@ -49,7 +59,6 @@ export function DataTablePagination({
             value={`${rowsPerPage}`}
             onValueChange={(value) => {
               onRowsPerPageChange(Number(value));
-              onPageChange(0); // Reset to first page
             }}
           >
             <SelectTrigger className="h-8 w-[70px]">
