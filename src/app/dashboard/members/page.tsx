@@ -1,3 +1,4 @@
+
 'use client';
 import { useMemo, useState, useEffect } from 'react';
 import { File, Search } from 'lucide-react';
@@ -199,15 +200,6 @@ export default function MembersPage() {
                   </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                  <OrganizationPicker
-                      organizations={organizations || []}
-                      value={organizationFilter}
-                      onChange={(value) => setOrganizationFilter(value || 'all')}
-                      placeholder="すべての組織"
-                      searchPlaceholder="組織を検索..."
-                      className="w-full max-w-sm"
-                      clearButtonText="すべての組織"
-                  />
                   <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input 
@@ -217,6 +209,15 @@ export default function MembersPage() {
                           onChange={e => setSearchTerm(e.target.value)}
                       />
                   </div>
+                  <OrganizationPicker
+                      organizations={organizations || []}
+                      value={organizationFilter}
+                      onChange={(value) => setOrganizationFilter(value || 'all')}
+                      placeholder="すべての組織"
+                      searchPlaceholder="組織を検索..."
+                      className="w-full max-w-sm"
+                      clearButtonText="すべての組織"
+                  />
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
                       <SelectTrigger className="w-full max-w-[200px]">
                           <SelectValue placeholder="権限で絞り込み" />
