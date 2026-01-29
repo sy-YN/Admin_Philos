@@ -180,7 +180,7 @@ function MemberTableRow({
                 <AlertDialogHeader>
                   <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
                   <AlertDialogDescription>
-                    この操作は元に戻せません。メンバー「{member.displayName}」のデータがデータベースと認証情報から完全に削除されます。
+                    この操作は元に戻せません。メンバー「${member.displayName}」のデータがデータベースと認証情報から完全に削除されます。
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -238,7 +238,7 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
   }
 
   return (
-    <Table className="min-w-[1200px]">
+    <Table>
       <TableHeader className="sticky top-0 z-10 bg-card">
         <TableRow>
           <TableHead>
