@@ -199,15 +199,6 @@ export default function MembersPage() {
                   </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                          placeholder="名前、メールアドレス、社員番号で検索..." 
-                          className="pl-10" 
-                          value={searchTerm}
-                          onChange={e => setSearchTerm(e.target.value)}
-                      />
-                  </div>
                   <OrganizationPicker
                       organizations={organizations || []}
                       value={organizationFilter}
@@ -217,6 +208,15 @@ export default function MembersPage() {
                       className="w-full max-w-sm"
                       clearButtonText="すべての組織"
                   />
+                  <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                          placeholder="名前、メールアドレス、社員番号で検索..." 
+                          className="pl-10" 
+                          value={searchTerm}
+                          onChange={e => setSearchTerm(e.target.value)}
+                      />
+                  </div>
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
                       <SelectTrigger className="w-full max-w-[200px]">
                           <SelectValue placeholder="権限で絞り込み" />
@@ -232,15 +232,17 @@ export default function MembersPage() {
               </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-auto p-0">
-          <MembersTable 
-            members={paginatedMembers} 
-            isLoading={isLoading} 
-            organizations={organizations || []}
-            organizationsMap={organizationsMap}
-            sortDescriptor={sortDescriptor}
-            onSortChange={setSortDescriptor}
-          />
+        <CardContent className="flex-1 p-0 relative">
+          <div className="absolute inset-0 overflow-auto">
+            <MembersTable 
+              members={paginatedMembers} 
+              isLoading={isLoading} 
+              organizations={organizations || []}
+              organizationsMap={organizationsMap}
+              sortDescriptor={sortDescriptor}
+              onSortChange={setSortDescriptor}
+            />
+          </div>
         </CardContent>
         <CardFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm">
             <DataTablePagination
