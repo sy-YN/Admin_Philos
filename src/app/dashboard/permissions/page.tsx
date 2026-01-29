@@ -345,13 +345,13 @@ function PermissionsPageComponent() {
                 <CardContent className="p-0 flex-1 overflow-auto">
                     {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin" /></div> : (
                         <Table>
-                            <TableHeader className="sticky top-0 bg-background z-10">
+                            <TableHeader className="sticky top-0 bg-background z-20">
                             <TableRow>
-                                <TableHead rowSpan={2} className="w-[180px] sticky left-0 bg-background z-20 px-2 align-middle border-b">ユーザー</TableHead>
+                                <TableHead rowSpan={2} className="w-[180px] sticky left-0 bg-background z-30 px-2 align-middle border-b">ユーザー</TableHead>
                                 {permissionGroups.map(group => (
                                     <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
                                 ))}
-                                <TableHead rowSpan={2} className="w-[80px] sticky right-0 bg-background z-20 px-2 align-middle border-b text-center">操作</TableHead>
+                                <TableHead rowSpan={2} className="w-[80px] sticky right-0 bg-background z-30 px-2 align-middle border-b text-center">操作</TableHead>
                             </TableRow>
                             <TableRow>
                                 {permissionColumns.map(col => {
