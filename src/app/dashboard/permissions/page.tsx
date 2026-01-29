@@ -218,6 +218,8 @@ function PermissionsPageComponent() {
     } catch (error) {
       console.error("Error resetting individual permissions:", error);
       toast({ title: 'エラー', description: '個別設定のリセットに失敗しました。', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -340,8 +342,7 @@ function PermissionsPageComponent() {
                         個別権限を保存
                     </Button>
                 </CardHeader>
-                <CardContent className="p-0 flex-1 relative">
-                  <div className="overflow-auto absolute inset-0">
+                <CardContent className="p-0 flex-1 overflow-auto">
                     {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin" /></div> : (
                         <Table>
                             <TableHeader className="sticky top-0 bg-background z-10">
@@ -431,7 +432,6 @@ function PermissionsPageComponent() {
                             </TableBody>
                         </Table>
                     )}
-                  </div>
                 </CardContent>
                 <CardFooter className="border-t">
                     <DataTablePagination
