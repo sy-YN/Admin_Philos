@@ -264,7 +264,7 @@ function PermissionsPageComponent() {
                   <div className="absolute inset-0 overflow-auto">
                     {isLoading ? <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin" /></div> : rolesData && rolesData.length > 0 ? (
                         <>
-                            <Table className="min-w-[1200px] border-collapse">
+                            <Table className="border-collapse">
                             <TableHeader className="sticky top-0 bg-background z-20">
                                 <TableRow>
                                     <TableHead rowSpan={2} className="w-[120px] sticky left-0 bg-background z-30 px-2 align-middle border-b">役割</TableHead>
@@ -345,7 +345,7 @@ function PermissionsPageComponent() {
                 <CardContent className="flex-1 p-0 relative">
                   <div className="absolute inset-0 overflow-auto">
                     {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin" /></div> : (
-                        <Table className="min-w-[1200px]">
+                        <Table>
                             <TableHeader className="sticky top-0 bg-background z-20">
                             <TableRow>
                                 <TableHead rowSpan={2} className="w-[180px] sticky left-0 bg-background z-30 px-2 align-middle border-b">ユーザー</TableHead>
