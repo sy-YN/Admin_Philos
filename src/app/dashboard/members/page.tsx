@@ -56,7 +56,7 @@ export default function MembersPage() {
   }, [organizations]);
 
   const sortedAndFilteredMembers = useMemo(() => {
-    if (!members) return [];
+    if (!members || !organizations) return [];
     
     let filtered = members;
 
@@ -73,7 +73,23 @@ export default function MembersPage() {
     }
 
     if (organizationFilter !== 'all') {
-      filtered = filtered.filter(member => member.organizationId === organizationFilter);
+      const getDescendantIds = (parentId: string, orgs: Organization[]): string[] => {
+          const directChildren = orgs.filter(o => o.parentId === parentId);
+          if (directChildren.length === 0) {
+              return [];
+          }
+          let allDescendants: string[] = directChildren.map(c => c.id);
+          directChildren.forEach(child => {
+              allDescendants = [...allDescendants, ...getDescendantIds(child.id, orgs)];
+          });
+          return allDescendants;
+      };
+      
+      const relevantOrgIds = [organizationFilter, ...getDescendantIds(organizationFilter, organizations)];
+      
+      filtered = filtered.filter(member => 
+        member.organizationId && relevantOrgIds.includes(member.organizationId)
+      );
     }
     
     return [...filtered].sort((a, b) => {
@@ -90,7 +106,7 @@ export default function MembersPage() {
         return cmp;
     });
 
-  }, [members, searchTerm, roleFilter, organizationFilter, sortDescriptor]);
+  }, [members, organizations, searchTerm, roleFilter, organizationFilter, sortDescriptor]);
 
   useEffect(() => {
     setCurrentPage(0);
