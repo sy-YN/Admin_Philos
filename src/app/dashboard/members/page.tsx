@@ -1,4 +1,3 @@
-
 'use client';
 import { useMemo, useState, useEffect } from 'react';
 import { File, Search } from 'lucide-react';
@@ -15,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns-tz';
 import { ImportMembersDialog } from '@/components/members/import-members-dialog';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { OrganizationPicker } from '@/components/organization/organization-picker';
 
 
 export default function MembersPage() {
@@ -23,6 +24,8 @@ export default function MembersPage() {
   const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [organizationFilter, setOrganizationFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
@@ -55,12 +58,21 @@ export default function MembersPage() {
     if (!members) return [];
     
     let filtered = members;
+
     if (searchTerm) {
         const lowercasedTerm = searchTerm.toLowerCase();
-        filtered = members.filter(member => 
+        filtered = filtered.filter(member => 
             member.displayName.toLowerCase().includes(lowercasedTerm) ||
             member.email.toLowerCase().includes(lowercasedTerm)
         );
+    }
+    
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter(member => member.role === roleFilter);
+    }
+
+    if (organizationFilter !== 'all') {
+      filtered = filtered.filter(member => member.organizationId === organizationFilter);
     }
     
     return [...filtered].sort((a, b) => {
@@ -77,11 +89,11 @@ export default function MembersPage() {
         return cmp;
     });
 
-  }, [members, searchTerm, sortDescriptor]);
+  }, [members, searchTerm, roleFilter, organizationFilter, sortDescriptor]);
 
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm, sortDescriptor, rowsPerPage]);
+  }, [searchTerm, roleFilter, organizationFilter, sortDescriptor, rowsPerPage]);
 
   const paginatedMembers = useMemo(() => {
     const startIndex = currentPage * rowsPerPage;
@@ -165,18 +177,44 @@ export default function MembersPage() {
       
       <Card>
         <CardHeader>
-          <CardTitle>メンバー</CardTitle>
-          <CardDescription>
-            組織内のすべてのメンバーを管理します。
-          </CardDescription>
-          <div className="relative mt-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="名前やメールアドレスで検索..." 
-                className="pl-10 max-w-sm" 
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
+          <div className="flex flex-col gap-4">
+              <div>
+                  <CardTitle>メンバー</CardTitle>
+                  <CardDescription>
+                  組織内のすべてのメンバーを管理します。
+                  </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                          placeholder="名前やメールアドレスで検索..." 
+                          className="pl-10" 
+                          value={searchTerm}
+                          onChange={e => setSearchTerm(e.target.value)}
+                      />
+                  </div>
+                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                      <SelectTrigger className="w-full max-w-[200px]">
+                          <SelectValue placeholder="権限で絞り込み" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="all">すべての権限</SelectItem>
+                          <SelectItem value="admin">管理者 (admin)</SelectItem>
+                          <SelectItem value="executive">経営層 (executive)</SelectItem>
+                          <SelectItem value="manager">マネージャー (manager)</SelectItem>
+                          <SelectItem value="employee">従業員 (employee)</SelectItem>
+                      </SelectContent>
+                  </Select>
+                  <OrganizationPicker
+                      organizations={organizations || []}
+                      value={organizationFilter}
+                      onChange={(value) => setOrganizationFilter(value || 'all')}
+                      placeholder="すべての組織"
+                      searchPlaceholder="組織を検索..."
+                      className="w-full max-w-[240px]"
+                  />
+              </div>
           </div>
         </CardHeader>
         <CardContent>
