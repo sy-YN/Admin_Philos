@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -393,8 +394,8 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen w-full bg-muted/40">
         {pathname !== '/login' && <DashboardNav />}
         <div className="flex flex-col flex-1 overflow-hidden">
-          <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-            <div className="mx-auto w-full">
+          <main className="flex-1 flex flex-col p-4 lg:p-6">
+            <div className="mx-auto w-full h-full">
               {children}
             </div>
           </main>

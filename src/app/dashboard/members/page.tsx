@@ -175,7 +175,7 @@ export default function MembersPage() {
   const isLoading = isLoadingMembers || isLoadingOrgs;
 
   return (
-    <>
+    <div className="flex h-full flex-col gap-4">
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">メンバー管理</h1>
         <div className="ml-auto flex items-center gap-2">
@@ -190,7 +190,7 @@ export default function MembersPage() {
         </div>
       </div>
       
-      <Card>
+      <Card className="flex flex-1 flex-col overflow-hidden">
         <CardHeader>
           <div className="flex flex-col gap-4">
               <div>
@@ -200,15 +200,6 @@ export default function MembersPage() {
                   </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                          placeholder="名前、メールアドレス、社員番号で検索..." 
-                          className="pl-10" 
-                          value={searchTerm}
-                          onChange={e => setSearchTerm(e.target.value)}
-                      />
-                  </div>
                   <OrganizationPicker
                       organizations={organizations || []}
                       value={organizationFilter}
@@ -218,6 +209,15 @@ export default function MembersPage() {
                       className="w-full max-w-sm"
                       clearButtonText="すべての組織"
                   />
+                  <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                          placeholder="名前、メールアドレス、社員番号で検索..." 
+                          className="pl-10" 
+                          value={searchTerm}
+                          onChange={e => setSearchTerm(e.target.value)}
+                      />
+                  </div>
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
                       <SelectTrigger className="w-full max-w-[200px]">
                           <SelectValue placeholder="権限で絞り込み" />
@@ -233,7 +233,7 @@ export default function MembersPage() {
               </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-y-auto p-0">
           <MembersTable 
             members={paginatedMembers} 
             isLoading={isLoading} 
@@ -253,6 +253,6 @@ export default function MembersPage() {
             />
         </CardFooter>
       </Card>
-    </>
+    </div>
   );
 }
