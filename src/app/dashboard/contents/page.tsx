@@ -810,8 +810,8 @@ function VideosTable({
                 <Image src={video.thumbnailUrl} alt={video.title} width={120} height={90} className="rounded-md object-cover" />
               </TableCell>
               <TableCell>
-                <div className="font-medium">{video.title}</div>
-                <div className="text-sm text-muted-foreground hidden md:inline">{video.description}</div>
+                <div className="font-medium line-clamp-1">{video.title}</div>
+                <div className="text-sm text-muted-foreground hidden md:block line-clamp-2">{video.description}</div>
               </TableCell>
               <TableCell className="hidden sm:table-cell">
                 <div className="flex flex-wrap gap-1">
