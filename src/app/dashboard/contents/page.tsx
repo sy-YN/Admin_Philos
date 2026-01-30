@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle as MessageCircleIcon, Eye, Tag, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle as MessageCircleIcon, Eye, Tag, ChevronUp, ChevronDown, ChevronsUpDown, Search } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
@@ -41,40 +41,44 @@ type VideoSortDescriptor = { column: keyof VideoType; direction: 'asc' | 'desc' 
 
 // --- Tag Management ---
 
-function TagSelector({ availableTags, selectedTags, onSelectionChange }: { availableTags: string[], selectedTags: string[], onSelectionChange: (tags: string[]) => void }) {
+function TagSelector({ availableTags, selectedTags, onSelectionChange, limit = 5, triggerPlaceholder = "タグを選択..." }: { availableTags: string[], selectedTags: string[], onSelectionChange: (tags: string[]) => void, limit?: number, triggerPlaceholder?: string }) {
   
+  const { toast } = useToast();
+
   const handleCheckedChange = (tag: string, checked: boolean) => {
     const newSelection = checked
       ? [...selectedTags, tag]
       : selectedTags.filter(t => t !== tag);
     
-    if (newSelection.length > 5) {
-        toast({ title: '上限到達', description: 'タグは5個までしか選択できません。', variant: 'destructive' });
+    const isLimited = limit > 0;
+    if (isLimited && newSelection.length > limit) {
+        toast({ title: '上限到達', description: `タグは${limit}個までしか選択できません。`, variant: 'destructive' });
         return;
     }
     onSelectionChange(newSelection);
   };
-  
-  const { toast } = useToast();
   
   return (
     <Popover>
         <PopoverTrigger asChild>
             <Button variant="outline" className="w-full justify-start font-normal">
               <Tag className="mr-2 h-4 w-4" />
-              {selectedTags.length > 0 ? `${selectedTags.length}個のタグを選択中` : "タグを選択..."}
+              {selectedTags.length > 0 ? `${selectedTags.length}個のタグを選択中` : triggerPlaceholder}
             </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onWheelCapture={(e) => e.stopPropagation()}>
-            <div className="p-2 text-xs text-muted-foreground border-b">
-                最大5個まで選択できます。 ({selectedTags.length} / 5)
-            </div>
+            {limit > 0 && (
+                <div className="p-2 text-xs text-muted-foreground border-b">
+                    最大{limit}個まで選択できます。 ({selectedTags.length} / {limit})
+                </div>
+            )}
             <ScrollArea className="h-48">
               <div className="p-2 space-y-1">
                 {(availableTags || []).map((tag, index) => {
                   const checkboxId = `tag-selector-${tag.replace(/\s+/g, '-')}-${index}`;
                   const isChecked = selectedTags.includes(tag);
-                  const isDisabled = !isChecked && selectedTags.length >= 5;
+                  const isLimited = limit > 0;
+                  const isDisabled = isLimited && !isChecked && selectedTags.length >= limit;
 
                   return (
                     <div key={index} className={cn("flex items-center space-x-2", isDisabled ? "opacity-50" : "")}>
@@ -952,6 +956,12 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   
+  // Search & Filter State
+  const [videoSearchTerm, setVideoSearchTerm] = useState('');
+  const [videoTagFilter, setVideoTagFilter] = useState<string[]>([]);
+  const [messageSearchTerm, setMessageSearchTerm] = useState('');
+  const [messageTagFilter, setMessageTagFilter] = useState<string[]>([]);
+
   // Pagination State
   const [videoCurrentPage, setVideoCurrentPage] = useState(0);
   const [videoRowsPerPage, setVideoRowsPerPage] = useState(5);
@@ -1044,7 +1054,18 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const sortedVideos = useMemo(() => {
     if (!videos) return [];
     
-    return [...videos].sort((a, b) => {
+    const filtered = videos.filter(video => {
+      const searchMatch = videoSearchTerm === '' ||
+        video.title.toLowerCase().includes(videoSearchTerm.toLowerCase()) ||
+        video.description.toLowerCase().includes(videoSearchTerm.toLowerCase());
+      
+      const tagMatch = videoTagFilter.length === 0 ||
+        (video.tags || []).some(tag => videoTagFilter.includes(tag));
+        
+      return searchMatch && tagMatch;
+    });
+
+    return [...filtered].sort((a, b) => {
         const first = a[videoSortDescriptor.column];
         const second = b[videoSortDescriptor.column];
 
@@ -1058,9 +1079,21 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
         }
         return cmp;
     });
-  }, [videos, videoSortDescriptor]);
+  }, [videos, videoSortDescriptor, videoSearchTerm, videoTagFilter]);
 
-  const sortedMessages = messages;
+  const filteredMessages = useMemo(() => {
+    if (!messages) return [];
+    return messages.filter(message => {
+      const searchMatch = messageSearchTerm === '' ||
+        message.title.toLowerCase().includes(messageSearchTerm.toLowerCase()) ||
+        message.content.toLowerCase().includes(messageSearchTerm.toLowerCase());
+      
+      const tagMatch = messageTagFilter.length === 0 ||
+        (message.tags || []).some(tag => messageTagFilter.includes(tag));
+        
+      return searchMatch && tagMatch;
+    });
+  }, [messages, messageSearchTerm, messageTagFilter]);
 
   // Paginated Data
   const paginatedVideos = useMemo(() => {
@@ -1070,20 +1103,20 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   }, [sortedVideos, videoCurrentPage, videoRowsPerPage]);
 
   const paginatedMessages = useMemo(() => {
-    if (!sortedMessages) return [];
+    if (!filteredMessages) return [];
     const startIndex = messageCurrentPage * messageRowsPerPage;
-    return sortedMessages.slice(startIndex, startIndex + messageRowsPerPage);
-  }, [sortedMessages, messageCurrentPage, messageRowsPerPage]);
+    return filteredMessages.slice(startIndex, startIndex + messageRowsPerPage);
+  }, [filteredMessages, messageCurrentPage, messageRowsPerPage]);
 
 
-  // Reset page when tab or rowsPerPage changes
+  // Reset page when filters change
   useEffect(() => {
     setVideoCurrentPage(0);
-  }, [selectedTab, videoRowsPerPage, videoSortDescriptor]);
+  }, [selectedTab, videoRowsPerPage, videoSortDescriptor, videoSearchTerm, videoTagFilter]);
 
   useEffect(() => {
     setMessageCurrentPage(0);
-  }, [selectedTab, messageRowsPerPage]);
+  }, [selectedTab, messageRowsPerPage, messageSearchTerm, messageTagFilter]);
 
 
   const handleAddVideo = async (videoData: Partial<VideoType>) => {
@@ -1177,34 +1210,15 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
     const contentRef = doc(firestore, contentType, contentId);
     const commentsColRef = collection(contentRef, 'comments');
 
-    const batch = writeBatch(firestore);
-    
-    // Helper function to recursively find all descendants
-    const findDescendants = async (parentId: string): Promise<string[]> => {
-      const childrenQuery = query(commentsColRef, where('parentCommentId', '==', parentId));
-      const childrenSnapshot = await getDocs(childrenQuery);
-      let descendantIds: string[] = [];
-      
-      for (const childDoc of childrenSnapshot.docs) {
-        descendantIds.push(childDoc.id);
-        const grandChildrenIds = await findDescendants(childDoc.id);
-        descendantIds = descendantIds.concat(grandChildrenIds);
-      }
-      
-      return descendantIds;
-    };
+    const allIdsToDelete = [commentId];
     
     try {
-        const allIdsToDelete = [commentId, ...(await findDescendants(commentId))];
-        
+        const batch = writeBatch(firestore);
         allIdsToDelete.forEach(id => {
             batch.delete(doc(commentsColRef, id));
         });
-        
         batch.update(contentRef, { commentsCount: increment(-allIdsToDelete.length) });
-
         await batch.commit();
-
     } catch (error) {
       console.error("Error deleting comment and its children: ", error);
       toast({ title: "エラー", description: "コメントの削除に失敗しました。", variant: "destructive" });
@@ -1265,6 +1279,26 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
             <CardDescription>
               全社に共有するビデオコンテンツを管理します。
             </CardDescription>
+             <div className="flex items-center gap-2 pt-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="タイトルや概要で検索..."
+                  className="pl-10"
+                  value={videoSearchTerm}
+                  onChange={e => setVideoSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="w-full max-w-sm">
+                <TagSelector 
+                  availableTags={availableTags} 
+                  selectedTags={videoTagFilter} 
+                  onSelectionChange={setVideoTagFilter} 
+                  limit={0}
+                  triggerPlaceholder="タグで絞り込み..."
+                />
+              </div>
+            </div>
             <div className="flex justify-end items-center gap-2">
               {selectedVideos.length > 0 && canManageVideos && (
                 <AlertDialog>
@@ -1322,6 +1356,26 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
           <CardHeader>
             <CardTitle>メッセージ一覧</CardTitle>
             <CardDescription>経営層からのメッセージを管理します。</CardDescription>
+            <div className="flex items-center gap-2 pt-4">
+               <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="タイトルや内容で検索..."
+                  className="pl-10"
+                  value={messageSearchTerm}
+                  onChange={e => setMessageSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="w-full max-w-sm">
+                <TagSelector 
+                  availableTags={availableTags} 
+                  selectedTags={messageTagFilter} 
+                  onSelectionChange={setMessageTagFilter}
+                  limit={0}
+                  triggerPlaceholder="タグで絞り込み..."
+                />
+              </div>
+            </div>
             <div className="flex justify-end items-center gap-2">
               {selectedMessages.length > 0 && canManageMessages && (
                   <AlertDialog>
@@ -1362,7 +1416,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
           </CardContent>
            <CardFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t">
             <DataTablePagination
-              count={sortedMessages?.length || 0}
+              count={filteredMessages?.length || 0}
               rowsPerPage={messageRowsPerPage}
               page={messageCurrentPage}
               onPageChange={setMessageCurrentPage}
@@ -1383,3 +1437,5 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 }
 
 export default ContentsPage;
+
+    
