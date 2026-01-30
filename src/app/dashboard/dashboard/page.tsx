@@ -2305,6 +2305,10 @@ function DashboardSettingsPageComponent() {
                             disabled={(org) => org.type === 'holding' || org.type === 'company'}
                         />
                     </div>
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="タイトルで検索..." className="pl-10" value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} />
+                    </div>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date" variant="outline" className={cn('w-[280px] justify-start text-left font-normal', !teamDateRange && 'text-muted-foreground')}>
@@ -2315,10 +2319,7 @@ function DashboardSettingsPageComponent() {
                         <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={teamDateRange} onSelect={setTeamDateRange} initialFocus locale={ja} /></PopoverContent>
                     </Popover>
                     {teamDateRange && <Button variant="ghost" size="icon" onClick={() => setTeamDateRange(undefined)}><X className="h-4 w-4" /></Button>}
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="タイトルで検索..." className="pl-10" value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} />
-                    </div>
+                    
                   </div>
                   <div className="flex items-center gap-2">
                       <Button variant={teamCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
