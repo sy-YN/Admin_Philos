@@ -36,7 +36,8 @@ import { cn } from '@/lib/utils';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
 
 // --- Types ---
-type VideoSortDescriptor = { column: keyof VideoType; direction: 'asc' | 'desc' };
+type VideoSortDescriptor = { column: keyof VideoType | 'authorName'; direction: 'asc' | 'desc' };
+type MessageSortDescriptor = { column: keyof ExecutiveMessage | 'authorName'; direction: 'asc' | 'desc' };
 
 
 // --- Tag Management ---
@@ -430,6 +431,8 @@ function MessagesTable({
   availableTags,
   onAddComment,
   onDeleteComment,
+  sortDescriptor,
+  onSortChange,
 }: { 
   selected: string[], 
   onSelectedChange: (ids: string[]) => void,
@@ -440,9 +443,30 @@ function MessagesTable({
   availableTags: string[],
   onAddComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
   onDeleteComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentId: string) => Promise<void>;
+  sortDescriptor: MessageSortDescriptor;
+  onSortChange: (descriptor: MessageSortDescriptor) => void;
 }) {
   const firestore = useFirestore();
   const { toast } = useToast();
+
+  const createSortHandler = (column: keyof ExecutiveMessage | 'authorName') => () => {
+    const direction =
+      sortDescriptor.column === column && sortDescriptor.direction === 'asc'
+        ? 'desc'
+        : 'asc';
+    onSortChange({ column, direction });
+  };
+
+  const SortIndicator = ({ column }: { column: keyof ExecutiveMessage | 'authorName' }) => {
+    if (sortDescriptor.column === column) {
+      return sortDescriptor.direction === 'asc' ? (
+        <ChevronUp className="ml-2 h-4 w-4" />
+      ) : (
+        <ChevronDown className="ml-2 h-4 w-4" />
+      );
+    }
+    return <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />;
+  };
 
   const handleDelete = async (id: string) => {
     if (!firestore) return;
@@ -486,7 +510,18 @@ function MessagesTable({
           <TableHead>タイトル</TableHead>
           <TableHead className="hidden md:table-cell">タグ</TableHead>
           <TableHead className="w-[120px]">重要度</TableHead>
-          <TableHead className="hidden sm:table-cell w-[200px]">投稿者 / 作成者 / 作成日</TableHead>
+          <TableHead className="hidden sm:table-cell w-[150px]">
+            <Button variant="ghost" onClick={createSortHandler('authorName')} className="-ml-4 h-8 group">
+              投稿者
+              <SortIndicator column="authorName" />
+            </Button>
+          </TableHead>
+          <TableHead className="hidden sm:table-cell w-[150px]">
+            <Button variant="ghost" onClick={createSortHandler('createdAt')} className="-ml-4 h-8 group">
+              作成日
+              <SortIndicator column="createdAt" />
+            </Button>
+          </TableHead>
           <TableHead className="hidden lg:table-cell">Counts</TableHead>
           <TableHead><span className="sr-only">Actions</span></TableHead>
         </TableRow>
@@ -509,8 +544,10 @@ function MessagesTable({
                 </Badge>
               </TableCell>
               <TableCell className="hidden sm:table-cell">
-                <div>投稿: {msg.authorName || '不明'}</div>
+                <div>{msg.authorName || '不明'}</div>
                 <div className="text-xs text-muted-foreground">作成: {creator?.displayName || '不明'}</div>
+              </TableCell>
+              <TableCell className="hidden sm:table-cell">
                 <div className="text-xs text-muted-foreground">{formatDate(msg.createdAt)}</div>
               </TableCell>
               <TableCell className="hidden lg:table-cell">
@@ -751,7 +788,7 @@ function VideosTable({
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const createSortHandler = (column: keyof VideoType) => () => {
+  const createSortHandler = (column: keyof VideoType | 'authorName') => () => {
     const direction =
       sortDescriptor.column === column && sortDescriptor.direction === 'asc'
         ? 'desc'
@@ -759,7 +796,7 @@ function VideosTable({
     onSortChange({ column, direction });
   };
 
-  const SortIndicator = ({ column }: { column: keyof VideoType }) => {
+  const SortIndicator = ({ column }: { column: keyof VideoType | 'authorName' }) => {
     if (sortDescriptor.column === column) {
       return sortDescriptor.direction === 'asc' ? (
         <ChevronUp className="ml-2 h-4 w-4" />
@@ -837,9 +874,15 @@ function VideosTable({
               <SortIndicator column="priority" />
             </Button>
           </TableHead>
-          <TableHead className="hidden md:table-cell">
+           <TableHead className="hidden md:table-cell w-[150px]">
+            <Button variant="ghost" onClick={createSortHandler('authorName')} className="-ml-4 h-8 group">
+              投稿者
+              <SortIndicator column="authorName" />
+            </Button>
+          </TableHead>
+          <TableHead className="hidden md:table-cell w-[150px]">
             <Button variant="ghost" onClick={createSortHandler('uploadedAt')} className="-ml-4 h-8 group">
-              投稿者 / 作成者 / 作成日
+              アップロード日
               <SortIndicator column="uploadedAt" />
             </Button>
           </TableHead>
@@ -874,10 +917,12 @@ function VideosTable({
                   {video.priority === 'high' ? '高' : '通常'}
                 </Badge>
               </TableCell>
-              <TableCell className="hidden md:table-cell">
-                <div>投稿: {video.authorName || '不明'}</div>
+               <TableCell className="hidden md:table-cell">
+                <div>{video.authorName || '不明'}</div>
                 <div className="text-xs text-muted-foreground">作成: {creator?.displayName || '不明'}</div>
-                <div className="text-xs text-muted-foreground">{formatDate(video.uploadedAt)}</div>
+              </TableCell>
+              <TableCell className="hidden md:table-cell">
+                {formatDate(video.uploadedAt)}
               </TableCell>
               <TableCell className="hidden lg:table-cell">
                   <ContentDetailsDialog 
@@ -959,8 +1004,11 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   // Search & Filter State
   const [videoSearchTerm, setVideoSearchTerm] = useState('');
   const [videoTagFilter, setVideoTagFilter] = useState<string[]>([]);
+  const [videoAuthorFilter, setVideoAuthorFilter] = useState('');
   const [messageSearchTerm, setMessageSearchTerm] = useState('');
   const [messageTagFilter, setMessageTagFilter] = useState<string[]>([]);
+  const [messageAuthorFilter, setMessageAuthorFilter] = useState('');
+
 
   // Pagination State
   const [videoCurrentPage, setVideoCurrentPage] = useState(0);
@@ -968,6 +1016,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const [messageCurrentPage, setMessageCurrentPage] = useState(0);
   const [messageRowsPerPage, setMessageRowsPerPage] = useState(10);
   const [videoSortDescriptor, setVideoSortDescriptor] = useState<VideoSortDescriptor>({ column: 'uploadedAt', direction: 'desc' });
+  const [messageSortDescriptor, setMessageSortDescriptor] = useState<MessageSortDescriptor>({ column: 'createdAt', direction: 'desc' });
   
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -1016,11 +1065,11 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
     const collectionRef = collection(firestore, 'videos');
     
     if (canManageVideos) {
-        return query(collectionRef, orderBy('uploadedAt', 'desc'));
+        return query(collectionRef);
     }
 
     if (canProxyPostVideo) {
-        return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('uploadedAt', 'desc'));
+        return query(collectionRef, where('creatorId', '==', authUser.uid));
     }
     
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
@@ -1038,11 +1087,11 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
     const collectionRef = collection(firestore, 'executiveMessages');
     
     if (canManageMessages) {
-       return query(collectionRef, orderBy('createdAt', 'desc'));
+       return query(collectionRef);
     }
 
     if (canProxyPostMessage) {
-       return query(collectionRef, where('creatorId', '==', authUser.uid), orderBy('createdAt', 'desc'));
+       return query(collectionRef, where('creatorId', '==', authUser.uid));
     }
     
     return query(collectionRef, where('creatorId', '==', 'NO_ONE_HAS_THIS_ID'));
@@ -1051,6 +1100,29 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 
   const { data: messages, isLoading: messagesLoading, error: messagesError } = useCollection<ExecutiveMessage>(messagesQuery);
   
+  const uniqueVideoAuthors = useMemo(() => {
+    if (!videos) return [];
+    const authors = new Map<string, { id: string, name: string }>();
+    videos.forEach(v => {
+      if (v.authorId && !authors.has(v.authorId)) {
+        authors.set(v.authorId, { id: v.authorId, name: v.authorName });
+      }
+    });
+    return Array.from(authors.values()).sort((a,b) => a.name.localeCompare(b.name));
+  }, [videos]);
+
+  const uniqueMessageAuthors = useMemo(() => {
+    if (!messages) return [];
+    const authors = new Map<string, { id: string, name: string }>();
+    messages.forEach(m => {
+      if (m.authorId && !authors.has(m.authorId)) {
+        authors.set(m.authorId, { id: m.authorId, name: m.authorName });
+      }
+    });
+    return Array.from(authors.values()).sort((a,b) => a.name.localeCompare(b.name));
+  }, [messages]);
+
+
   const sortedVideos = useMemo(() => {
     if (!videos) return [];
     
@@ -1061,16 +1133,16 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
       
       const tagMatch = videoTagFilter.length === 0 ||
         videoTagFilter.every(filterTag => (video.tags || []).includes(filterTag));
+      
+      const authorMatch = videoAuthorFilter === '' || video.authorId === videoAuthorFilter;
         
-      return searchMatch && tagMatch;
+      return searchMatch && tagMatch && authorMatch;
     });
 
     return [...filtered].sort((a, b) => {
-        const first = a[videoSortDescriptor.column];
-        const second = b[videoSortDescriptor.column];
-
-        const valA = first instanceof Timestamp ? first.toMillis() : first;
-        const valB = second instanceof Timestamp ? second.toMillis() : second;
+        const key = videoSortDescriptor.column as keyof VideoType;
+        const valA = a[key] instanceof Timestamp ? a[key].toMillis() : a[key] as any;
+        const valB = b[key] instanceof Timestamp ? b[key].toMillis() : b[key] as any;
 
         let cmp = String(valA).localeCompare(String(valB));
         
@@ -1079,21 +1151,37 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
         }
         return cmp;
     });
-  }, [videos, videoSortDescriptor, videoSearchTerm, videoTagFilter]);
+  }, [videos, videoSortDescriptor, videoSearchTerm, videoTagFilter, videoAuthorFilter]);
 
-  const filteredMessages = useMemo(() => {
+  const sortedMessages = useMemo(() => {
     if (!messages) return [];
-    return messages.filter(message => {
+    const filtered = messages.filter(message => {
       const searchMatch = messageSearchTerm === '' ||
         message.title.toLowerCase().includes(messageSearchTerm.toLowerCase()) ||
         message.content.toLowerCase().includes(messageSearchTerm.toLowerCase());
       
       const tagMatch = messageTagFilter.length === 0 ||
         messageTagFilter.every(filterTag => (message.tags || []).includes(filterTag));
+      
+      const authorMatch = messageAuthorFilter === '' || message.authorId === messageAuthorFilter;
         
-      return searchMatch && tagMatch;
+      return searchMatch && tagMatch && authorMatch;
     });
-  }, [messages, messageSearchTerm, messageTagFilter]);
+
+     return [...filtered].sort((a, b) => {
+        const key = messageSortDescriptor.column as keyof ExecutiveMessage;
+        const valA = a[key] instanceof Timestamp ? a[key].toMillis() : a[key] as any;
+        const valB = b[key] instanceof Timestamp ? b[key].toMillis() : b[key] as any;
+
+        let cmp = String(valA).localeCompare(String(valB));
+        
+        if (messageSortDescriptor.direction === 'desc') {
+            cmp *= -1;
+        }
+        return cmp;
+    });
+  }, [messages, messageSortDescriptor, messageSearchTerm, messageTagFilter, messageAuthorFilter]);
+
 
   // Paginated Data
   const paginatedVideos = useMemo(() => {
@@ -1103,20 +1191,20 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   }, [sortedVideos, videoCurrentPage, videoRowsPerPage]);
 
   const paginatedMessages = useMemo(() => {
-    if (!filteredMessages) return [];
+    if (!sortedMessages) return [];
     const startIndex = messageCurrentPage * messageRowsPerPage;
-    return filteredMessages.slice(startIndex, startIndex + messageRowsPerPage);
-  }, [filteredMessages, messageCurrentPage, messageRowsPerPage]);
+    return sortedMessages.slice(startIndex, startIndex + messageRowsPerPage);
+  }, [sortedMessages, messageCurrentPage, messageRowsPerPage]);
 
 
   // Reset page when filters change
   useEffect(() => {
     setVideoCurrentPage(0);
-  }, [selectedTab, videoRowsPerPage, videoSortDescriptor, videoSearchTerm, videoTagFilter]);
+  }, [selectedTab, videoRowsPerPage, videoSortDescriptor, videoSearchTerm, videoTagFilter, videoAuthorFilter]);
 
   useEffect(() => {
     setMessageCurrentPage(0);
-  }, [selectedTab, messageRowsPerPage, messageSearchTerm, messageTagFilter]);
+  }, [selectedTab, messageRowsPerPage, messageSortDescriptor, messageSearchTerm, messageTagFilter, messageAuthorFilter]);
 
 
   const handleAddVideo = async (videoData: Partial<VideoType>) => {
@@ -1279,17 +1367,41 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
             <CardDescription>
               全社に共有するビデオコンテンツを管理します。
             </CardDescription>
-             <div className="flex items-center gap-2 pt-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="タイトルや概要で検索..."
-                  className="pl-10"
-                  value={videoSearchTerm}
-                  onChange={e => setVideoSearchTerm(e.target.value)}
-                />
-              </div>
-              <div className="w-full max-w-sm">
+             <div className="flex items-center justify-between gap-2 pt-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="タイトルや概要で検索..."
+                    className="pl-10"
+                    value={videoSearchTerm}
+                    onChange={e => setVideoSearchTerm(e.target.value)}
+                  />
+                </div>
+                 <div className="flex items-center gap-2">
+                    {selectedVideos.length > 0 && canManageVideos && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedVideos.length}件を削除</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                            <AlertDialogDescription>
+                            選択した{selectedVideos.length}件のビデオを削除します。この操作は元に戻せません。
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleBulkDelete('videos')}>削除</AlertDialogAction>
+                        </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    )}
+                    {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
+                </div>
+            </div>
+             <div className="flex items-center gap-2">
+              <div className="w-1/2">
                 <TagSelector 
                   availableTags={availableTags} 
                   selectedTags={videoTagFilter} 
@@ -1298,28 +1410,19 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                   triggerPlaceholder="タグで絞り込み..."
                 />
               </div>
-            </div>
-            <div className="flex justify-end items-center gap-2">
-              {selectedVideos.length > 0 && canManageVideos && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedVideos.length}件を削除</Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        選択した{selectedVideos.length}件のビデオを削除します。この操作は元に戻せません。
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleBulkDelete('videos')}>削除</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-              {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
+               <div className="w-1/2">
+                 <Select value={videoAuthorFilter} onValueChange={setVideoAuthorFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="すべての投稿者" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">すべての投稿者</SelectItem>
+                    {uniqueVideoAuthors.map(author => (
+                      <SelectItem key={author.id} value={author.id}>{author.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="flex-1 p-0 relative">
@@ -1356,7 +1459,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
           <CardHeader>
             <CardTitle>メッセージ一覧</CardTitle>
             <CardDescription>経営層からのメッセージを管理します。</CardDescription>
-            <div className="flex items-center gap-2 pt-4">
+             <div className="flex items-center justify-between gap-2 pt-4">
                <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -1366,7 +1469,31 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                   onChange={e => setMessageSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="w-full max-w-sm">
+               <div className="flex items-center gap-2">
+                {selectedMessages.length > 0 && canManageMessages && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedMessages.length}件を削除</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                            <AlertDialogDescription>
+                            選択した{selectedMessages.length}件のメッセージを削除します。この操作は元に戻せません。
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleBulkDelete('messages')}>削除</AlertDialogAction>
+                        </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    )}
+                {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
+              </div>
+            </div>
+             <div className="flex items-center gap-2">
+              <div className="w-1/2">
                 <TagSelector 
                   availableTags={availableTags} 
                   selectedTags={messageTagFilter} 
@@ -1375,28 +1502,19 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                   triggerPlaceholder="タグで絞り込み..."
                 />
               </div>
-            </div>
-            <div className="flex justify-end items-center gap-2">
-              {selectedMessages.length > 0 && canManageMessages && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedMessages.length}件を削除</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          選択した{selectedMessages.length}件のメッセージを削除します。この操作は元に戻せません。
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleBulkDelete('messages')}>削除</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
+              <div className="w-1/2">
+                 <Select value={messageAuthorFilter} onValueChange={setMessageAuthorFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="すべての投稿者" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">すべての投稿者</SelectItem>
+                    {uniqueMessageAuthors.map(author => (
+                      <SelectItem key={author.id} value={author.id}>{author.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="flex-1 p-0 relative">
@@ -1411,12 +1529,14 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                 availableTags={availableTags}
                 onAddComment={onAddComment}
                 onDeleteComment={onDeleteComment}
+                sortDescriptor={messageSortDescriptor}
+                onSortChange={setMessageSortDescriptor}
               />
             </div>
           </CardContent>
            <CardFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t">
             <DataTablePagination
-              count={filteredMessages?.length || 0}
+              count={sortedMessages?.length || 0}
               rowsPerPage={messageRowsPerPage}
               page={messageCurrentPage}
               onPageChange={setMessageCurrentPage}
@@ -1437,3 +1557,5 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 }
 
 export default ContentsPage;
+
+    
