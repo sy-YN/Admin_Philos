@@ -51,6 +51,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { usePermissions } from '@/context/PermissionContext';
 import { Separator } from '@/components/ui/separator';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { Badge } from '@/components/ui/badge';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -1576,110 +1577,6 @@ function WidgetList({
   );
 }
 
-function PersonalGoalsList({
-  user,
-  onSave,
-  onDelete,
-}: {
-  user: Member;
-  onSave: (goal: Partial<PersonalGoal>, id?: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  const [selectedGoal, setSelectedGoal] = useState<PersonalGoal | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  const firestore = useFirestore();
-  const personalGoalsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'users', user.uid, 'personalGoals'));
-  }, [firestore, user]);
-
-  const { data: goals, isLoading: areGoalsLoading } = useCollection<PersonalGoal>(personalGoalsQuery);
-
-  const { ongoing, completed, failed } = useMemo(() => {
-    if (!goals) return { ongoing: [], completed: [], failed: [] };
-    return {
-      ongoing: goals.filter(g => g.status === '進行中'),
-      completed: goals.filter(g => g.status === '達成済'),
-      failed: goals.filter(g => g.status === '未達成'),
-    };
-  }, [goals]);
-
-  const handleEdit = (goal: PersonalGoal) => {
-    setSelectedGoal(goal);
-    setIsDialogOpen(true);
-  };
-
-  const handleCreate = () => {
-    setSelectedGoal(null);
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    onDelete(id);
-  };
-
-  if (areGoalsLoading) {
-    return <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>;
-  }
-  
-  const hasOngoingGoal = ongoing.length > 0;
-
-  return (
-    <>
-      <PersonalGoalDialog
-        goal={selectedGoal}
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onSave={onSave}
-        hasOngoingGoal={hasOngoingGoal}
-      />
-      <div className="space-y-8">
-        <div>
-          <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
-           {hasOngoingGoal && (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {ongoing.map(goal => (
-                <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
-              ))}
-            </div>
-           )}
-        </div>
-        
-        {!hasOngoingGoal && (
-          <div className="my-8 flex flex-col items-center justify-center gap-4 text-center">
-            <div className="flex max-w-md items-start gap-2 rounded-lg bg-muted/50 p-2 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>
-                新しい目標を作成しましょう。メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
-              </p>
-            </div>
-            <Button onClick={handleCreate} className="bg-green-600 text-white hover:bg-green-700">
-              目標を保存してメッセージを生成！
-            </Button>
-          </div>
-        )}
-
-        <div>
-          <h3 className="text-lg font-semibold mb-4">過去の目標</h3>
-          {completed.length > 0 || failed.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {completed.map(goal => (
-                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
-              ))}
-              {failed.map(goal => (
-                 <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => handleDelete(goal.id)} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">完了した目標はまだありません。</p>
-          )}
-        </div>
-      </div>
-    </>
-  );
-}
-
 function PersonalGoalDialog({
   goal,
   open,
@@ -1804,6 +1701,214 @@ function PersonalGoalDialog({
   );
 }
 
+function PersonalGoalsList({
+  user,
+  onSave,
+  onDelete,
+}: {
+  user: Member;
+  onSave: (goal: Partial<PersonalGoal>, id?: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [selectedGoal, setSelectedGoal] = useState<PersonalGoal | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // States for past goals table
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | GoalStatus>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [currentPage, setCurrentPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+
+
+  const firestore = useFirestore();
+  const personalGoalsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'users', user.uid, 'personalGoals'));
+  }, [firestore, user]);
+
+  const { data: goals, isLoading: areGoalsLoading } = useCollection<PersonalGoal>(personalGoalsQuery);
+
+  const { ongoing, pastGoals } = useMemo(() => {
+    if (!goals) return { ongoing: [], pastGoals: [] };
+    const sortedGoals = [...goals].sort((a,b) => b.endDate.toMillis() - a.endDate.toMillis());
+    return {
+      ongoing: sortedGoals.filter(g => g.status === '進行中'),
+      pastGoals: sortedGoals.filter(g => g.status !== '進行中'),
+    };
+  }, [goals]);
+
+  const filteredPastGoals = useMemo(() => {
+    return pastGoals
+      .filter(goal => {
+        const searchMatch = searchTerm === '' || goal.title.toLowerCase().includes(searchTerm.toLowerCase());
+        const statusMatch = statusFilter === 'all' || goal.status === statusFilter;
+        const dateMatch = !dateRange?.from || (goal.endDate.toDate() >= dateRange.from && goal.startDate.toDate() <= (dateRange.to || dateRange.from) );
+        return searchMatch && statusMatch && dateMatch;
+      });
+  }, [pastGoals, searchTerm, statusFilter, dateRange]);
+
+  const paginatedPastGoals = useMemo(() => {
+    const startIndex = currentPage * rowsPerPage;
+    return filteredPastGoals.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredPastGoals, currentPage, rowsPerPage]);
+  
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm, statusFilter, dateRange, rowsPerPage]);
+
+
+  const handleEdit = (goal: PersonalGoal) => {
+    setSelectedGoal(goal);
+    setIsDialogOpen(true);
+  };
+
+  const handleCreate = () => {
+    setSelectedGoal(null);
+    setIsDialogOpen(true);
+  };
+
+  if (areGoalsLoading) {
+    return <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>;
+  }
+  
+  const hasOngoingGoal = ongoing.length > 0;
+
+  return (
+    <>
+      <PersonalGoalDialog
+        goal={selectedGoal}
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSave={onSave}
+        hasOngoingGoal={hasOngoingGoal}
+      />
+      <div className="space-y-8">
+        <div>
+          <h3 className="text-lg font-semibold mb-4">進行中の目標</h3>
+           {hasOngoingGoal ? (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {ongoing.map(goal => (
+                <PersonalGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => onDelete(goal.id)} />
+              ))}
+            </div>
+           ) : (
+            <div className="my-8 flex flex-col items-center justify-center gap-4 text-center">
+              <div className="flex max-w-md items-start gap-2 rounded-lg bg-muted/50 p-2 text-xs text-muted-foreground">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  新しい目標を作成しましょう。メッセージは、あなたの目標達成に向けたポジティブな言葉や、次にとるべきアクションのヒントをAIが提案します。
+                </p>
+              </div>
+              <Button onClick={handleCreate} className="bg-green-600 text-white hover:bg-green-700">
+                目標を保存してメッセージを生成！
+              </Button>
+            </div>
+           )}
+        </div>
+        
+        <Card>
+            <CardHeader>
+                <CardTitle>過去の目標</CardTitle>
+                <CardDescription>完了、または期限切れの目標の一覧です。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex flex-col md:flex-row items-center gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button id="date" variant="outline" className={cn('w-full md:w-[280px] justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'PPP', { locale: ja })} - {format(dateRange.to, 'PPP', { locale: ja })}</>) : (format(dateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み</span>)}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus locale={ja} /></PopoverContent>
+                    </Popover>
+                    <div className="relative flex-1 w-full">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="タイトルで検索..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    </div>
+                    <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | GoalStatus)}>
+                        <SelectTrigger className="w-full md:w-[180px]">
+                            <SelectValue placeholder="ステータス" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">すべてのステータス</SelectItem>
+                            <SelectItem value="達成済">達成済</SelectItem>
+                            <SelectItem value="未達成">未達成</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>目標タイトル</TableHead>
+                                <TableHead>期間</TableHead>
+                                <TableHead>ステータス</TableHead>
+                                <TableHead className="text-right">達成率</TableHead>
+                                <TableHead className="w-[50px]"><span className="sr-only">操作</span></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedPastGoals.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-24 text-center">
+                                        該当する目標はありません。
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                paginatedPastGoals.map(goal => (
+                                    <TableRow key={goal.id}>
+                                        <TableCell className="font-medium">{goal.title}</TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                            {format(goal.startDate.toDate(), 'yy/MM/dd')} - {format(goal.endDate.toDate(), 'yy/MM/dd')}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={goal.status === '達成済' ? 'default' : 'destructive'}>{goal.status}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">{goal.progress}%</TableCell>
+                                        <TableCell>
+                                             <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => handleEdit(goal)}>
+                                                        <Edit className="mr-2 h-4 w-4" />
+                                                        編集
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-destructive" onClick={() => onDelete(goal.id)}>
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        削除
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+            <CardFooter>
+                 <DataTablePagination
+                    count={filteredPastGoals.length}
+                    rowsPerPage={rowsPerPage}
+                    page={currentPage}
+                    onPageChange={setCurrentPage}
+                    onRowsPerPageChange={setRowsPerPage}
+                  />
+            </CardFooter>
+        </Card>
+      </div>
+    </>
+  );
+}
+
+
 function DashboardSettingsPageComponent() {
     const searchParams = useSearchParams();
     const tab = searchParams.get('tab');
@@ -1815,21 +1920,22 @@ function DashboardSettingsPageComponent() {
 
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
     
-    // --- Company Tab States ---
     const [companySearchTerm, setCompanySearchTerm] = useState('');
-    const [companyDateRange, setCompanyDateRange] = useState<DateRange | undefined>();
     const [companyCardSize, setCompanyCardSize] = useState<'sm' | 'md' | 'lg'>('md');
     const [companyCurrentPage, setCompanyCurrentPage] = useState(0);
     const [companyRowsPerPage, setCompanyRowsPerPage] = useState(4);
 
-    // --- Team Tab States ---
-    const [selectedOrgId, setSelectedOrgId] = useState<string>('');
-    const [editableOrgs, setEditableOrgs] = useState<Organization[]>([]);
     const [teamSearchTerm, setTeamSearchTerm] = useState('');
-    const [teamDateRange, setTeamDateRange] = useState<DateRange | undefined>();
     const [teamCardSize, setTeamCardSize] = useState<'sm' | 'md' | 'lg'>('md');
     const [teamCurrentPage, setTeamCurrentPage] = useState(0);
     const [teamRowsPerPage, setTeamRowsPerPage] = useState(4);
+    
+    const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+    const [editableOrgs, setEditableOrgs] = useState<Organization[]>([]);
+    
+    const [teamDateRange, setTeamDateRange] = useState<DateRange | undefined>();
+    const [companyDateRange, setCompanyDateRange] = useState<DateRange | undefined>();
+
 
     useEffect(() => {
         const sizeMap = { lg: 2, md: 4, sm: 6 };
@@ -1915,12 +2021,17 @@ function DashboardSettingsPageComponent() {
     }, [activeTab]);
 
     const companyGoalsQuery = useMemoFirebase(() => {
-        if (!firestore || isCheckingPermissions) return null;
+        if (!firestore || isCheckingPermissions || !canManageCompanyGoals || !currentUserData) return null;
         let queryConstraints: any[] = [where('scope', '==', 'company')];
-        if (!canManageCompanyGoals || !currentUserData?.company) return null;
-        queryConstraints.push(where('scopeId', '==', currentUserData.company));
+        if (currentUserData.company) {
+          queryConstraints.push(where('scopeId', '==', currentUserData.company));
+        } else {
+          // If user has no company, return a query that finds nothing.
+          return query(collection(firestore, 'goals'), where('scopeId', '==', 'NO_COMPANY'));
+        }
         return query(collection(firestore, 'goals'), ...queryConstraints);
     }, [firestore, currentUserData, isCheckingPermissions, canManageCompanyGoals]);
+
 
     const teamGoalsQuery = useMemoFirebase(() => {
         if (!firestore || isCheckingPermissions || !canManageOrgPersonalGoals) return null;
@@ -1938,11 +2049,17 @@ function DashboardSettingsPageComponent() {
             .filter(widget => {
                 if (widget.scopeId !== selectedOrgId) return false;
                 if (teamSearchTerm && !widget.title.toLowerCase().includes(teamSearchTerm.toLowerCase())) return false;
-                if (teamDateRange?.from && teamDateRange?.to) {
+                if (teamDateRange?.from) {
                     const widgetStart = widget.startDate?.toDate();
                     const widgetEnd = widget.endDate?.toDate();
                     if (!widgetStart || !widgetEnd) return false;
-                    if (widgetStart > teamDateRange.to || widgetEnd < teamDateRange.from) return false;
+
+                    const rangeEnd = teamDateRange.to || teamDateRange.from;
+
+                    // Check for overlap
+                    if (widgetStart > rangeEnd || widgetEnd < teamDateRange.from) {
+                        return false;
+                    }
                 }
                 return true;
             })
@@ -1962,14 +2079,16 @@ function DashboardSettingsPageComponent() {
           if (companySearchTerm && !widget.title.toLowerCase().includes(companySearchTerm.toLowerCase())) {
             return false;
           }
-          if (companyDateRange?.from && companyDateRange?.to) {
+          if (companyDateRange?.from) {
             if (!widget.fiscalYear || !widget.fiscalYearStartMonth) return false;
+            
+            const rangeEnd = companyDateRange.to || companyDateRange.from;
 
             const startMonth = widget.fiscalYearStartMonth;
-            const widgetStartDate = new Date(widget.fiscalYear, startMonth - 1, 1);
-            const widgetEndDate = new Date(widget.fiscalYear + 1, startMonth - 2, new Date(widget.fiscalYear + 1, startMonth - 1, 0).getDate());
+            const widgetStartDate = new Date(startMonth >= 2 ? widget.fiscalYear : widget.fiscalYear -1, startMonth - 1, 1);
+            const widgetEndDate = new Date(widgetStartDate.getFullYear() + 1, widgetStartDate.getMonth(), 0);
 
-            if (widgetStartDate > companyDateRange.to || widgetEndDate < companyDateRange.from) {
+            if (widgetStartDate > rangeEnd || widgetEndDate < companyDateRange.from) {
               return false;
             }
           }
@@ -2303,31 +2422,33 @@ function DashboardSettingsPageComponent() {
 
       {activeTab === 'company' && (
         canManageCompanyGoals ? (
-          <div className="space-y-4 h-full flex flex-col">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex flex-1 items-center gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button id="company-date-range" variant="outline" className={cn('w-[280px] justify-start text-left font-normal', !companyDateRange && 'text-muted-foreground')}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {companyDateRange?.from ? (companyDateRange.to ? (<>{format(companyDateRange.from, 'PPP', { locale: ja })} - {format(companyDateRange.to, 'PPP', { locale: ja })}</>) : (format(companyDateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み...</span>)}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={companyDateRange} onSelect={setCompanyDateRange} initialFocus locale={ja} /></PopoverContent>
-                </Popover>
-                {companyDateRange && <Button variant="ghost" size="icon" onClick={() => setCompanyDateRange(undefined)}><X className="h-4 w-4" /></Button>}
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="タイトルで検索..." className="pl-10" value={companySearchTerm} onChange={(e) => setCompanySearchTerm(e.target.value)} />
+          <Card className="flex flex-col h-full">
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex flex-1 items-center gap-2">
+                   <Popover>
+                        <PopoverTrigger asChild>
+                            <Button id="company-date-range" variant="outline" className={cn('w-full md:w-[280px] justify-start text-left font-normal', !companyDateRange && 'text-muted-foreground')}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {companyDateRange?.from ? (companyDateRange.to ? (<>{format(companyDateRange.from, 'PPP', { locale: ja })} - {format(companyDateRange.to, 'PPP', { locale: ja })}</>) : (format(companyDateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み</span>)}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0"><Calendar mode="range" numberOfMonths={2} selected={companyDateRange} onSelect={setCompanyDateRange} initialFocus locale={ja} /></PopoverContent>
+                    </Popover>
+                    {companyDateRange && <Button variant="ghost" size="icon" onClick={() => setCompanyDateRange(undefined)}><X className="h-4 w-4" /></Button>}
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="タイトルで検索..." className="pl-10" value={companySearchTerm} onChange={(e) => setCompanySearchTerm(e.target.value)} />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant={companyCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setCompanyCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
+                  <Button variant={companyCardSize === 'md' ? 'secondary' : 'ghost'} size="icon" onClick={() => setCompanyCardSize('md')} title="中表示"><Columns2 className="h-4 w-4" /></Button>
+                  <Button variant={companyCardSize === 'sm' ? 'secondary' : 'ghost'} size="icon" onClick={() => setCompanyCardSize('sm')} title="小表示"><LayoutGrid className="h-4 w-4" /></Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant={companyCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setCompanyCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
-                <Button variant={companyCardSize === 'md' ? 'secondary' : 'ghost'} size="icon" onClick={() => setCompanyCardSize('md')} title="中表示"><Columns2 className="h-4 w-4" /></Button>
-                <Button variant={companyCardSize === 'sm' ? 'secondary' : 'ghost'} size="icon" onClick={() => setCompanyCardSize('sm')} title="小表示"><LayoutGrid className="h-4 w-4" /></Button>
-              </div>
-            </div>
-            <div className="flex-1 space-y-6">
+            </CardHeader>
+            <CardContent className="flex-1 space-y-6">
               {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
               <WidgetList 
                   widgets={paginatedCompanyWidgets} 
@@ -2347,16 +2468,16 @@ function DashboardSettingsPageComponent() {
                   scope="company"
                   cardSize={companyCardSize}
               />}
-            </div>
-            <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm py-2">
-              <DataTablePagination
-                count={filteredCompanyWidgets.length}
-                rowsPerPage={companyRowsPerPage}
-                page={companyCurrentPage}
-                onPageChange={setCompanyCurrentPage}
-              />
-            </div>
-          </div>
+            </CardContent>
+             <CardFooter>
+                <DataTablePagination
+                    count={filteredCompanyWidgets.length}
+                    rowsPerPage={companyRowsPerPage}
+                    page={companyCurrentPage}
+                    onPageChange={setCompanyCurrentPage}
+                />
+            </CardFooter>
+          </Card>
         ) : (
           <div className="text-center py-10 text-muted-foreground">
             <p>会社単位の目標を管理する権限がありません。</p>
@@ -2365,39 +2486,41 @@ function DashboardSettingsPageComponent() {
       )}
       {activeTab === 'team' && (
         canManageOrgPersonalGoals ? (
-            <div className="space-y-4 h-full flex flex-col">
-               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                 <div className="flex flex-1 items-center gap-2">
-                    <div className="w-full max-w-xs">
-                        <OrganizationPicker
-                            organizations={editableOrgs}
-                            value={selectedOrgId}
-                            onChange={setSelectedOrgId}
-                            disabled={(org) => org.type === 'holding' || org.type === 'company'}
-                        />
+            <Card className="flex flex-col h-full">
+               <CardHeader>
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div className="flex flex-1 items-center gap-2">
+                            <div className="w-full max-w-xs">
+                                <OrganizationPicker
+                                    organizations={editableOrgs}
+                                    value={selectedOrgId}
+                                    onChange={setSelectedOrgId}
+                                    disabled={(org) => org.type === 'holding' || org.type === 'company'}
+                                />
+                            </div>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button id="date" variant="outline" className={cn('w-full md:w-[280px] justify-start text-left font-normal', !teamDateRange && 'text-muted-foreground')}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {teamDateRange?.from ? (teamDateRange.to ? (<>{format(teamDateRange.from, 'PPP', { locale: ja })} - {format(teamDateRange.to, 'PPP', { locale: ja })}</>) : (format(teamDateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み</span>)}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0"><Calendar mode="range" numberOfMonths={2} selected={teamDateRange} onSelect={setTeamDateRange} initialFocus locale={ja} /></PopoverContent>
+                            </Popover>
+                            {teamDateRange && <Button variant="ghost" size="icon" onClick={() => setTeamDateRange(undefined)}><X className="h-4 w-4" /></Button>}
+                            <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input placeholder="タイトルで検索..." className="pl-10" value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button variant={teamCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
+                            <Button variant={teamCardSize === 'md' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('md')} title="中表示"><Columns2 className="h-4 w-4" /></Button>
+                            <Button variant={teamCardSize === 'sm' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('sm')} title="小表示"><LayoutGrid className="h-4 w-4" /></Button>
+                        </div>
                     </div>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date" variant="outline" className={cn('w-[280px] justify-start text-left font-normal', !teamDateRange && 'text-muted-foreground')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {teamDateRange?.from ? (teamDateRange.to ? (<>{format(teamDateRange.from, 'PPP', { locale: ja })} - {format(teamDateRange.to, 'PPP', { locale: ja })}</>) : (format(teamDateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み...</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={teamDateRange} onSelect={setTeamDateRange} initialFocus locale={ja} /></PopoverContent>
-                    </Popover>
-                    {teamDateRange && <Button variant="ghost" size="icon" onClick={() => setTeamDateRange(undefined)}><X className="h-4 w-4" /></Button>}
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="タイトルで検索..." className="pl-10" value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                      <Button variant={teamCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
-                      <Button variant={teamCardSize === 'md' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('md')} title="中表示"><Columns2 className="h-4 w-4" /></Button>
-                      <Button variant={teamCardSize === 'sm' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('sm')} title="小表示"><LayoutGrid className="h-4 w-4" /></Button>
-                  </div>
-              </div>
-              <div className="flex-1 space-y-6">
+               </CardHeader>
+               <CardContent className="flex-1 space-y-6">
                   {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
                   <WidgetList 
                       widgets={paginatedTeamWidgets} 
@@ -2417,16 +2540,16 @@ function DashboardSettingsPageComponent() {
                       scope="team"
                       cardSize={teamCardSize}
                   />}
-                </div>
-                 <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm py-2">
+                </CardContent>
+                 <CardFooter>
                     <DataTablePagination
                       count={filteredTeamWidgets.length}
                       rowsPerPage={teamRowsPerPage}
                       page={teamCurrentPage}
                       onPageChange={setTeamCurrentPage}
                     />
-                </div>
-            </div>
+                </CardFooter>
+            </Card>
         ) : (
           <div className="text-center py-10 text-muted-foreground">
             <p>組織単位の目標を管理する権限がありません。</p>
