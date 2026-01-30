@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
@@ -1544,15 +1545,14 @@ function WidgetList({
     );
   }
 
+  const gridLayouts = {
+    lg: 'grid-cols-1',
+    md: 'grid-cols-1 md:grid-cols-2',
+    sm: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3',
+  };
+
   return (
-    <div className={cn(
-      "grid gap-6",
-      scope === 'team' ? {
-        'grid-cols-1': cardSize === 'lg',
-        'grid-cols-1 md:grid-cols-2': cardSize === 'md',
-        'grid-cols-1 md:grid-cols-2 xl:grid-cols-3': cardSize === 'sm',
-      } : 'grid-cols-1 md:grid-cols-2'
-    )}>
+    <div className={cn('grid gap-6', gridLayouts[cardSize])}>
       {widgets.map(widget => (
         <WidgetCard
           key={widget.id}
@@ -1815,6 +1815,13 @@ function DashboardSettingsPageComponent() {
 
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
     
+    // --- Company Tab States ---
+    const [companySearchTerm, setCompanySearchTerm] = useState('');
+    const [companyDateRange, setCompanyDateRange] = useState<DateRange | undefined>();
+    const [companyCardSize, setCompanyCardSize] = useState<'sm' | 'md' | 'lg'>('md');
+    const [companyCurrentPage, setCompanyCurrentPage] = useState(0);
+    const [companyRowsPerPage, setCompanyRowsPerPage] = useState(4);
+
     // --- Team Tab States ---
     const [selectedOrgId, setSelectedOrgId] = useState<string>('');
     const [editableOrgs, setEditableOrgs] = useState<Organization[]>([]);
@@ -1825,15 +1832,16 @@ function DashboardSettingsPageComponent() {
     const [teamRowsPerPage, setTeamRowsPerPage] = useState(4);
 
     useEffect(() => {
-        if (teamCardSize === 'lg') {
-            setTeamRowsPerPage(2);
-        } else if (teamCardSize === 'md') {
-            setTeamRowsPerPage(4);
-        } else { // sm
-            setTeamRowsPerPage(6);
-        }
+        const sizeMap = { lg: 2, md: 4, sm: 6 };
+        setTeamRowsPerPage(sizeMap[teamCardSize] || 4);
         setTeamCurrentPage(0);
     }, [teamCardSize]);
+    
+    useEffect(() => {
+        const sizeMap = { lg: 2, md: 4, sm: 6 };
+        setCompanyRowsPerPage(sizeMap[companyCardSize] || 4);
+        setCompanyCurrentPage(0);
+    }, [companyCardSize]);
 
 
     const { data: allOrganizations, isLoading: isLoadingOrgs } = useCollection<Organization>(useMemoFirebase(() => firestore ? query(collection(firestore, 'organizations')) : null, [firestore]));
@@ -1946,16 +1954,53 @@ function DashboardSettingsPageComponent() {
                 return dateB.getTime() - dateA.getTime();
             });
     }, [teamWidgets, selectedOrgId, teamSearchTerm, teamDateRange]);
+    
+    const filteredCompanyWidgets = useMemo(() => {
+      if (!companyWidgets) return [];
+      return companyWidgets
+        .filter(widget => {
+          if (companySearchTerm && !widget.title.toLowerCase().includes(companySearchTerm.toLowerCase())) {
+            return false;
+          }
+          if (companyDateRange?.from && companyDateRange?.to) {
+            if (!widget.fiscalYear || !widget.fiscalYearStartMonth) return false;
+
+            const startMonth = widget.fiscalYearStartMonth;
+            const widgetStartDate = new Date(widget.fiscalYear, startMonth - 1, 1);
+            const widgetEndDate = new Date(widget.fiscalYear + 1, startMonth - 2, new Date(widget.fiscalYear + 1, startMonth - 1, 0).getDate());
+
+            if (widgetStartDate > companyDateRange.to || widgetEndDate < companyDateRange.from) {
+              return false;
+            }
+          }
+          return true;
+        })
+        .sort((a, b) => {
+          if (a.status === 'active' && b.status !== 'active') return -1;
+          if (b.status === 'active' && a.status !== 'active') return 1;
+          return (b.fiscalYear ?? 0) - (a.fiscalYear ?? 0) || a.title.localeCompare(b.title);
+        });
+    }, [companyWidgets, companySearchTerm, companyDateRange]);
+
 
     const paginatedTeamWidgets = useMemo(() => {
         const startIndex = teamCurrentPage * teamRowsPerPage;
         return filteredTeamWidgets.slice(startIndex, startIndex + teamRowsPerPage);
     }, [filteredTeamWidgets, teamCurrentPage, teamRowsPerPage]);
 
+    const paginatedCompanyWidgets = useMemo(() => {
+      const startIndex = companyCurrentPage * companyRowsPerPage;
+      return filteredCompanyWidgets.slice(startIndex, startIndex + companyRowsPerPage);
+    }, [filteredCompanyWidgets, companyCurrentPage, companyRowsPerPage]);
+
 
     useEffect(() => {
         setTeamCurrentPage(0);
     }, [selectedOrgId, teamSearchTerm, teamDateRange]);
+
+    useEffect(() => {
+        setCompanyCurrentPage(0);
+    }, [companySearchTerm, companyDateRange]);
 
 
     const handleSaveWidget = async (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => {
@@ -2210,16 +2255,6 @@ function DashboardSettingsPageComponent() {
       }
     };
 
-    
-    const companyWidgetsForTab = useMemo(() => {
-      if (!companyWidgets) return [];
-      return [...companyWidgets].sort((a, b) => {
-        if (a.status === 'active' && b.status !== 'active') return -1;
-        if (b.status === 'active' && a.status !== 'active') return 1;
-        return (b.fiscalYear ?? 0) - (a.fiscalYear ?? 0) || a.title.localeCompare(b.title);
-      });
-    }, [companyWidgets]);
-
   const isLoading = isAuthUserLoading || isCheckingPermissions || isLoadingOrgs || !currentUserData;
 
   if (isLoading) {
@@ -2268,24 +2303,60 @@ function DashboardSettingsPageComponent() {
 
       {activeTab === 'company' && (
         canManageCompanyGoals ? (
-          isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
-          <WidgetList 
-              widgets={companyWidgetsForTab} 
-              onSave={handleSaveWidget} 
-              onDelete={handleDeleteWidget}
-              onSetActive={handleSetActiveWidget}
-              onSaveDisplaySettings={handleSaveDisplaySettings}
-              onSaveSalesRecords={handleSaveSalesRecords}
-              onSaveProfitRecords={handleSaveProfitRecords}
-              onSaveCustomerRecords={handleSaveCustomerRecords}
-              onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
-              onSaveTeamGoalData={handleSaveTeamGoalData}
-              onSaveTeamGoalTimeSeriesData={handleSaveTeamGoalTimeSeriesData}
-              currentUser={currentUserData}
-              canEdit={canManageCompanyGoals}
-              organizations={allOrganizations || []}
-              scope="company"
-          />
+          <div className="space-y-4 h-full flex flex-col">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex flex-1 items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button id="company-date-range" variant="outline" className={cn('w-[280px] justify-start text-left font-normal', !companyDateRange && 'text-muted-foreground')}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {companyDateRange?.from ? (companyDateRange.to ? (<>{format(companyDateRange.from, 'PPP', { locale: ja })} - {format(companyDateRange.to, 'PPP', { locale: ja })}</>) : (format(companyDateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み...</span>)}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={companyDateRange} onSelect={setCompanyDateRange} initialFocus locale={ja} /></PopoverContent>
+                </Popover>
+                {companyDateRange && <Button variant="ghost" size="icon" onClick={() => setCompanyDateRange(undefined)}><X className="h-4 w-4" /></Button>}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="タイトルで検索..." className="pl-10" value={companySearchTerm} onChange={(e) => setCompanySearchTerm(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant={companyCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setCompanyCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
+                <Button variant={companyCardSize === 'md' ? 'secondary' : 'ghost'} size="icon" onClick={() => setCompanyCardSize('md')} title="中表示"><Columns2 className="h-4 w-4" /></Button>
+                <Button variant={companyCardSize === 'sm' ? 'secondary' : 'ghost'} size="icon" onClick={() => setCompanyCardSize('sm')} title="小表示"><LayoutGrid className="h-4 w-4" /></Button>
+              </div>
+            </div>
+            <div className="flex-1 space-y-6">
+              {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
+              <WidgetList 
+                  widgets={paginatedCompanyWidgets} 
+                  onSave={handleSaveWidget} 
+                  onDelete={handleDeleteWidget}
+                  onSetActive={handleSetActiveWidget}
+                  onSaveDisplaySettings={handleSaveDisplaySettings}
+                  onSaveSalesRecords={handleSaveSalesRecords}
+                  onSaveProfitRecords={handleSaveProfitRecords}
+                  onSaveCustomerRecords={handleSaveCustomerRecords}
+                  onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
+                  onSaveTeamGoalData={handleSaveTeamGoalData}
+                  onSaveTeamGoalTimeSeriesData={handleSaveTeamGoalTimeSeriesData}
+                  currentUser={currentUserData}
+                  canEdit={canManageCompanyGoals}
+                  organizations={allOrganizations || []}
+                  scope="company"
+                  cardSize={companyCardSize}
+              />}
+            </div>
+            <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm py-2">
+              <DataTablePagination
+                count={filteredCompanyWidgets.length}
+                rowsPerPage={companyRowsPerPage}
+                page={companyCurrentPage}
+                onPageChange={setCompanyCurrentPage}
+              />
+            </div>
+          </div>
         ) : (
           <div className="text-center py-10 text-muted-foreground">
             <p>会社単位の目標を管理する権限がありません。</p>
@@ -2305,10 +2376,6 @@ function DashboardSettingsPageComponent() {
                             disabled={(org) => org.type === 'holding' || org.type === 'company'}
                         />
                     </div>
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="タイトルで検索..." className="pl-10" value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} />
-                    </div>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date" variant="outline" className={cn('w-[280px] justify-start text-left font-normal', !teamDateRange && 'text-muted-foreground')}>
@@ -2319,7 +2386,10 @@ function DashboardSettingsPageComponent() {
                         <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={teamDateRange} onSelect={setTeamDateRange} initialFocus locale={ja} /></PopoverContent>
                     </Popover>
                     {teamDateRange && <Button variant="ghost" size="icon" onClick={() => setTeamDateRange(undefined)}><X className="h-4 w-4" /></Button>}
-                    
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="タイトルで検索..." className="pl-10" value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                       <Button variant={teamCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
