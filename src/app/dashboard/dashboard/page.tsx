@@ -1822,7 +1822,19 @@ function DashboardSettingsPageComponent() {
     const [teamDateRange, setTeamDateRange] = useState<DateRange | undefined>();
     const [teamCardSize, setTeamCardSize] = useState<'sm' | 'md' | 'lg'>('md');
     const [teamCurrentPage, setTeamCurrentPage] = useState(0);
-    const [teamRowsPerPage, setTeamRowsPerPage] = useState(6);
+    const [teamRowsPerPage, setTeamRowsPerPage] = useState(4);
+
+    useEffect(() => {
+        if (teamCardSize === 'lg') {
+            setTeamRowsPerPage(2);
+        } else if (teamCardSize === 'md') {
+            setTeamRowsPerPage(4);
+        } else { // sm
+            setTeamRowsPerPage(6);
+        }
+        setTeamCurrentPage(0);
+    }, [teamCardSize]);
+
 
     const { data: allOrganizations, isLoading: isLoadingOrgs } = useCollection<Organization>(useMemoFirebase(() => firestore ? query(collection(firestore, 'organizations')) : null, [firestore]));
 
@@ -1943,7 +1955,7 @@ function DashboardSettingsPageComponent() {
 
     useEffect(() => {
         setTeamCurrentPage(0);
-    }, [selectedOrgId, teamSearchTerm, teamDateRange, teamRowsPerPage]);
+    }, [selectedOrgId, teamSearchTerm, teamDateRange]);
 
 
     const handleSaveWidget = async (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => {
@@ -2283,7 +2295,7 @@ function DashboardSettingsPageComponent() {
       {activeTab === 'team' && (
         canManageOrgPersonalGoals ? (
             <div className="space-y-4 h-full flex flex-col">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                  <div className="flex flex-1 items-center gap-2">
                     <div className="w-full max-w-xs">
                         <OrganizationPicker
@@ -2314,8 +2326,7 @@ function DashboardSettingsPageComponent() {
                       <Button variant={teamCardSize === 'sm' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('sm')} title="小表示"><LayoutGrid className="h-4 w-4" /></Button>
                   </div>
               </div>
-              <Card className="flex-1 flex flex-col overflow-hidden">
-                <CardContent className="flex-1 p-6">
+              <div className="flex-1 space-y-6">
                   {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
                   <WidgetList 
                       widgets={paginatedTeamWidgets} 
@@ -2335,20 +2346,15 @@ function DashboardSettingsPageComponent() {
                       scope="team"
                       cardSize={teamCardSize}
                   />}
-                </CardContent>
-                <CardFooter>
-                   <DataTablePagination
+                </div>
+                 <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm py-2">
+                    <DataTablePagination
                       count={filteredTeamWidgets.length}
                       rowsPerPage={teamRowsPerPage}
                       page={teamCurrentPage}
                       onPageChange={setTeamCurrentPage}
-                      onRowsPerPageChange={(value) => {
-                        setTeamRowsPerPage(value);
-                        setTeamCurrentPage(0);
-                      }}
                     />
-                </CardFooter>
-              </Card>
+                </div>
             </div>
         ) : (
           <div className="text-center py-10 text-muted-foreground">
