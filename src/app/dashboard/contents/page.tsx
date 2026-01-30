@@ -811,7 +811,11 @@ function VideosTable({
               </TableCell>
               <TableCell>
                 <div className="font-medium line-clamp-1">{video.title}</div>
-                <div className="text-sm text-muted-foreground hidden md:block line-clamp-2 max-w-md">{video.description}</div>
+                <div className="text-sm text-muted-foreground hidden md:block max-w-md">
+                  {video.description.length > 25
+                    ? `${video.description.substring(0, 25)}...`
+                    : video.description}
+                </div>
               </TableCell>
               <TableCell className="hidden sm:table-cell">
                 <div className="flex flex-wrap gap-1">
@@ -1266,3 +1270,5 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 }
 
 export default ContentsPage;
+
+    
