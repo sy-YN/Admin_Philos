@@ -1042,7 +1042,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
     }
   };
 
-  const handleAddComment = useCallback(async (
+  const onAddComment = useCallback(async (
     contentType: 'videos' | 'executiveMessages',
     contentId: string,
     commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>
@@ -1070,7 +1070,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
     }
   }, [firestore, authUser, toast]);
 
-  const handleDeleteComment = useCallback(async (
+  const onDeleteComment = useCallback(async (
     contentType: 'videos' | 'executiveMessages',
     contentId: string, 
     commentId: string
@@ -1201,7 +1201,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                   allUsers={allUsers || []}
                   currentUser={currentUser}
                   availableTags={availableTags}
-                  onAddComment={handleAddComment}
+                  onAddComment={onAddComment}
                   onDeleteComment={onDeleteComment}
               />
             </div>
@@ -1247,8 +1247,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                 allUsers={allUsers || []}
                 currentUser={currentUser}
                 availableTags={availableTags}
-                onAddComment={handleAddComment}
-                onDeleteComment={handleDeleteComment}
+                onAddComment={onAddComment}
+                onDeleteComment={onDeleteComment}
               />
             </div>
           </CardContent>
