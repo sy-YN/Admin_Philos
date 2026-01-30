@@ -1411,12 +1411,12 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                 />
               </div>
                <div className="w-1/2">
-                 <Select value={videoAuthorFilter} onValueChange={setVideoAuthorFilter}>
+                 <Select value={videoAuthorFilter || 'all'} onValueChange={(v) => setVideoAuthorFilter(v === 'all' ? '' : v)}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="すべての投稿者" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">すべての投稿者</SelectItem>
+                    <SelectItem value="all">すべての投稿者</SelectItem>
                     {uniqueVideoAuthors.map(author => (
                       <SelectItem key={author.id} value={author.id}>{author.name}</SelectItem>
                     ))}
@@ -1503,12 +1503,12 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                 />
               </div>
               <div className="w-1/2">
-                 <Select value={messageAuthorFilter} onValueChange={setMessageAuthorFilter}>
+                 <Select value={messageAuthorFilter || 'all'} onValueChange={(v) => setMessageAuthorFilter(v === 'all' ? '' : v)}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="すべての投稿者" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">すべての投稿者</SelectItem>
+                    <SelectItem value="all">すべての投稿者</SelectItem>
                     {uniqueMessageAuthors.map(author => (
                       <SelectItem key={author.id} value={author.id}>{author.name}</SelectItem>
                     ))}
