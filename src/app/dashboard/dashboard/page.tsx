@@ -2232,12 +2232,12 @@ function DashboardSettingsPageComponent() {
   
   return (
     <div className="w-full space-y-8">
-      <div className="flex items-center justify-between mb-6">
-          <div className='flex flex-col'>
+       <div className="flex items-center justify-between">
+        <div className="flex flex-col">
             <h1 className="text-lg font-semibold md:text-2xl">目標設定</h1>
             {pageSubTitle && <p className="text-sm text-muted-foreground">{pageSubTitle}</p>}
-          </div>
-          {(activeTab === 'company' && canManageCompanyGoals) && (
+        </div>
+        {(activeTab === 'company' && canManageCompanyGoals) && (
             <div className='flex items-center gap-4'>
                 <WidgetDialog onSave={handleSaveWidget} defaultScope="company" currentUser={currentUserData} organizations={allOrganizations || []}>
                     <Button>
@@ -2246,7 +2246,17 @@ function DashboardSettingsPageComponent() {
                     </Button>
                 </WidgetDialog>
             </div>
-          )}
+        )}
+        {(activeTab === 'team' && canManageOrgPersonalGoals) && (
+            <div className='flex items-center gap-4'>
+                <WidgetDialog onSave={handleSaveWidget} defaultScope="team" currentUser={currentUserData} organizations={allOrganizations || []}>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        新規ウィジェット追加
+                    </Button>
+                </WidgetDialog>
+            </div>
+        )}
       </div>
 
       {activeTab === 'company' && (
@@ -2307,13 +2317,6 @@ function DashboardSettingsPageComponent() {
                       <Button variant={teamCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
                       <Button variant={teamCardSize === 'md' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('md')} title="中表示"><Columns2 className="h-4 w-4" /></Button>
                       <Button variant={teamCardSize === 'sm' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('sm')} title="小表示"><LayoutGrid className="h-4 w-4" /></Button>
-                      <Separator orientation="vertical" className="h-6 mx-2" />
-                      <WidgetDialog onSave={handleSaveWidget} defaultScope="team" currentUser={currentUserData} organizations={allOrganizations || []}>
-                          <Button>
-                              <PlusCircle className="mr-2 h-4 w-4" />
-                              新規ウィジェット追加
-                          </Button>
-                      </WidgetDialog>
                   </div>
               </div>
               <Card className="flex-1 flex flex-col overflow-hidden">
