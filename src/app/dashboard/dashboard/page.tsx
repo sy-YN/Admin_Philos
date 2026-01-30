@@ -1586,10 +1586,10 @@ function PersonalGoalsList({
   onSave: (goal: Partial<PersonalGoal>, id?: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const firestore = useFirestore();
   const [selectedGoal, setSelectedGoal] = useState<PersonalGoal | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  const firestore = useFirestore();
   const personalGoalsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'users', user.uid, 'personalGoals'));
@@ -2238,24 +2238,20 @@ function DashboardSettingsPageComponent() {
             {pageSubTitle && <p className="text-sm text-muted-foreground">{pageSubTitle}</p>}
         </div>
         {(activeTab === 'company' && canManageCompanyGoals) && (
-            <div className='flex items-center gap-4'>
-                <WidgetDialog onSave={handleSaveWidget} defaultScope="company" currentUser={currentUserData} organizations={allOrganizations || []}>
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        新規ウィジェット追加
-                    </Button>
-                </WidgetDialog>
-            </div>
+            <WidgetDialog onSave={handleSaveWidget} defaultScope="company" currentUser={currentUserData} organizations={allOrganizations || []}>
+                <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    新規ウィジェット追加
+                </Button>
+            </WidgetDialog>
         )}
         {(activeTab === 'team' && canManageOrgPersonalGoals) && (
-            <div className='flex items-center gap-4'>
-                <WidgetDialog onSave={handleSaveWidget} defaultScope="team" currentUser={currentUserData} organizations={allOrganizations || []}>
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        新規ウィジェット追加
-                    </Button>
-                </WidgetDialog>
-            </div>
+             <WidgetDialog onSave={handleSaveWidget} defaultScope="team" currentUser={currentUserData} organizations={allOrganizations || []}>
+                <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    新規ウィジェット追加
+                </Button>
+            </WidgetDialog>
         )}
       </div>
 
