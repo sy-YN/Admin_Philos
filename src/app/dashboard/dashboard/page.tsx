@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input';
 import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle, CalendarClock, Check, Search, X, Rows3, Columns2, LayoutGrid } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import dynamic from 'next/dynamic';
 import type { ChartData, ChartGranularity } from '@/components/dashboard/widget-preview';
 import { cn } from '@/lib/utils';
@@ -336,7 +335,17 @@ function WidgetDialog({ widget, onSave, children, defaultScope, currentUser, org
                             {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'PPP', { locale: ja })} - {format(dateRange.to, 'PPP', { locale: ja })}</>) : (format(dateRange.from, 'PPP', { locale: ja }))) : (<span>日付を選択</span>)}
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus locale={ja} /></PopoverContent>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={dateRange?.from}
+                            selected={dateRange}
+                            onSelect={setDateRange}
+                            numberOfMonths={2}
+                            locale={ja}
+                        />
+                    </PopoverContent>
                     </Popover>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -622,31 +631,28 @@ function TeamGoalTimeSeriesDataDialog({
               )}
             </div>
             <ScrollArea className="h-[450px] border rounded-md">
-              {isLoadingRecords ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="h-6 w-6 animate-spin"/>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12 px-3">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-muted">
+                    <tr>
+                      <th className="w-12 px-3 py-2 text-left">
                         <Checkbox checked={selectedRecordKeys.length > 0 && selectedRecordKeys.length === sortedRecords.length} onCheckedChange={handleSelectAll} />
-                      </TableHead>
-                      <TableHead>日付</TableHead>
-                      <TableHead>実績</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedRecords.length > 0 ? (
+                      </th>
+                      <th className="py-2 text-left font-medium">日付</th>
+                      <th className="py-2 text-left font-medium">実績</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isLoadingRecords ? (
+                      <tr><td colSpan={3} className="text-center p-10"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></td></tr>
+                    ) : sortedRecords.length > 0 ? (
                       sortedRecords.map((rec) => (
-                        <TableRow
+                        <tr
                           key={rec.key}
                           onClick={() => setSelectedDate(rec.date.toDate())}
-                          className="cursor-pointer"
+                          className="cursor-pointer border-t"
                           data-state={selectedRecordKeys.includes(rec.key) ? 'selected' : ''}
                         >
-                           <TableCell className="px-3">
+                           <td className="px-3">
                              <Checkbox 
                                checked={selectedRecordKeys.includes(rec.key)}
                                onCheckedChange={(checked) => {
@@ -656,28 +662,27 @@ function TeamGoalTimeSeriesDataDialog({
                                }}
                                onClick={(e) => e.stopPropagation()}
                               />
-                           </TableCell>
-                          <TableCell>
+                           </td>
+                          <td className="py-2">
                             {format(rec.date.toDate(), 'yy/MM/dd')}
-                          </TableCell>
-                          <TableCell>
+                          </td>
+                          <td className="py-2">
                             {rec.actualValue} {widget.unit}
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                        </tr>
                       ))
                     ) : (
-                      <TableRow>
-                        <TableCell
+                      <tr>
+                        <td
                           colSpan={3}
                           className="text-center text-muted-foreground h-24"
                         >
                           データがありません
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     )}
-                  </TableBody>
-                </Table>
-              )}
+                  </tbody>
+                </table>
             </ScrollArea>
           </div>
         </div>
@@ -779,42 +784,42 @@ function SalesDataManagementDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-y-auto pr-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[120px]">年月</TableHead>
-                <TableHead>売上目標 (百万円)</TableHead>
-                <TableHead>売上実績 (百万円)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {fiscalYearMonths.map(({ year, month }) => {
-                 const id = `${year}-${String(month).padStart(2, '0')}`;
-                 const values = monthlyData.get(id) || { target: '0', actual: '0' };
-                 return (
-                  <TableRow key={id}>
-                    <TableCell className="font-medium">{year}年 {month}月</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={values.target}
-                        onChange={(e) => handleInputChange(id, 'target', e.target.value)}
-                        placeholder="0"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={values.actual}
-                        onChange={(e) => handleInputChange(id, 'actual', e.target.value)}
-                        placeholder="0"
-                      />
-                    </TableCell>
-                  </TableRow>
-                 )
-              })}
-            </TableBody>
-          </Table>
+            <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted">
+                    <tr>
+                    <th className="py-2 px-4 text-left font-medium w-[120px]">年月</th>
+                    <th className="py-2 px-4 text-left font-medium">売上目標 (百万円)</th>
+                    <th className="py-2 px-4 text-left font-medium">売上実績 (百万円)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {fiscalYearMonths.map(({ year, month }) => {
+                    const id = `${year}-${String(month).padStart(2, '0')}`;
+                    const values = monthlyData.get(id) || { target: '0', actual: '0' };
+                    return (
+                    <tr key={id} className="border-t">
+                        <td className="px-4 py-2 font-medium">{year}年 {month}月</td>
+                        <td className="px-4 py-2">
+                        <Input
+                            type="number"
+                            value={values.target}
+                            onChange={(e) => handleInputChange(id, 'target', e.target.value)}
+                            placeholder="0"
+                        />
+                        </td>
+                        <td className="px-4 py-2">
+                        <Input
+                            type="number"
+                            value={values.actual}
+                            onChange={(e) => handleInputChange(id, 'actual', e.target.value)}
+                            placeholder="0"
+                        />
+                        </td>
+                    </tr>
+                    )
+                })}
+                </tbody>
+            </table>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
@@ -911,42 +916,42 @@ function ProfitDataManagementDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-y-auto pr-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[120px]">年月</TableHead>
-                <TableHead>営業利益 (百万円)</TableHead>
-                <TableHead>売上高 (百万円)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {fiscalYearMonths.map(({ year, month }) => {
-                 const id = `${year}-${String(month).padStart(2, '0')}`;
-                 const values = monthlyData.get(id) || { operatingProfit: '0', salesRevenue: '0' };
-                 return (
-                  <TableRow key={id}>
-                    <TableCell className="font-medium">{year}年 {month}月</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={values.operatingProfit}
-                        onChange={(e) => handleInputChange(id, 'operatingProfit', e.target.value)}
-                        placeholder="0"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={values.salesRevenue}
-                        onChange={(e) => handleInputChange(id, 'salesRevenue', e.target.value)}
-                        placeholder="0"
-                      />
-                    </TableCell>
-                  </TableRow>
-                 )
-              })}
-            </TableBody>
-          </Table>
+            <table className="w-full text-sm">
+                 <thead className="sticky top-0 bg-muted">
+                    <tr>
+                    <th className="py-2 px-4 text-left font-medium w-[120px]">年月</th>
+                    <th className="py-2 px-4 text-left font-medium">営業利益 (百万円)</th>
+                    <th className="py-2 px-4 text-left font-medium">売上高 (百万円)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {fiscalYearMonths.map(({ year, month }) => {
+                    const id = `${year}-${String(month).padStart(2, '0')}`;
+                    const values = monthlyData.get(id) || { operatingProfit: '0', salesRevenue: '0' };
+                    return (
+                    <tr key={id} className="border-t">
+                        <td className="px-4 py-2 font-medium">{year}年 {month}月</td>
+                        <td className="px-4 py-2">
+                        <Input
+                            type="number"
+                            value={values.operatingProfit}
+                            onChange={(e) => handleInputChange(id, 'operatingProfit', e.target.value)}
+                            placeholder="0"
+                        />
+                        </td>
+                        <td className="px-4 py-2">
+                        <Input
+                            type="number"
+                            value={values.salesRevenue}
+                            onChange={(e) => handleInputChange(id, 'salesRevenue', e.target.value)}
+                            placeholder="0"
+                        />
+                        </td>
+                    </tr>
+                    )
+                })}
+                </tbody>
+            </table>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
@@ -1047,35 +1052,33 @@ function CustomerDataManagementDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-y-auto pr-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[120px]">年月</TableHead>
-                <TableHead>総顧客数</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {fiscalYearMonths.map(({ year, month }) => {
-                const id = `${year}-${String(month).padStart(2, '0')}`;
-                const value = monthlyData.get(id) || '0';
-                return (
-                  <TableRow key={id}>
-                    <TableCell className="font-medium">
-                      {year}年 {month}月
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={value}
-                        onChange={(e) => handleInputChange(id, e.target.value)}
-                        placeholder="0"
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+           <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted">
+                    <tr>
+                    <th className="py-2 px-4 text-left font-medium w-[120px]">年月</th>
+                    <th className="py-2 px-4 text-left font-medium">総顧客数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {fiscalYearMonths.map(({ year, month }) => {
+                    const id = `${year}-${String(month).padStart(2, '0')}`;
+                    const value = monthlyData.get(id) || '0';
+                    return (
+                    <tr key={id} className="border-t">
+                        <td className="px-4 py-2 font-medium">{year}年 {month}月</td>
+                        <td className="px-4 py-2">
+                        <Input
+                            type="number"
+                            value={value}
+                            onChange={(e) => handleInputChange(id, e.target.value)}
+                            placeholder="0"
+                        />
+                        </td>
+                    </tr>
+                    );
+                })}
+                </tbody>
+            </table>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
@@ -1170,36 +1173,36 @@ function ProjectComplianceDataManagementDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-y-auto pr-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[120px]">年月</TableHead>
-                <TableHead>遵守</TableHead>
-                <TableHead>軽微な遅延</TableHead>
-                <TableHead>遅延</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {fiscalYearMonths.map(({ year, month }) => {
-                 const id = `${year}-${String(month).padStart(2, '0')}`;
-                 const values = monthlyData.get(id) || { compliant: '0', minor_delay: '0', delayed: '0' };
-                 return (
-                  <TableRow key={id}>
-                    <TableCell className="font-medium">{year}年 {month}月</TableCell>
-                    <TableCell>
-                      <Input type="number" value={values.compliant} onChange={(e) => handleInputChange(id, 'compliant', e.target.value)} placeholder="0" />
-                    </TableCell>
-                    <TableCell>
-                      <Input type="number" value={values.minor_delay} onChange={(e) => handleInputChange(id, 'minor_delay', e.target.value)} placeholder="0" />
-                    </TableCell>
-                    <TableCell>
-                      <Input type="number" value={values.delayed} onChange={(e) => handleInputChange(id, 'delayed', e.target.value)} placeholder="0" />
-                    </TableCell>
-                  </TableRow>
-                 )
-              })}
-            </TableBody>
-          </Table>
+            <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted">
+                    <tr>
+                    <th className="py-2 px-4 text-left font-medium w-[120px]">年月</th>
+                    <th className="py-2 px-4 text-left font-medium">遵守</th>
+                    <th className="py-2 px-4 text-left font-medium">軽微な遅延</th>
+                    <th className="py-2 px-4 text-left font-medium">遅延</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {fiscalYearMonths.map(({ year, month }) => {
+                    const id = `${year}-${String(month).padStart(2, '0')}`;
+                    const values = monthlyData.get(id) || { compliant: '0', minor_delay: '0', delayed: '0' };
+                    return (
+                    <tr key={id} className="border-t">
+                        <td className="px-4 py-2 font-medium">{year}年 {month}月</td>
+                        <td className="px-4 py-2">
+                            <Input type="number" value={values.compliant} onChange={(e) => handleInputChange(id, 'compliant', e.target.value)} placeholder="0" />
+                        </td>
+                        <td className="px-4 py-2">
+                            <Input type="number" value={values.minor_delay} onChange={(e) => handleInputChange(id, 'minor_delay', e.target.value)} placeholder="0" />
+                        </td>
+                        <td className="px-4 py-2">
+                            <Input type="number" value={values.delayed} onChange={(e) => handleInputChange(id, 'delayed', e.target.value)} placeholder="0" />
+                        </td>
+                    </tr>
+                    )
+                })}
+                </tbody>
+            </table>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>キャンセル</Button>
@@ -1678,9 +1681,17 @@ function PersonalGoalDialog({
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus locale={ja} />
-              </PopoverContent>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                    locale={ja}
+                />
+               </PopoverContent>
             </Popover>
           </div>
           <div className="space-y-2">
@@ -1701,6 +1712,44 @@ function PersonalGoalDialog({
   );
 }
 
+function PastGoalCard({ goal, onEdit, onDelete }: { goal: PersonalGoal, onEdit: () => void, onDelete: () => void }) {
+  const getBadgeVariant = (): "default" | "secondary" | "destructive" | "outline" => {
+    switch (goal.status) {
+        case '達成済': return "default";
+        case '未達成': return "destructive";
+        default: return "secondary";
+    }
+  };
+
+  return (
+    <Card className="flex flex-col">
+      <CardHeader className="flex flex-row items-start justify-between pb-2">
+        <div className="space-y-1 overflow-hidden">
+          <CardTitle className="text-base font-semibold truncate" title={goal.title}>{goal.title}</CardTitle>
+          <CardDescription className="text-xs">
+            {format(goal.startDate.toDate(), 'yy/MM/dd')} - {format(goal.endDate.toDate(), 'yy/MM/dd')}
+          </CardDescription>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEdit}><Edit className="mr-2 h-4 w-4" />編集</DropdownMenuItem>
+            <DropdownMenuItem onClick={onDelete} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />削除</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </CardHeader>
+      <CardContent className="flex items-center justify-between pt-2">
+        <Badge variant={getBadgeVariant()}>{goal.status}</Badge>
+        <div className="font-bold text-lg">{goal.progress}%</div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PersonalGoalsList({
   user,
   onSave,
@@ -1718,7 +1767,7 @@ function PersonalGoalsList({
   const [statusFilter, setStatusFilter] = useState<'all' | GoalStatus>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [currentPage, setCurrentPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(6);
 
 
   const firestore = useFirestore();
@@ -1816,12 +1865,22 @@ function PersonalGoalsList({
                 <div className="flex flex-col md:flex-row items-center gap-2">
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button id="date" variant="outline" className={cn('w-full md:w-[280px] justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
+                            <Button id="date" variant="outline" className={cn('w-full md:w-auto justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'PPP', { locale: ja })} - {format(dateRange.to, 'PPP', { locale: ja })}</>) : (format(dateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み</span>)}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus locale={ja} /></PopoverContent>
+                         <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={dateRange?.from}
+                                selected={dateRange}
+                                onSelect={setDateRange}
+                                numberOfMonths={2}
+                                locale={ja}
+                            />
+                        </PopoverContent>
                     </Popover>
                     <div className="relative flex-1 w-full">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1838,60 +1897,17 @@ function PersonalGoalsList({
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>目標タイトル</TableHead>
-                                <TableHead>期間</TableHead>
-                                <TableHead>ステータス</TableHead>
-                                <TableHead className="text-right">達成率</TableHead>
-                                <TableHead className="w-[50px]"><span className="sr-only">操作</span></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {paginatedPastGoals.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
-                                        該当する目標はありません。
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                paginatedPastGoals.map(goal => (
-                                    <TableRow key={goal.id}>
-                                        <TableCell className="font-medium">{goal.title}</TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                            {format(goal.startDate.toDate(), 'yy/MM/dd')} - {format(goal.endDate.toDate(), 'yy/MM/dd')}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={goal.status === '達成済' ? 'default' : 'destructive'}>{goal.status}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">{goal.progress}%</TableCell>
-                                        <TableCell>
-                                             <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => handleEdit(goal)}>
-                                                        <Edit className="mr-2 h-4 w-4" />
-                                                        編集
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-destructive" onClick={() => onDelete(goal.id)}>
-                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                        削除
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                {paginatedPastGoals.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {paginatedPastGoals.map(goal => (
+                      <PastGoalCard key={goal.id} goal={goal} onEdit={() => handleEdit(goal)} onDelete={() => onDelete(goal.id)} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <p>該当する過去の目標はありません。</p>
+                  </div>
+                )}
             </CardContent>
             <CardFooter>
                  <DataTablePagination
@@ -2428,12 +2444,22 @@ function DashboardSettingsPageComponent() {
                 <div className="flex flex-1 items-center gap-2">
                    <Popover>
                         <PopoverTrigger asChild>
-                            <Button id="company-date-range" variant="outline" className={cn('w-full md:w-[280px] justify-start text-left font-normal', !companyDateRange && 'text-muted-foreground')}>
+                            <Button id="company-date-range" variant="outline" className={cn('w-full md:w-auto justify-start text-left font-normal', !companyDateRange && 'text-muted-foreground')}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {companyDateRange?.from ? (companyDateRange.to ? (<>{format(companyDateRange.from, 'PPP', { locale: ja })} - {format(companyDateRange.to, 'PPP', { locale: ja })}</>) : (format(companyDateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み</span>)}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="range" numberOfMonths={2} selected={companyDateRange} onSelect={setCompanyDateRange} initialFocus locale={ja} /></PopoverContent>
+                        <PopoverContent className="w-auto p-0" align="start">
+                           <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={companyDateRange?.from}
+                                selected={companyDateRange}
+                                onSelect={setCompanyDateRange}
+                                numberOfMonths={2}
+                                locale={ja}
+                            />
+                        </PopoverContent>
                     </Popover>
                     {companyDateRange && <Button variant="ghost" size="icon" onClick={() => setCompanyDateRange(undefined)}><X className="h-4 w-4" /></Button>}
                   <div className="relative flex-1">
@@ -2500,12 +2526,22 @@ function DashboardSettingsPageComponent() {
                             </div>
                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <Button id="date" variant="outline" className={cn('w-full md:w-[280px] justify-start text-left font-normal', !teamDateRange && 'text-muted-foreground')}>
+                                    <Button id="date" variant="outline" className={cn('w-full md:w-auto justify-start text-left font-normal', !teamDateRange && 'text-muted-foreground')}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {teamDateRange?.from ? (teamDateRange.to ? (<>{format(teamDateRange.from, 'PPP', { locale: ja })} - {format(teamDateRange.to, 'PPP', { locale: ja })}</>) : (format(teamDateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み</span>)}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0"><Calendar mode="range" numberOfMonths={2} selected={teamDateRange} onSelect={setTeamDateRange} initialFocus locale={ja} /></PopoverContent>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        initialFocus
+                                        mode="range"
+                                        defaultMonth={teamDateRange?.from}
+                                        selected={teamDateRange}
+                                        onSelect={setTeamDateRange}
+                                        numberOfMonths={2}
+                                        locale={ja}
+                                    />
+                                </PopoverContent>
                             </Popover>
                             {teamDateRange && <Button variant="ghost" size="icon" onClick={() => setTeamDateRange(undefined)}><X className="h-4 w-4" /></Button>}
                             <div className="relative flex-1">
