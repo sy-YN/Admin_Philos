@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle, CalendarClock, Check } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle, CalendarClock, Check, Search, X, Rows3, Columns2, LayoutGrid } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -38,7 +38,7 @@ import type { PersonalGoal, GoalStatus } from '@/types/personal-goal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { format, startOfDay, getWeek, getMonth, getYear, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, differenceInDays } from 'date-fns';
+import { format, startOfDay, getWeek, getMonth, getYear, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Slider } from '@/components/ui/slider';
@@ -49,6 +49,8 @@ import type { GoalRecord } from '@/types/goal-record';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePermissions } from '@/context/PermissionContext';
+import { Separator } from '@/components/ui/separator';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
 
 
 const WidgetPreview = dynamic(() => import('@/components/dashboard/widget-preview'), {
@@ -1515,7 +1517,8 @@ function WidgetList({
   currentUser,
   canEdit,
   organizations,
-  scope
+  scope,
+  cardSize = 'md',
 }: {
   widgets: Goal[];
   onSave: (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => void;
@@ -1532,6 +1535,7 @@ function WidgetList({
   canEdit: boolean;
   organizations: Organization[];
   scope: WidgetScope;
+  cardSize?: 'sm' | 'md' | 'lg';
 }) {
   if (widgets.length === 0) {
     return (
@@ -1542,7 +1546,14 @@ function WidgetList({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className={cn(
+      "grid gap-6",
+      scope === 'team' ? {
+        'grid-cols-1': cardSize === 'lg',
+        'grid-cols-1 md:grid-cols-2': cardSize === 'md',
+        'grid-cols-1 md:grid-cols-2 xl:grid-cols-3': cardSize === 'sm',
+      } : 'grid-cols-1 md:grid-cols-2'
+    )}>
       {widgets.map(widget => (
         <WidgetCard
           key={widget.id}
@@ -1805,8 +1816,15 @@ function DashboardSettingsPageComponent() {
 
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
     
+    // --- Team Tab States ---
     const [selectedOrgId, setSelectedOrgId] = useState<string>('');
     const [editableOrgs, setEditableOrgs] = useState<Organization[]>([]);
+    const [teamSearchTerm, setTeamSearchTerm] = useState('');
+    const [teamDateRange, setTeamDateRange] = useState<DateRange | undefined>();
+    const [teamCardSize, setTeamCardSize] = useState<'sm' | 'md' | 'lg'>('md');
+    const [teamCurrentPage, setTeamCurrentPage] = useState(0);
+    const [teamRowsPerPage, setTeamRowsPerPage] = useState(6);
+
     const { data: allOrganizations, isLoading: isLoadingOrgs } = useCollection<Organization>(useMemoFirebase(() => firestore ? query(collection(firestore, 'organizations')) : null, [firestore]));
 
     const usersQuery = useMemoFirebase(() => !firestore || isAuthUserLoading ? null : query(collection(firestore, 'users')), [firestore, isAuthUserLoading]);
@@ -1832,10 +1850,12 @@ function DashboardSettingsPageComponent() {
             if (currentUserData.organizationId) {
                 const userOrgTreeIds = getSubTreeIds(currentUserData.organizationId, allOrganizations);
                 setEditableOrgs(allOrganizations.filter(org => userOrgTreeIds.includes(org.id)));
-                setSelectedOrgId(currentUserData.organizationId);
+                if (!selectedOrgId) { // Only set initial if not already set
+                  setSelectedOrgId(currentUserData.organizationId);
+                }
             }
         }
-    }, [currentUserData, allOrganizations, userPermissions]);
+    }, [currentUserData, allOrganizations, userPermissions, selectedOrgId]);
 
 
     const canManageCompanyGoals = userPermissions.includes('company_goal_setting');
@@ -1875,32 +1895,62 @@ function DashboardSettingsPageComponent() {
       return '';
     }, [activeTab]);
 
-    const goalsQuery = useMemoFirebase(() => {
+    const companyGoalsQuery = useMemoFirebase(() => {
         if (!firestore || isCheckingPermissions) return null;
-        if (activeTab === 'personal') return null;
-        
-        let queryConstraints: any[] = [where('scope', '==', activeTab)];
-
-        if (activeTab === 'company') {
-          if (!canManageCompanyGoals || !currentUserData?.company) return null;
-          queryConstraints.push(where('scopeId', '==', currentUserData.company));
-        } else if (activeTab === 'team') {
-          if (!canManageOrgPersonalGoals || !selectedOrgId) return null;
-          queryConstraints.push(where('scopeId', '==', selectedOrgId));
-        } else {
-          return null;
-        }
-
+        let queryConstraints: any[] = [where('scope', '==', 'company')];
+        if (!canManageCompanyGoals || !currentUserData?.company) return null;
+        queryConstraints.push(where('scopeId', '==', currentUserData.company));
         return query(collection(firestore, 'goals'), ...queryConstraints);
+    }, [firestore, currentUserData, isCheckingPermissions, canManageCompanyGoals]);
 
-    }, [firestore, currentUserData, activeTab, isCheckingPermissions, selectedOrgId, canManageCompanyGoals, canManageOrgPersonalGoals]);
+    const teamGoalsQuery = useMemoFirebase(() => {
+        if (!firestore || isCheckingPermissions || !canManageOrgPersonalGoals) return null;
+        return query(collection(firestore, 'goals'), where('scope', '==', 'team'));
+    }, [firestore, isCheckingPermissions, canManageOrgPersonalGoals]);
 
-    const { data: widgets, isLoading: isLoadingWidgets } = useCollection<Goal>(goalsQuery as Query<Goal> | null);
+    const { data: companyWidgets, isLoading: isLoadingCompanyWidgets } = useCollection<Goal>(companyGoalsQuery as Query<Goal> | null);
+    const { data: teamWidgets, isLoading: isLoadingTeamWidgets } = useCollection<Goal>(teamGoalsQuery as Query<Goal> | null);
+    
+    const isLoadingWidgets = activeTab === 'company' ? isLoadingCompanyWidgets : isLoadingTeamWidgets;
+
+    const filteredTeamWidgets = useMemo(() => {
+        if (!teamWidgets) return [];
+        return teamWidgets
+            .filter(widget => {
+                if (widget.scopeId !== selectedOrgId) return false;
+                if (teamSearchTerm && !widget.title.toLowerCase().includes(teamSearchTerm.toLowerCase())) return false;
+                if (teamDateRange?.from && teamDateRange?.to) {
+                    const widgetStart = widget.startDate?.toDate();
+                    const widgetEnd = widget.endDate?.toDate();
+                    if (!widgetStart || !widgetEnd) return false;
+                    if (widgetStart > teamDateRange.to || widgetEnd < teamDateRange.from) return false;
+                }
+                return true;
+            })
+            .sort((a, b) => {
+                if (a.status === 'active' && b.status !== 'active') return -1;
+                if (b.status === 'active' && a.status !== 'active') return 1;
+                const dateA = a.startDate?.toDate() ?? new Date(0);
+                const dateB = b.startDate?.toDate() ?? new Date(0);
+                return dateB.getTime() - dateA.getTime();
+            });
+    }, [teamWidgets, selectedOrgId, teamSearchTerm, teamDateRange]);
+
+    const paginatedTeamWidgets = useMemo(() => {
+        const startIndex = teamCurrentPage * teamRowsPerPage;
+        return filteredTeamWidgets.slice(startIndex, startIndex + teamRowsPerPage);
+    }, [filteredTeamWidgets, teamCurrentPage, teamRowsPerPage]);
+
+
+    useEffect(() => {
+        setTeamCurrentPage(0);
+    }, [selectedOrgId, teamSearchTerm, teamDateRange, teamRowsPerPage]);
+
 
     const handleSaveWidget = async (data: Partial<Omit<Goal, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'authorId'>>, id?: string) => {
         if (!firestore || !authUser) return;
         
-        const widgetsForScope = widgets?.filter(w => w.scope === data.scope && w.scopeId === data.scopeId) || [];
+        const widgetsForScope = (data.scope === 'company' ? companyWidgets : teamWidgets)?.filter(w => w.scopeId === data.scopeId) || [];
 
         try {
             if (id) {
@@ -1953,10 +2003,12 @@ function DashboardSettingsPageComponent() {
     };
 
     const handleSetActiveWidget = async (id: string, scopeId: string) => {
-      if (!firestore || !widgets) return;
+      if (!firestore) return;
+      const widgetsToUpdate = activeTab === 'company' ? companyWidgets : teamWidgets;
+      if (!widgetsToUpdate) return;
       
       const batch = writeBatch(firestore);
-      widgets.forEach(w => {
+      widgetsToUpdate.forEach(w => {
           if (w.scopeId === scopeId) {
               const widgetRef = doc(firestore, 'goals', w.id);
               batch.update(widgetRef, { status: w.id === id ? 'active' : 'inactive' });
@@ -2148,22 +2200,14 @@ function DashboardSettingsPageComponent() {
     };
 
     
-    const widgetsForTab = useMemo(() => {
-      if (!widgets) return [];
-      return [...widgets].sort((a, b) => {
+    const companyWidgetsForTab = useMemo(() => {
+      if (!companyWidgets) return [];
+      return [...companyWidgets].sort((a, b) => {
         if (a.status === 'active' && b.status !== 'active') return -1;
         if (b.status === 'active' && a.status !== 'active') return 1;
-        if (a.scope === 'company') {
-           return (b.fiscalYear ?? 0) - (a.fiscalYear ?? 0) || a.title.localeCompare(b.title);
-        }
-        if (a.scope === 'team') {
-            const dateA = a.startDate?.toDate() ?? new Date(0);
-            const dateB = b.startDate?.toDate() ?? new Date(0);
-            return dateB.getTime() - dateA.getTime();
-        }
-        return a.title.localeCompare(b.title);
+        return (b.fiscalYear ?? 0) - (a.fiscalYear ?? 0) || a.title.localeCompare(b.title);
       });
-    }, [widgets]);
+    }, [companyWidgets]);
 
   const isLoading = isAuthUserLoading || isCheckingPermissions || isLoadingOrgs || !currentUserData;
 
@@ -2193,12 +2237,9 @@ function DashboardSettingsPageComponent() {
             <h1 className="text-lg font-semibold md:text-2xl">目標設定</h1>
             {pageSubTitle && <p className="text-sm text-muted-foreground">{pageSubTitle}</p>}
           </div>
-          {(activeTab !== 'personal' && (
-            (activeTab === 'company' && canManageCompanyGoals) ||
-            (activeTab === 'team' && canManageOrgPersonalGoals)
-          )) && (
+          {(activeTab === 'company' && canManageCompanyGoals) && (
             <div className='flex items-center gap-4'>
-                <WidgetDialog onSave={handleSaveWidget} defaultScope={activeTab as WidgetScope} currentUser={currentUserData} organizations={allOrganizations || []}>
+                <WidgetDialog onSave={handleSaveWidget} defaultScope="company" currentUser={currentUserData} organizations={allOrganizations || []}>
                     <Button>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         新規ウィジェット追加
@@ -2212,7 +2253,7 @@ function DashboardSettingsPageComponent() {
         canManageCompanyGoals ? (
           isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
           <WidgetList 
-              widgets={widgetsForTab} 
+              widgets={companyWidgetsForTab} 
               onSave={handleSaveWidget} 
               onDelete={handleDeleteWidget}
               onSetActive={handleSetActiveWidget}
@@ -2236,34 +2277,83 @@ function DashboardSettingsPageComponent() {
       )}
       {activeTab === 'team' && (
         canManageOrgPersonalGoals ? (
-            <>
-            <div className="max-w-xs">
-                <OrganizationPicker
-                  organizations={editableOrgs}
-                  value={selectedOrgId}
-                  onChange={setSelectedOrgId}
-                  disabled={(org) => org.type === 'holding' || org.type === 'company'}
-                />
+            <div className="space-y-4 h-full flex flex-col">
+              <div className="max-w-xs">
+                  <OrganizationPicker
+                    organizations={editableOrgs}
+                    value={selectedOrgId}
+                    onChange={setSelectedOrgId}
+                    disabled={(org) => org.type === 'holding' || org.type === 'company'}
+                  />
+              </div>
+              <Card className="flex-1 flex flex-col overflow-hidden">
+                <CardHeader>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div className="flex flex-1 items-center gap-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="date" variant="outline" className={cn('w-[280px] justify-start text-left font-normal', !teamDateRange && 'text-muted-foreground')}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {teamDateRange?.from ? (teamDateRange.to ? (<>{format(teamDateRange.from, 'PPP', { locale: ja })} - {format(teamDateRange.to, 'PPP', { locale: ja })}</>) : (format(teamDateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み...</span>)}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={teamDateRange} onSelect={setTeamDateRange} initialFocus locale={ja} /></PopoverContent>
+                        </Popover>
+                        {teamDateRange && <Button variant="ghost" size="icon" onClick={() => setTeamDateRange(undefined)}><X className="h-4 w-4" /></Button>}
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input placeholder="タイトルで検索..." className="pl-10" value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <Button variant={teamCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
+                          <Button variant={teamCardSize === 'md' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('md')} title="中表示"><Columns2 className="h-4 w-4" /></Button>
+                          <Button variant={teamCardSize === 'sm' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('sm')} title="小表示"><LayoutGrid className="h-4 w-4" /></Button>
+                          <Separator orientation="vertical" className="h-6 mx-2" />
+                          <WidgetDialog onSave={handleSaveWidget} defaultScope="team" currentUser={currentUserData} organizations={allOrganizations || []}>
+                              <Button>
+                                  <PlusCircle className="mr-2 h-4 w-4" />
+                                  新規ウィジェット追加
+                              </Button>
+                          </WidgetDialog>
+                      </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 p-6">
+                  {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
+                  <WidgetList 
+                      widgets={paginatedTeamWidgets} 
+                      onSave={handleSaveWidget} 
+                      onDelete={handleDeleteWidget}
+                      onSetActive={handleSetActiveWidget}
+                      onSaveDisplaySettings={handleSaveDisplaySettings}
+                      onSaveSalesRecords={handleSaveSalesRecords}
+                      onSaveProfitRecords={handleSaveProfitRecords}
+                      onSaveCustomerRecords={handleSaveCustomerRecords}
+                      onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
+                      onSaveTeamGoalData={handleSaveTeamGoalData}
+                      onSaveTeamGoalTimeSeriesData={handleSaveTeamGoalTimeSeriesData}
+                      currentUser={currentUserData}
+                      canEdit={canManageOrgPersonalGoals}
+                      organizations={allOrganizations || []}
+                      scope="team"
+                      cardSize={teamCardSize}
+                  />}
+                </CardContent>
+                <CardFooter>
+                   <DataTablePagination
+                      count={filteredTeamWidgets.length}
+                      rowsPerPage={teamRowsPerPage}
+                      page={teamCurrentPage}
+                      onPageChange={setTeamCurrentPage}
+                      onRowsPerPageChange={(value) => {
+                        setTeamRowsPerPage(value);
+                        setTeamCurrentPage(0);
+                      }}
+                    />
+                </CardFooter>
+              </Card>
             </div>
-              {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
-              <WidgetList 
-                  widgets={widgetsForTab} 
-                  onSave={handleSaveWidget} 
-                  onDelete={handleDeleteWidget}
-                  onSetActive={handleSetActiveWidget}
-                  onSaveDisplaySettings={handleSaveDisplaySettings}
-                  onSaveSalesRecords={handleSaveSalesRecords}
-                  onSaveProfitRecords={handleSaveProfitRecords}
-                  onSaveCustomerRecords={handleSaveCustomerRecords}
-                  onSaveProjectComplianceRecords={handleSaveProjectComplianceRecords}
-                  onSaveTeamGoalData={handleSaveTeamGoalData}
-                  onSaveTeamGoalTimeSeriesData={handleSaveTeamGoalTimeSeriesData}
-                  currentUser={currentUserData}
-                  canEdit={canManageOrgPersonalGoals}
-                  organizations={allOrganizations || []}
-                  scope="team"
-              />}
-            </>
         ) : (
           <div className="text-center py-10 text-muted-foreground">
             <p>組織単位の目標を管理する権限がありません。</p>
