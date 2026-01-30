@@ -2278,47 +2278,45 @@ function DashboardSettingsPageComponent() {
       {activeTab === 'team' && (
         canManageOrgPersonalGoals ? (
             <div className="space-y-4 h-full flex flex-col">
-              <div className="max-w-xs">
-                  <OrganizationPicker
-                    organizations={editableOrgs}
-                    value={selectedOrgId}
-                    onChange={setSelectedOrgId}
-                    disabled={(org) => org.type === 'holding' || org.type === 'company'}
-                  />
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                 <div className="flex flex-1 items-center gap-2">
+                    <div className="w-full max-w-xs">
+                        <OrganizationPicker
+                            organizations={editableOrgs}
+                            value={selectedOrgId}
+                            onChange={setSelectedOrgId}
+                            disabled={(org) => org.type === 'holding' || org.type === 'company'}
+                        />
+                    </div>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button id="date" variant="outline" className={cn('w-[280px] justify-start text-left font-normal', !teamDateRange && 'text-muted-foreground')}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {teamDateRange?.from ? (teamDateRange.to ? (<>{format(teamDateRange.from, 'PPP', { locale: ja })} - {format(teamDateRange.to, 'PPP', { locale: ja })}</>) : (format(teamDateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み...</span>)}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={teamDateRange} onSelect={setTeamDateRange} initialFocus locale={ja} /></PopoverContent>
+                    </Popover>
+                    {teamDateRange && <Button variant="ghost" size="icon" onClick={() => setTeamDateRange(undefined)}><X className="h-4 w-4" /></Button>}
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="タイトルで検索..." className="pl-10" value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <Button variant={teamCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
+                      <Button variant={teamCardSize === 'md' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('md')} title="中表示"><Columns2 className="h-4 w-4" /></Button>
+                      <Button variant={teamCardSize === 'sm' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('sm')} title="小表示"><LayoutGrid className="h-4 w-4" /></Button>
+                      <Separator orientation="vertical" className="h-6 mx-2" />
+                      <WidgetDialog onSave={handleSaveWidget} defaultScope="team" currentUser={currentUserData} organizations={allOrganizations || []}>
+                          <Button>
+                              <PlusCircle className="mr-2 h-4 w-4" />
+                              新規ウィジェット追加
+                          </Button>
+                      </WidgetDialog>
+                  </div>
               </div>
               <Card className="flex-1 flex flex-col overflow-hidden">
-                <CardHeader>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div className="flex flex-1 items-center gap-2">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button id="date" variant="outline" className={cn('w-[280px] justify-start text-left font-normal', !teamDateRange && 'text-muted-foreground')}>
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {teamDateRange?.from ? (teamDateRange.to ? (<>{format(teamDateRange.from, 'PPP', { locale: ja })} - {format(teamDateRange.to, 'PPP', { locale: ja })}</>) : (format(teamDateRange.from, 'PPP', { locale: ja }))) : (<span>期間で絞り込み...</span>)}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={teamDateRange} onSelect={setTeamDateRange} initialFocus locale={ja} /></PopoverContent>
-                        </Popover>
-                        {teamDateRange && <Button variant="ghost" size="icon" onClick={() => setTeamDateRange(undefined)}><X className="h-4 w-4" /></Button>}
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input placeholder="タイトルで検索..." className="pl-10" value={teamSearchTerm} onChange={(e) => setTeamSearchTerm(e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                          <Button variant={teamCardSize === 'lg' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('lg')} title="大表示"><Rows3 className="h-4 w-4" /></Button>
-                          <Button variant={teamCardSize === 'md' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('md')} title="中表示"><Columns2 className="h-4 w-4" /></Button>
-                          <Button variant={teamCardSize === 'sm' ? 'secondary' : 'ghost'} size="icon" onClick={() => setTeamCardSize('sm')} title="小表示"><LayoutGrid className="h-4 w-4" /></Button>
-                          <Separator orientation="vertical" className="h-6 mx-2" />
-                          <WidgetDialog onSave={handleSaveWidget} defaultScope="team" currentUser={currentUserData} organizations={allOrganizations || []}>
-                              <Button>
-                                  <PlusCircle className="mr-2 h-4 w-4" />
-                                  新規ウィジェット追加
-                              </Button>
-                          </WidgetDialog>
-                      </div>
-                  </div>
-                </CardHeader>
                 <CardContent className="flex-1 p-6">
                   {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
                   <WidgetList 
