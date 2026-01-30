@@ -836,7 +836,7 @@ function VideosTable({
     if (!timestamp) return 'N/A';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     if (isNaN(date.getTime())) return '無効な日付';
-    return format(date, 'yyyy/MM/dd', { locale: ja });
+    return format(date, 'yyyy/MM/dd HH:mm', { locale: ja });
   };
   
   const handleSelectAll = (checked: boolean) => {
@@ -1377,8 +1377,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
       {canAccessVideoTab && defaultTab === 'videos' && (
         <Card className="flex-1 flex flex-col overflow-hidden">
           <CardHeader>
-            <div className="flex items-center justify-between">
-                <div>
+             <div className="grid grid-cols-[1fr_auto] items-start gap-4">
+                <div className="grid gap-2">
                     <CardTitle>ビデオ一覧</CardTitle>
                     <CardDescription>
                     全社に共有するビデオコンテンツを管理します。
@@ -1407,8 +1407,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                     {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
                 </div>
             </div>
-             <div className="flex items-center gap-2 pt-4">
-                <div className="relative flex-1">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-4">
+                <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="タイトルや概要で検索..."
@@ -1417,28 +1417,26 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                     onChange={e => setVideoSearchTerm(e.target.value)}
                   />
                 </div>
-              <div className="w-1/3">
-                <TagSelector 
-                  availableTags={availableTags} 
-                  selectedTags={videoTagFilter} 
-                  onSelectionChange={setVideoTagFilter} 
-                  limit={0}
-                  triggerPlaceholder="タグで絞り込み..."
-                />
-              </div>
-               <div className="w-1/3">
-                 <Select value={videoAuthorFilter} onValueChange={(v) => setVideoAuthorFilter(v === 'all' ? '' : v)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="すべての投稿者" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">すべての投稿者</SelectItem>
-                    {uniqueVideoAuthors.map(author => (
-                      <SelectItem key={author.id} value={author.id}>{author.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="grid grid-cols-2 gap-2">
+                    <TagSelector 
+                    availableTags={availableTags} 
+                    selectedTags={videoTagFilter} 
+                    onSelectionChange={setVideoTagFilter} 
+                    limit={0}
+                    triggerPlaceholder="タグで絞り込み..."
+                    />
+                    <Select value={videoAuthorFilter} onValueChange={(v) => setVideoAuthorFilter(v === 'all' ? '' : v)}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="すべての投稿者" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">すべての投稿者</SelectItem>
+                        {uniqueVideoAuthors.map(author => (
+                        <SelectItem key={author.id} value={author.id}>{author.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
+                </div>
             </div>
           </CardHeader>
           <CardContent className="flex-1 p-0 relative">
@@ -1473,8 +1471,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
       {canAccessMessageTab && defaultTab === 'messages' && (
         <Card className="flex-1 flex flex-col overflow-hidden">
           <CardHeader>
-            <div className="flex items-center justify-between">
-                <div>
+             <div className="grid grid-cols-[1fr_auto] items-start gap-4">
+                 <div>
                     <CardTitle>メッセージ一覧</CardTitle>
                     <CardDescription>経営層からのメッセージを管理します。</CardDescription>
                 </div>
@@ -1501,8 +1499,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                     {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
                 </div>
             </div>
-             <div className="flex items-center gap-2 pt-4">
-               <div className="relative flex-1">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-4">
+               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="タイトルや内容で検索..."
@@ -1511,7 +1509,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                   onChange={e => setMessageSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="w-1/3">
+              <div className="grid grid-cols-2 gap-2">
                 <TagSelector 
                   availableTags={availableTags} 
                   selectedTags={messageTagFilter} 
@@ -1519,10 +1517,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                   limit={0}
                   triggerPlaceholder="タグで絞り込み..."
                 />
-              </div>
-              <div className="w-1/3">
                  <Select value={messageAuthorFilter} onValueChange={(v) => setMessageAuthorFilter(v === 'all' ? '' : v)}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger>
                     <SelectValue placeholder="すべての投稿者" />
                   </SelectTrigger>
                   <SelectContent>
