@@ -403,9 +403,9 @@ function LayoutAuthWrapper({ children }: { children: React.ReactNode }) {
   return (
       <div className="flex h-screen w-full bg-muted/40">
         {pathname !== '/login' && <DashboardNav />}
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex flex-col flex-1 overflow-y-auto">
           <main className="flex-1 flex flex-col p-4 lg:p-6">
-            <div className="mx-auto w-full h-full">
+            <div className="mx-auto w-full">
               {children}
             </div>
           </main>
