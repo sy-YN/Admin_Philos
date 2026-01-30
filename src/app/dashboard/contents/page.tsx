@@ -507,9 +507,19 @@ function MessagesTable({
       <TableHeader className="sticky top-0 z-10 bg-card">
         <TableRow>
           <TableHead className="w-[50px]"><Checkbox checked={selected.length === messages?.length && messages.length > 0} onCheckedChange={handleSelectAll} /></TableHead>
-          <TableHead>タイトル</TableHead>
+          <TableHead>
+            <Button variant="ghost" onClick={createSortHandler('title')} className="-ml-4 h-8 group">
+              タイトル
+              <SortIndicator column="title" />
+            </Button>
+          </TableHead>
           <TableHead className="hidden md:table-cell">タグ</TableHead>
-          <TableHead className="w-[120px]">重要度</TableHead>
+          <TableHead className="w-[120px]">
+            <Button variant="ghost" onClick={createSortHandler('priority')} className="-ml-4 h-8 group">
+              重要度
+              <SortIndicator column="priority" />
+            </Button>
+          </TableHead>
           <TableHead className="hidden sm:table-cell w-[150px]">
             <Button variant="ghost" onClick={createSortHandler('authorName')} className="-ml-4 h-8 group">
               投稿者
