@@ -331,7 +331,7 @@ function PermissionsPageComponent() {
             </Card>
         </TabsContent>
         <TabsContent value="users" className="mt-6 flex-1 flex flex-col">
-            <Card className="flex-1 flex flex-col overflow-hidden">
+            <Card className="flex-1 flex flex-col">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>ユーザー個別権限の管理</CardTitle>
@@ -342,7 +342,7 @@ function PermissionsPageComponent() {
                         個別権限を保存
                     </Button>
                 </CardHeader>
-                <CardContent className="p-0 flex-1 overflow-auto">
+                <CardContent className="p-0 flex-1 overflow-y-auto">
                     {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin" /></div> : (
                         <Table>
                             <TableHeader className="sticky top-0 bg-background z-20">
