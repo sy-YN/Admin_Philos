@@ -1060,7 +1060,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
         video.description.toLowerCase().includes(videoSearchTerm.toLowerCase());
       
       const tagMatch = videoTagFilter.length === 0 ||
-        (video.tags || []).some(tag => videoTagFilter.includes(tag));
+        videoTagFilter.every(filterTag => (video.tags || []).includes(filterTag));
         
       return searchMatch && tagMatch;
     });
@@ -1089,7 +1089,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
         message.content.toLowerCase().includes(messageSearchTerm.toLowerCase());
       
       const tagMatch = messageTagFilter.length === 0 ||
-        (message.tags || []).some(tag => messageTagFilter.includes(tag));
+        messageTagFilter.every(filterTag => (message.tags || []).includes(filterTag));
         
       return searchMatch && tagMatch;
     });
@@ -1437,5 +1437,3 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 }
 
 export default ContentsPage;
-
-    
