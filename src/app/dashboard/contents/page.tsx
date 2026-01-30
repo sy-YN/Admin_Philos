@@ -1012,7 +1012,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 
   // Pagination State
   const [videoCurrentPage, setVideoCurrentPage] = useState(0);
-  const [videoRowsPerPage, setVideoRowsPerPage] = useState(5);
+  const [videoRowsPerPage, setVideoRowsPerPage] = useState(10);
   const [messageCurrentPage, setMessageCurrentPage] = useState(0);
   const [messageRowsPerPage, setMessageRowsPerPage] = useState(10);
   const [videoSortDescriptor, setVideoSortDescriptor] = useState<VideoSortDescriptor>({ column: 'uploadedAt', direction: 'desc' });
@@ -1126,7 +1126,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const sortedVideos = useMemo(() => {
     if (!videos) return [];
     
-    const filtered = videos.filter(video => {
+    let filtered = videos.filter(video => {
       const searchMatch = videoSearchTerm === '' ||
         video.title.toLowerCase().includes(videoSearchTerm.toLowerCase()) ||
         video.description.toLowerCase().includes(videoSearchTerm.toLowerCase());
@@ -1140,9 +1140,15 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
     });
 
     return [...filtered].sort((a, b) => {
-        const key = videoSortDescriptor.column as keyof VideoType;
-        const valA = a[key] instanceof Timestamp ? a[key].toMillis() : a[key] as any;
-        const valB = b[key] instanceof Timestamp ? b[key].toMillis() : b[key] as any;
+        const key = videoSortDescriptor.column as keyof VideoType | 'authorName';
+        let valA, valB;
+        if(key === 'authorName') {
+            valA = a.authorName || '';
+            valB = b.authorName || '';
+        } else {
+            valA = a[key as keyof VideoType] instanceof Timestamp ? a[key as keyof VideoType].toMillis() : a[key as keyof VideoType] as any;
+            valB = b[key as keyof VideoType] instanceof Timestamp ? b[key as keyof VideoType].toMillis() : b[key as keyof VideoType] as any;
+        }
 
         let cmp = String(valA).localeCompare(String(valB));
         
@@ -1155,7 +1161,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 
   const sortedMessages = useMemo(() => {
     if (!messages) return [];
-    const filtered = messages.filter(message => {
+    let filtered = messages.filter(message => {
       const searchMatch = messageSearchTerm === '' ||
         message.title.toLowerCase().includes(messageSearchTerm.toLowerCase()) ||
         message.content.toLowerCase().includes(messageSearchTerm.toLowerCase());
@@ -1169,9 +1175,17 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
     });
 
      return [...filtered].sort((a, b) => {
-        const key = messageSortDescriptor.column as keyof ExecutiveMessage;
-        const valA = a[key] instanceof Timestamp ? a[key].toMillis() : a[key] as any;
-        const valB = b[key] instanceof Timestamp ? b[key].toMillis() : b[key] as any;
+        const key = messageSortDescriptor.column as keyof ExecutiveMessage | 'authorName';
+        let valA, valB;
+
+        if (key === 'authorName') {
+            valA = a.authorName || '';
+            valB = b.authorName || '';
+        } else {
+            valA = a[key as keyof ExecutiveMessage] instanceof Timestamp ? a[key as keyof ExecutiveMessage].toMillis() : a[key as keyof ExecutiveMessage] as any;
+            valB = b[key as keyof ExecutiveMessage] instanceof Timestamp ? b[key as keyof ExecutiveMessage].toMillis() : b[key as keyof ExecutiveMessage] as any;
+        }
+
 
         let cmp = String(valA).localeCompare(String(valB));
         
@@ -1363,19 +1377,12 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
       {canAccessVideoTab && defaultTab === 'videos' && (
         <Card className="flex-1 flex flex-col overflow-hidden">
           <CardHeader>
-            <CardTitle>ビデオ一覧</CardTitle>
-            <CardDescription>
-              全社に共有するビデオコンテンツを管理します。
-            </CardDescription>
-             <div className="flex items-center justify-between gap-2 pt-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="タイトルや概要で検索..."
-                    className="pl-10"
-                    value={videoSearchTerm}
-                    onChange={e => setVideoSearchTerm(e.target.value)}
-                  />
+            <div className="flex items-center justify-between">
+                <div>
+                    <CardTitle>ビデオ一覧</CardTitle>
+                    <CardDescription>
+                    全社に共有するビデオコンテンツを管理します。
+                    </CardDescription>
                 </div>
                  <div className="flex items-center gap-2">
                     {selectedVideos.length > 0 && canManageVideos && (
@@ -1400,8 +1407,17 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                     {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
                 </div>
             </div>
-             <div className="flex items-center gap-2">
-              <div className="w-1/2">
+             <div className="flex items-center gap-2 pt-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="タイトルや概要で検索..."
+                    className="pl-10"
+                    value={videoSearchTerm}
+                    onChange={e => setVideoSearchTerm(e.target.value)}
+                  />
+                </div>
+              <div className="w-1/3">
                 <TagSelector 
                   availableTags={availableTags} 
                   selectedTags={videoTagFilter} 
@@ -1410,8 +1426,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                   triggerPlaceholder="タグで絞り込み..."
                 />
               </div>
-               <div className="w-1/2">
-                 <Select value={videoAuthorFilter || 'all'} onValueChange={(v) => setVideoAuthorFilter(v === 'all' ? '' : v)}>
+               <div className="w-1/3">
+                 <Select value={videoAuthorFilter} onValueChange={(v) => setVideoAuthorFilter(v === 'all' ? '' : v)}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="すべての投稿者" />
                   </SelectTrigger>
@@ -1457,9 +1473,35 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
       {canAccessMessageTab && defaultTab === 'messages' && (
         <Card className="flex-1 flex flex-col overflow-hidden">
           <CardHeader>
-            <CardTitle>メッセージ一覧</CardTitle>
-            <CardDescription>経営層からのメッセージを管理します。</CardDescription>
-             <div className="flex items-center justify-between gap-2 pt-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <CardTitle>メッセージ一覧</CardTitle>
+                    <CardDescription>経営層からのメッセージを管理します。</CardDescription>
+                </div>
+                 <div className="flex items-center gap-2">
+                    {selectedMessages.length > 0 && canManageMessages && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedMessages.length}件を削除</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                選択した{selectedMessages.length}件のメッセージを削除します。この操作は元に戻せません。
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleBulkDelete('messages')}>削除</AlertDialogAction>
+                            </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                        )}
+                    {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
+                </div>
+            </div>
+             <div className="flex items-center gap-2 pt-4">
                <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -1469,31 +1511,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                   onChange={e => setMessageSearchTerm(e.target.value)}
                 />
               </div>
-               <div className="flex items-center gap-2">
-                {selectedMessages.length > 0 && canManageMessages && (
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />選択した{selectedMessages.length}件を削除</Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                            <AlertDialogDescription>
-                            選択した{selectedMessages.length}件のメッセージを削除します。この操作は元に戻せません。
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleBulkDelete('messages')}>削除</AlertDialogAction>
-                        </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                    )}
-                {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
-              </div>
-            </div>
-             <div className="flex items-center gap-2">
-              <div className="w-1/2">
+              <div className="w-1/3">
                 <TagSelector 
                   availableTags={availableTags} 
                   selectedTags={messageTagFilter} 
@@ -1502,8 +1520,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                   triggerPlaceholder="タグで絞り込み..."
                 />
               </div>
-              <div className="w-1/2">
-                 <Select value={messageAuthorFilter || 'all'} onValueChange={(v) => setMessageAuthorFilter(v === 'all' ? '' : v)}>
+              <div className="w-1/3">
+                 <Select value={messageAuthorFilter} onValueChange={(v) => setMessageAuthorFilter(v === 'all' ? '' : v)}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="すべての投稿者" />
                   </SelectTrigger>
@@ -1557,5 +1575,3 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 }
 
 export default ContentsPage;
-
-    
