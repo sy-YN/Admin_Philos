@@ -471,7 +471,7 @@ function MessagesTable({
   
   return (
     <Table>
-      <TableHeader>
+      <TableHeader className="sticky top-0 z-10 bg-card">
         <TableRow>
           <TableHead className="w-[50px]"><Checkbox checked={selected.length === messages?.length && messages.length > 0} onCheckedChange={handleSelectAll} /></TableHead>
           <TableHead>タイトル</TableHead>
@@ -788,7 +788,7 @@ function VideosTable({
 
   return (
     <Table>
-      <TableHeader>
+      <TableHeader className="sticky top-0 z-10 bg-card">
         <TableRow>
           <TableHead className="w-[50px]"><Checkbox checked={selected.length === videos?.length && (videos?.length ?? 0) > 0} onCheckedChange={handleSelectAll} /></TableHead>
           <TableHead className="w-[120px]">サムネイル</TableHead>
@@ -1148,8 +1148,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto">
-      <div className="flex items-center mb-6">
+    <div className="w-full max-w-7xl mx-auto h-full flex flex-col gap-6">
+      <div className="flex items-center">
         <div>
           <h1 className="text-lg font-semibold md:text-2xl">コンテンツ管理</h1>
           {pageSubTitle && <p className="text-sm text-muted-foreground">{pageSubTitle}</p>}
@@ -1162,7 +1162,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
       </div>
       
       {canAccessVideoTab && defaultTab === 'videos' && (
-        <Card>
+        <Card className="flex-1 flex flex-col overflow-hidden">
           <CardHeader>
             <CardTitle>ビデオ一覧</CardTitle>
             <CardDescription>
@@ -1191,24 +1191,26 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
               {(canManageVideos || canProxyPostVideo) && <VideoDialog mode="add" onSave={handleAddVideo} allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
             </div>
           </CardHeader>
-          <CardContent>
-            <VideosTable 
-                selected={selectedVideos} 
-                onSelectedChange={setSelectedVideos} 
-                videos={sortedVideos} 
-                isLoading={videosLoading} 
-                allUsers={allUsers || []}
-                currentUser={currentUser}
-                availableTags={availableTags}
-                onAddComment={handleAddComment}
-                onDeleteComment={handleDeleteComment}
-            />
+          <CardContent className="flex-1 p-0 relative">
+            <div className="absolute inset-0 overflow-auto">
+              <VideosTable 
+                  selected={selectedVideos} 
+                  onSelectedChange={setSelectedVideos} 
+                  videos={sortedVideos} 
+                  isLoading={videosLoading} 
+                  allUsers={allUsers || []}
+                  currentUser={currentUser}
+                  availableTags={availableTags}
+                  onAddComment={handleAddComment}
+                  onDeleteComment={handleDeleteComment}
+              />
+            </div>
           </CardContent>
         </Card>
       )}
 
       {canAccessMessageTab && defaultTab === 'messages' && (
-        <Card>
+        <Card className="flex-1 flex flex-col overflow-hidden">
           <CardHeader>
             <CardTitle>メッセージ一覧</CardTitle>
             <CardDescription>経営層からのメッセージを管理します。</CardDescription>
@@ -1235,7 +1237,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
               {(canManageMessages || canProxyPostMessage) && <AddMessageDialog allUsers={allUsers || []} currentUser={currentUser} availableTags={availableTags} />}
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 p-0 relative">
+            <div className="absolute inset-0 overflow-auto">
               <MessagesTable 
                 selected={selectedMessages} 
                 onSelectedChange={setSelectedMessages}
@@ -1247,6 +1250,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                 onAddComment={handleAddComment}
                 onDeleteComment={handleDeleteComment}
               />
+            </div>
           </CardContent>
         </Card>
       )}
