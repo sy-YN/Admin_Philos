@@ -54,13 +54,23 @@ type NavItem = {
   label: string;
   icon: React.FC<any>;
   requiredPermissions?: string[];
-  children?: Omit<NavItem, 'icon' | 'children'>[];
+  children?: Omit<NavItem, 'icon' | 'children' | 'requiredPermissions'> & { requiredPermissions?: string[] }[];
 };
 
 const allNavItems: NavItem[] = [
   { href: '/dashboard/members', label: 'メンバー管理', icon: Users, id: 'members', requiredPermissions: ['members'] },
   { href: '/dashboard/organization', label: '組織管理', icon: Network, id: 'organization', requiredPermissions: ['organization'] },
-  { href: '/dashboard/permissions', label: '権限管理', icon: Shield, id: 'permissions', requiredPermissions: ['permissions'] },
+  {
+    href: '/dashboard/permissions',
+    label: '権限管理',
+    icon: Shield,
+    id: 'permissions',
+    requiredPermissions: ['permissions'],
+    children: [
+      { href: '/dashboard/permissions?tab=roles', label: '役割別権限', id: 'permissions_roles', requiredPermissions: ['permissions'] },
+      { href: '/dashboard/permissions?tab=users', label: 'ユーザー個別権限', id: 'permissions_users', requiredPermissions: ['permissions'] },
+    ],
+  },
   { href: '/dashboard/appearance', label: '外観設定', icon: Palette, id: 'appearance', requiredPermissions: ['appearance_management'] },
   {
     href: '/dashboard/contents',
