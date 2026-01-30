@@ -1712,22 +1712,41 @@ function PersonalGoalDialog({
   );
 }
 
-function PastGoalCard({ goal, onEdit, onDelete }: { goal: PersonalGoal, onEdit: () => void, onDelete: () => void }) {
-  const getBadgeVariant = (): "default" | "secondary" | "destructive" | "outline" => {
-    switch (goal.status) {
-        case '達成済': return "default";
-        case '未達成': return "destructive";
-        default: return "secondary";
+function PastGoalCard({ goal, onEdit, onDelete }: { goal: PersonalGoal; onEdit: () => void; onDelete: () => void }) {
+  const { title, startDate, endDate, progress, status } = goal;
+
+  const getStatusColor = () => {
+    switch (status) {
+      case '達成済':
+        return 'text-green-500';
+      case '未達成':
+        return 'text-red-500';
+      default: // Should not happen for past goals
+        return 'text-yellow-500';
     }
   };
+
+  const getBadgeVariant = (): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case '達成済':
+        return 'default';
+      case '未達成':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const statusColor = getStatusColor();
+  const StatusIcon = status === '達成済' ? CheckCircle2 : XCircle;
 
   return (
     <Card className="flex flex-col">
       <CardHeader className="flex flex-row items-start justify-between pb-2">
         <div className="space-y-1 overflow-hidden">
-          <CardTitle className="text-base font-semibold truncate" title={goal.title}>{goal.title}</CardTitle>
+          <CardTitle className="text-base font-semibold truncate" title={title}>{title}</CardTitle>
           <CardDescription className="text-xs">
-            {format(goal.startDate.toDate(), 'yy/MM/dd')} - {format(goal.endDate.toDate(), 'yy/MM/dd')}
+            {format(startDate.toDate(), 'yy/MM/dd')} - {format(endDate.toDate(), 'yy/MM/dd')}
           </CardDescription>
         </div>
         <DropdownMenu>
@@ -1742,13 +1761,45 @@ function PastGoalCard({ goal, onEdit, onDelete }: { goal: PersonalGoal, onEdit: 
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
-      <CardContent className="flex items-center justify-between pt-2">
-        <Badge variant={getBadgeVariant()}>{goal.status}</Badge>
-        <div className="font-bold text-lg">{goal.progress}%</div>
+      <CardContent className="flex flex-col flex-grow items-center justify-center pt-2">
+        <div className="relative">
+          <svg className="h-24 w-24" viewBox="0 0 100 100">
+            <circle
+              className="stroke-current text-gray-200 dark:text-gray-700"
+              strokeWidth="10"
+              cx="50"
+              cy="50"
+              r="40"
+              fill="transparent"
+            ></circle>
+            <circle
+              className={cn("stroke-current", statusColor)}
+              strokeWidth="10"
+              cx="50"
+              cy="50"
+              r="40"
+              fill="transparent"
+              strokeDasharray={`${2 * Math.PI * 40 * (progress / 100)} ${2 * Math.PI * 40 * (1 - progress / 100)}`}
+              strokeDashoffset={`${2 * Math.PI * 40 * 0.25}`}
+              strokeLinecap="round"
+              transform="rotate(-90 50 50)"
+            ></circle>
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-2xl font-bold text-foreground">{progress}%</span>
+          </div>
+        </div>
+        <div className="mt-2 text-center">
+          <Badge variant={getBadgeVariant()} className="inline-flex items-center gap-1">
+            <StatusIcon className="h-3.5 w-3.5" />
+            <span>{status}</span>
+          </Badge>
+        </div>
       </CardContent>
     </Card>
   );
 }
+
 
 function PersonalGoalsList({
   user,
@@ -1937,11 +1988,13 @@ function DashboardSettingsPageComponent() {
     const [currentUserData, setCurrentUserData] = useState<Member | null>(null);
     
     const [companySearchTerm, setCompanySearchTerm] = useState('');
+    const [companyDateRange, setCompanyDateRange] = useState<DateRange | undefined>();
     const [companyCardSize, setCompanyCardSize] = useState<'sm' | 'md' | 'lg'>('md');
     const [companyCurrentPage, setCompanyCurrentPage] = useState(0);
     const [companyRowsPerPage, setCompanyRowsPerPage] = useState(4);
 
     const [teamSearchTerm, setTeamSearchTerm] = useState('');
+    const [teamDateRange, setTeamDateRange] = useState<DateRange | undefined>();
     const [teamCardSize, setTeamCardSize] = useState<'sm' | 'md' | 'lg'>('md');
     const [teamCurrentPage, setTeamCurrentPage] = useState(0);
     const [teamRowsPerPage, setTeamRowsPerPage] = useState(4);
@@ -1949,10 +2002,6 @@ function DashboardSettingsPageComponent() {
     const [selectedOrgId, setSelectedOrgId] = useState<string>('');
     const [editableOrgs, setEditableOrgs] = useState<Organization[]>([]);
     
-    const [teamDateRange, setTeamDateRange] = useState<DateRange | undefined>();
-    const [companyDateRange, setCompanyDateRange] = useState<DateRange | undefined>();
-
-
     useEffect(() => {
         const sizeMap = { lg: 2, md: 4, sm: 6 };
         setTeamRowsPerPage(sizeMap[teamCardSize] || 4);
@@ -2620,3 +2669,5 @@ export default function DashboardSettingsPage() {
         </Suspense>
     )
 }
+
+    
