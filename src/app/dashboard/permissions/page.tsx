@@ -245,10 +245,8 @@ function PermissionsPageComponent() {
   const isLoading = isUserLoading || isLoadingRoles || isLoadingUserPerms || isLoadingUsers;
   
   const pageSubTitle = useMemo(() => {
-    if (selectedTab === 'roles') return '役割別権限';
-    if (selectedTab === 'users') return 'ユーザー個別権限';
     return '';
-  }, [selectedTab]);
+  }, []);
 
   return (
     <div className="flex flex-col gap-6 h-full">
@@ -267,7 +265,7 @@ function PermissionsPageComponent() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-auto">
-                {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin" /></div> : rolesData && rolesData.length > 0 ? (
+                {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin text-primary" /></div> : rolesData && rolesData.length > 0 ? (
                     <Table>
                     <TableHeader className="sticky top-0 bg-background z-10">
                         <TableRow>
@@ -314,7 +312,7 @@ function PermissionsPageComponent() {
                     <div className="text-center py-10 text-muted-foreground">
                         <p>役割データが見つかりません。</p>
                         <Button onClick={handleSeedRoles} disabled={isSaving} variant="outline" className="mt-4">
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" /> : <Sparkles className="mr-2 h-4 w-4" />}
                             初期の役割データを登録する
                         </Button>
                     </div>
@@ -346,9 +344,13 @@ function PermissionsPageComponent() {
                     個別権限を保存
                 </Button>
             </CardHeader>
-            <CardContent className="p-0 flex-1 relative min-h-0">
-              <div className="absolute inset-0 overflow-auto">
-                {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin" /></div> : (
+            <CardContent className="p-0 flex-1 relative">
+                <div className="absolute inset-0 overflow-auto">
+                    {isLoading ? (
+                        <div className="flex h-full items-center justify-center p-4">
+                            <Loader2 className="animate-spin text-primary" />
+                        </div>
+                    ) : (
                     <Table>
                         <TableHeader className="sticky top-0 bg-background z-10">
                         <TableRow>
@@ -437,7 +439,7 @@ function PermissionsPageComponent() {
                         </TableBody>
                     </Table>
                 )}
-              </div>
+                </div>
             </CardContent>
             <CardFooter className="border-t">
                 <DataTablePagination
@@ -464,5 +466,3 @@ export default function PermissionsPageWrapper() {
         </Suspense>
     )
 }
-
-    

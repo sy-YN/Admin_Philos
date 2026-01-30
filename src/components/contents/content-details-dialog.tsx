@@ -52,7 +52,7 @@ function LikesList({ contentId, contentType }: Pick<ContentDetailsDialogProps, '
   const { data: likes, isLoading } = useSubCollection<Like>(contentType, contentId, 'likes');
 
   if (isLoading) {
-    return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
+    return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
   }
 
   if (!likes || likes.length === 0) {
@@ -79,7 +79,7 @@ function ViewsList({ contentId, contentType }: Pick<ContentDetailsDialogProps, '
   const { data: views, isLoading } = useSubCollection<View>(contentType, contentId, 'views');
 
   if (isLoading) {
-    return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
+    return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
   }
 
   if (!views || views.length === 0) {
@@ -370,7 +370,7 @@ function CommentsList({
 
 
   if (isLoading) {
-    return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
+    return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
   }
 
   if (!comments || comments.length === 0) {
