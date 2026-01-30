@@ -3,7 +3,7 @@
 
 import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +33,7 @@ import type { ContentTagSettings } from '@/types/content-tags';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
 
 // --- Tag Management ---
 
@@ -908,6 +909,13 @@ function ContentsPage() {
 function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
+  
+  // Pagination State
+  const [videoCurrentPage, setVideoCurrentPage] = useState(0);
+  const [videoRowsPerPage, setVideoRowsPerPage] = useState(5);
+  const [messageCurrentPage, setMessageCurrentPage] = useState(0);
+  const [messageRowsPerPage, setMessageRowsPerPage] = useState(10);
+  
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user: authUser, isUserLoading } = useUser();
@@ -992,6 +1000,30 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   
   const sortedVideos = videos;
   const sortedMessages = messages;
+
+  // Paginated Data
+  const paginatedVideos = useMemo(() => {
+    if (!sortedVideos) return [];
+    const startIndex = videoCurrentPage * videoRowsPerPage;
+    return sortedVideos.slice(startIndex, startIndex + videoRowsPerPage);
+  }, [sortedVideos, videoCurrentPage, videoRowsPerPage]);
+
+  const paginatedMessages = useMemo(() => {
+    if (!sortedMessages) return [];
+    const startIndex = messageCurrentPage * messageRowsPerPage;
+    return sortedMessages.slice(startIndex, startIndex + messageRowsPerPage);
+  }, [sortedMessages, messageCurrentPage, messageRowsPerPage]);
+
+
+  // Reset page when tab or rowsPerPage changes
+  useEffect(() => {
+    setVideoCurrentPage(0);
+  }, [selectedTab, videoRowsPerPage]);
+
+  useEffect(() => {
+    setMessageCurrentPage(0);
+  }, [selectedTab, messageRowsPerPage]);
+
 
   const handleAddVideo = async (videoData: Partial<VideoType>) => {
     if (!firestore) return;
@@ -1200,7 +1232,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
               <VideosTable 
                   selected={selectedVideos} 
                   onSelectedChange={setSelectedVideos} 
-                  videos={sortedVideos} 
+                  videos={paginatedVideos} 
                   isLoading={videosLoading} 
                   allUsers={allUsers || []}
                   currentUser={currentUser}
@@ -1210,6 +1242,15 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
               />
             </div>
           </CardContent>
+           <CardFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t">
+              <DataTablePagination
+                count={sortedVideos?.length || 0}
+                rowsPerPage={videoRowsPerPage}
+                page={videoCurrentPage}
+                onPageChange={setVideoCurrentPage}
+                onRowsPerPageChange={setVideoRowsPerPage}
+              />
+          </CardFooter>
         </Card>
       )}
 
@@ -1246,7 +1287,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
               <MessagesTable 
                 selected={selectedMessages} 
                 onSelectedChange={setSelectedMessages}
-                messages={sortedMessages}
+                messages={paginatedMessages}
                 isLoading={messagesLoading}
                 allUsers={allUsers || []}
                 currentUser={currentUser}
@@ -1256,6 +1297,15 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
               />
             </div>
           </CardContent>
+           <CardFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t">
+            <DataTablePagination
+              count={sortedMessages?.length || 0}
+              rowsPerPage={messageRowsPerPage}
+              page={messageCurrentPage}
+              onPageChange={setMessageCurrentPage}
+              onRowsPerPageChange={setMessageRowsPerPage}
+            />
+          </CardFooter>
         </Card>
       )}
       
@@ -1270,5 +1320,3 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 }
 
 export default ContentsPage;
-
-    
