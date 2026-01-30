@@ -11,11 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle as MessageCircleIcon, Eye, Tag } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Video, MessageSquare, Loader2, Sparkles, Trash2, Heart, MessageCircle as MessageCircleIcon, Eye, Tag, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where, getDocs, Query, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, increment, getDoc, where, getDocs, Query, setDoc, Timestamp } from 'firebase/firestore';
 import type { ExecutiveMessage } from '@/types/executive-message';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +34,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
+
+// --- Types ---
+type VideoSortDescriptor = { column: keyof VideoType; direction: 'asc' | 'desc' };
+
 
 // --- Tag Management ---
 
@@ -725,6 +729,8 @@ function VideosTable({
   availableTags,
   onAddComment,
   onDeleteComment,
+  sortDescriptor,
+  onSortChange,
 }: { 
   selected: string[], 
   onSelectedChange: (ids: string[]) => void, 
@@ -735,9 +741,30 @@ function VideosTable({
   availableTags: string[],
   onAddComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentData: Omit<Comment, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'authorAvatarUrl'>) => Promise<void>;
   onDeleteComment: (contentType: 'videos' | 'executiveMessages', contentId: string, commentId: string) => Promise<void>;
+  sortDescriptor: VideoSortDescriptor;
+  onSortChange: (descriptor: VideoSortDescriptor) => void;
 }) {
   const firestore = useFirestore();
   const { toast } = useToast();
+
+  const createSortHandler = (column: keyof VideoType) => () => {
+    const direction =
+      sortDescriptor.column === column && sortDescriptor.direction === 'asc'
+        ? 'desc'
+        : 'asc';
+    onSortChange({ column, direction });
+  };
+
+  const SortIndicator = ({ column }: { column: keyof VideoType }) => {
+    if (sortDescriptor.column === column) {
+      return sortDescriptor.direction === 'asc' ? (
+        <ChevronUp className="ml-2 h-4 w-4" />
+      ) : (
+        <ChevronDown className="ml-2 h-4 w-4" />
+      );
+    }
+    return <ChevronsUpDown className="ml-2 h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />;
+  };
 
   const handleUpdateVideo = async (videoId: string, videoData: Partial<VideoType>) => {
     if (!firestore) return;
@@ -793,10 +820,25 @@ function VideosTable({
         <TableRow>
           <TableHead className="w-[50px]"><Checkbox checked={selected.length === videos?.length && (videos?.length ?? 0) > 0} onCheckedChange={handleSelectAll} /></TableHead>
           <TableHead className="w-[120px]">サムネイル</TableHead>
-          <TableHead>タイトル</TableHead>
+          <TableHead>
+            <Button variant="ghost" onClick={createSortHandler('title')} className="-ml-4 h-8 group">
+              タイトル
+              <SortIndicator column="title" />
+            </Button>
+          </TableHead>
           <TableHead className="hidden sm:table-cell">タグ</TableHead>
-          <TableHead className="w-[120px]">重要度</TableHead>
-          <TableHead className="hidden md:table-cell">投稿者 / 作成者 / 作成日</TableHead>
+          <TableHead className="w-[120px]">
+             <Button variant="ghost" onClick={createSortHandler('priority')} className="-ml-4 h-8 group">
+              重要度
+              <SortIndicator column="priority" />
+            </Button>
+          </TableHead>
+          <TableHead className="hidden md:table-cell">
+            <Button variant="ghost" onClick={createSortHandler('uploadedAt')} className="-ml-4 h-8 group">
+              投稿者 / 作成者 / 作成日
+              <SortIndicator column="uploadedAt" />
+            </Button>
+          </TableHead>
           <TableHead className="hidden lg:table-cell">Counts</TableHead>
           <TableHead><span className="sr-only">Actions</span></TableHead>
         </TableRow>
@@ -811,9 +853,9 @@ function VideosTable({
                 <Image src={video.thumbnailUrl} alt={video.title} width={120} height={90} className="rounded-md object-cover" />
               </TableCell>
               <TableCell>
-                <div className="font-medium line-clamp-1">{video.title}</div>
+                <div className="font-medium">{video.title}</div>
                 <div className="text-sm text-muted-foreground hidden md:block max-w-md">
-                  {video.description.length > 25
+                   {video.description.length > 25
                     ? `${video.description.substring(0, 25)}...`
                     : video.description}
                 </div>
@@ -915,6 +957,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   const [videoRowsPerPage, setVideoRowsPerPage] = useState(5);
   const [messageCurrentPage, setMessageCurrentPage] = useState(0);
   const [messageRowsPerPage, setMessageRowsPerPage] = useState(10);
+  const [videoSortDescriptor, setVideoSortDescriptor] = useState<VideoSortDescriptor>({ column: 'uploadedAt', direction: 'desc' });
   
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -998,7 +1041,25 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 
   const { data: messages, isLoading: messagesLoading, error: messagesError } = useCollection<ExecutiveMessage>(messagesQuery);
   
-  const sortedVideos = videos;
+  const sortedVideos = useMemo(() => {
+    if (!videos) return [];
+    
+    return [...videos].sort((a, b) => {
+        const first = a[videoSortDescriptor.column];
+        const second = b[videoSortDescriptor.column];
+
+        const valA = first instanceof Timestamp ? first.toMillis() : first;
+        const valB = second instanceof Timestamp ? second.toMillis() : second;
+
+        let cmp = String(valA).localeCompare(String(valB));
+        
+        if (videoSortDescriptor.direction === 'desc') {
+            cmp *= -1;
+        }
+        return cmp;
+    });
+  }, [videos, videoSortDescriptor]);
+
   const sortedMessages = messages;
 
   // Paginated Data
@@ -1018,7 +1079,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
   // Reset page when tab or rowsPerPage changes
   useEffect(() => {
     setVideoCurrentPage(0);
-  }, [selectedTab, videoRowsPerPage]);
+  }, [selectedTab, videoRowsPerPage, videoSortDescriptor]);
 
   useEffect(() => {
     setMessageCurrentPage(0);
@@ -1239,6 +1300,8 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
                   availableTags={availableTags}
                   onAddComment={onAddComment}
                   onDeleteComment={onDeleteComment}
+                  sortDescriptor={videoSortDescriptor}
+                  onSortChange={setVideoSortDescriptor}
               />
             </div>
           </CardContent>
