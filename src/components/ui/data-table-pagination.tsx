@@ -79,42 +79,46 @@ export function DataTablePagination({
           {page + 1} / {pageCount > 0 ? pageCount : 1} ページ
         </div>
         <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => handleSetPage(0)}
-            disabled={page === 0}
-          >
-            <span className="sr-only">最初のページへ</span>
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => handleSetPage(page - 1)}
-            disabled={page === 0}
-          >
-            <span className="sr-only">前のページへ</span>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => handleSetPage(page + 1)}
-            disabled={page >= pageCount - 1}
-          >
-            <span className="sr-only">次のページへ</span>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => handleSetPage(pageCount - 1)}
-            disabled={page >= pageCount - 1}
-          >
-            <span className="sr-only">最後のページへ</span>
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
+          {page > 0 && (
+            <>
+              <Button
+                variant="outline"
+                className="hidden h-8 w-8 p-0 lg:flex"
+                onClick={() => handleSetPage(0)}
+              >
+                <span className="sr-only">最初のページへ</span>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => handleSetPage(page - 1)}
+              >
+                <span className="sr-only">前のページへ</span>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+          {page < pageCount - 1 && (
+            <>
+              <Button
+                variant="outline"
+                className="h-8 w-8 p-0"
+                onClick={() => handleSetPage(page + 1)}
+              >
+                <span className="sr-only">次のページへ</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className="hidden h-8 w-8 p-0 lg:flex"
+                onClick={() => handleSetPage(pageCount - 1)}
+              >
+                <span className="sr-only">最後のページへ</span>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
