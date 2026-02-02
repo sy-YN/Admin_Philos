@@ -504,36 +504,36 @@ function MessagesTable({
   
   return (
     <Table>
-      <TableHeader className="sticky top-0 z-10 bg-card">
+      <TableHeader className="sticky top-0 z-10 bg-muted">
         <TableRow>
           <TableHead className="w-[50px]"><Checkbox checked={selected.length === messages?.length && messages.length > 0} onCheckedChange={handleSelectAll} /></TableHead>
-          <TableHead>
+          <TableHead className="border-l">
             <Button variant="ghost" onClick={createSortHandler('title')} className="-ml-4 h-8 group">
               タイトル
               <SortIndicator column="title" />
             </Button>
           </TableHead>
-          <TableHead className="hidden md:table-cell">タグ</TableHead>
-          <TableHead className="w-[120px]">
+          <TableHead className="hidden md:table-cell border-l">タグ</TableHead>
+          <TableHead className="w-[120px] border-l">
             <Button variant="ghost" onClick={createSortHandler('priority')} className="-ml-4 h-8 group">
               重要度
               <SortIndicator column="priority" />
             </Button>
           </TableHead>
-          <TableHead className="hidden sm:table-cell w-[150px]">
+          <TableHead className="hidden sm:table-cell w-[150px] border-l">
             <Button variant="ghost" onClick={createSortHandler('authorName')} className="-ml-4 h-8 group">
               投稿者
               <SortIndicator column="authorName" />
             </Button>
           </TableHead>
-          <TableHead className="hidden sm:table-cell w-[150px]">
+          <TableHead className="hidden sm:table-cell w-[150px] border-l">
             <Button variant="ghost" onClick={createSortHandler('createdAt')} className="-ml-4 h-8 group">
               作成日
               <SortIndicator column="createdAt" />
             </Button>
           </TableHead>
-          <TableHead className="hidden lg:table-cell">Counts</TableHead>
-          <TableHead><span className="sr-only">Actions</span></TableHead>
+          <TableHead className="hidden lg:table-cell border-l">Counts</TableHead>
+          <TableHead className="border-l"><span className="sr-only">Actions</span></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -542,25 +542,25 @@ function MessagesTable({
           return (
             <TableRow key={msg.id} data-state={selected.includes(msg.id) && "selected"}>
               <TableCell><Checkbox checked={selected.includes(msg.id)} onCheckedChange={(checked) => handleSelectRow(msg.id, !!checked)} /></TableCell>
-              <TableCell className="font-medium">{msg.title}</TableCell>
-              <TableCell className="hidden md:table-cell">
+              <TableCell className="font-medium border-l">{msg.title}</TableCell>
+              <TableCell className="hidden md:table-cell border-l">
                 <div className="flex flex-wrap gap-1">
                   {(msg.tags || []).map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
                 </div>
               </TableCell>
-              <TableCell>
+              <TableCell className="border-l">
                 <Badge variant={msg.priority === 'high' ? 'destructive' : 'secondary'}>
                   {msg.priority === 'high' ? '高' : '通常'}
                 </Badge>
               </TableCell>
-              <TableCell className="hidden sm:table-cell">
+              <TableCell className="hidden sm:table-cell border-l">
                 <div>{msg.authorName || '不明'}</div>
                 <div className="text-xs text-muted-foreground">作成: {creator?.displayName || '不明'}</div>
               </TableCell>
-              <TableCell className="hidden sm:table-cell">
+              <TableCell className="hidden sm:table-cell border-l">
                 <div className="text-xs text-muted-foreground">{formatDate(msg.createdAt)}</div>
               </TableCell>
-              <TableCell className="hidden lg:table-cell">
+              <TableCell className="hidden lg:table-cell border-l">
                 <ContentDetailsDialog 
                     contentId={msg.id} 
                     contentType="executiveMessages" 
@@ -575,7 +575,7 @@ function MessagesTable({
                   </div>
                 </ContentDetailsDialog>
               </TableCell>
-              <TableCell>
+              <TableCell className="border-l">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
@@ -867,37 +867,37 @@ function VideosTable({
 
   return (
     <Table>
-      <TableHeader className="sticky top-0 z-10 bg-card">
+      <TableHeader className="sticky top-0 z-10 bg-muted">
         <TableRow>
           <TableHead className="w-[50px]"><Checkbox checked={selected.length === videos?.length && (videos?.length ?? 0) > 0} onCheckedChange={handleSelectAll} /></TableHead>
-          <TableHead className="w-[120px]">サムネイル</TableHead>
-          <TableHead>
+          <TableHead className="w-[120px] border-l">サムネイル</TableHead>
+          <TableHead className="border-l">
             <Button variant="ghost" onClick={createSortHandler('title')} className="-ml-4 h-8 group">
               タイトル
               <SortIndicator column="title" />
             </Button>
           </TableHead>
-          <TableHead className="hidden sm:table-cell w-[180px]">タグ</TableHead>
-          <TableHead className="w-[100px]">
+          <TableHead className="hidden sm:table-cell w-[180px] border-l">タグ</TableHead>
+          <TableHead className="w-[100px] border-l">
              <Button variant="ghost" onClick={createSortHandler('priority')} className="-ml-4 h-8 group">
               重要度
               <SortIndicator column="priority" />
             </Button>
           </TableHead>
-           <TableHead className="hidden md:table-cell w-[150px]">
+           <TableHead className="hidden md:table-cell w-[150px] border-l">
             <Button variant="ghost" onClick={createSortHandler('authorName')} className="-ml-4 h-8 group">
               投稿者
               <SortIndicator column="authorName" />
             </Button>
           </TableHead>
-          <TableHead className="hidden md:table-cell w-[150px]">
+          <TableHead className="hidden md:table-cell w-[150px] border-l">
             <Button variant="ghost" onClick={createSortHandler('uploadedAt')} className="-ml-4 h-8 group">
               アップロード日
               <SortIndicator column="uploadedAt" />
             </Button>
           </TableHead>
-          <TableHead className="hidden lg:table-cell">Counts</TableHead>
-          <TableHead><span className="sr-only">Actions</span></TableHead>
+          <TableHead className="hidden lg:table-cell border-l">Counts</TableHead>
+          <TableHead className="border-l"><span className="sr-only">Actions</span></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -906,10 +906,10 @@ function VideosTable({
           return (
             <TableRow key={video.id} data-state={selected.includes(video.id) && "selected"}>
               <TableCell><Checkbox checked={selected.includes(video.id)} onCheckedChange={(checked) => handleSelectRow(video.id, !!checked)} /></TableCell>
-              <TableCell>
+              <TableCell className="border-l">
                 <Image src={video.thumbnailUrl} alt={video.title} width={120} height={90} className="rounded-md object-cover" />
               </TableCell>
-              <TableCell>
+              <TableCell className="border-l">
                 <div className="font-medium">{video.title}</div>
                 <div className="text-sm text-muted-foreground hidden md:block max-w-md">
                    {video.description.length > 25
@@ -917,24 +917,24 @@ function VideosTable({
                     : video.description}
                 </div>
               </TableCell>
-              <TableCell className="hidden sm:table-cell">
+              <TableCell className="hidden sm:table-cell border-l">
                 <div className="flex flex-wrap gap-1">
                   {(video.tags || []).map(tag => <Badge key={tag} variant="outline">{tag}</Badge>)}
                 </div>
               </TableCell>
-              <TableCell>
+              <TableCell className="border-l">
                 <Badge variant={video.priority === 'high' ? 'destructive' : 'secondary'}>
                   {video.priority === 'high' ? '高' : '通常'}
                 </Badge>
               </TableCell>
-               <TableCell className="hidden md:table-cell">
+               <TableCell className="hidden md:table-cell border-l">
                 <div>{video.authorName || '不明'}</div>
                 <div className="text-xs text-muted-foreground">作成: {creator?.displayName || '不明'}</div>
               </TableCell>
-              <TableCell className="hidden md:table-cell">
+              <TableCell className="hidden md:table-cell border-l">
                 {formatDate(video.uploadedAt)}
               </TableCell>
-              <TableCell className="hidden lg:table-cell">
+              <TableCell className="hidden lg:table-cell border-l">
                   <ContentDetailsDialog 
                     contentId={video.id} 
                     contentType="videos" 
@@ -949,7 +949,7 @@ function VideosTable({
                     </div>
                   </ContentDetailsDialog>
               </TableCell>
-              <TableCell>
+              <TableCell className="border-l">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
@@ -1386,7 +1386,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
       
       {canAccessVideoTab && defaultTab === 'videos' && (
         <Card className="flex-1 flex flex-col overflow-hidden">
-          <CardHeader>
+          <CardHeader className="bg-muted/50 border-b">
             <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 space-y-4">
                     <div className="grid gap-2">
@@ -1468,7 +1468,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
               />
             </div>
           </CardContent>
-           <CardFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t">
+           <CardFooter className="sticky bottom-0 bg-muted/50 border-t">
               <DataTablePagination
                 count={sortedVideos?.length || 0}
                 rowsPerPage={videoRowsPerPage}
@@ -1482,7 +1482,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
 
       {canAccessMessageTab && defaultTab === 'messages' && (
         <Card className="flex-1 flex flex-col overflow-hidden">
-          <CardHeader>
+          <CardHeader className="bg-muted/50 border-b">
             <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 space-y-4">
                     <div className="grid gap-2">
@@ -1562,7 +1562,7 @@ function ContentsPageContent({ selectedTab }: { selectedTab: string }) {
               />
             </div>
           </CardContent>
-           <CardFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t">
+           <CardFooter className="sticky bottom-0 bg-muted/50 border-t">
             <DataTablePagination
               count={sortedMessages?.length || 0}
               rowsPerPage={messageRowsPerPage}
