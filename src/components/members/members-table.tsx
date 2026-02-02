@@ -132,22 +132,22 @@ function MemberTableRow({
         <div className="font-medium">{member.displayName}</div>
         <div className="text-sm text-muted-foreground">{member.furigana || member.email}</div>
       </TableCell>
-      <TableCell className="hidden sm:table-cell">
+      <TableCell className="hidden sm:table-cell border-l">
         {member.employeeId || 'N/A'}
       </TableCell>
-       <TableCell className="hidden md:table-cell">
+       <TableCell className="hidden md:table-cell border-l">
         {organizationName}
       </TableCell>
-       <TableCell className="hidden md:table-cell">
+       <TableCell className="hidden md:table-cell border-l">
         {member.company || '未設定'}
       </TableCell>
-      <TableCell>
+      <TableCell className="border-l text-center">
         <Badge variant={getBadgeVariantForRole(member.role)}>{member.role}</Badge>
       </TableCell>
-      <TableCell className="hidden md:table-cell">
+      <TableCell className="hidden md:table-cell border-l">
         {formatDate(member.createdAt)}
       </TableCell>
-      <TableCell>
+      <TableCell className="border-l text-center">
         <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
           <DropdownMenuTrigger asChild>
             <Button aria-haspopup="true" size="icon" variant="ghost">
@@ -246,33 +246,33 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
               氏名/ふりがな <SortIndicator column="furigana" />
             </Button>
           </TableHead>
-          <TableHead className="hidden sm:table-cell">
+          <TableHead className="hidden sm:table-cell border-l">
             <Button variant="ghost" onClick={createSortHandler('employeeId')} className="-ml-4 h-8 group">
               社員番号 <SortIndicator column="employeeId" />
             </Button>
           </TableHead>
-          <TableHead className="hidden md:table-cell">
+          <TableHead className="hidden md:table-cell border-l">
             <Button variant="ghost" onClick={createSortHandler('organizationId')} className="-ml-4 h-8 group">
               所属部署 <SortIndicator column="organizationId" />
             </Button>
           </TableHead>
-           <TableHead className="hidden md:table-cell">
+           <TableHead className="hidden md:table-cell border-l">
             <Button variant="ghost" onClick={createSortHandler('company')} className="-ml-4 h-8 group">
               所属会社 <SortIndicator column="company" />
             </Button>
           </TableHead>
-          <TableHead>
+          <TableHead className="border-l">
             <Button variant="ghost" onClick={createSortHandler('role')} className="-ml-4 h-8 group">
               権限 <SortIndicator column="role" />
             </Button>
           </TableHead>
-          <TableHead className="hidden md:table-cell">
+          <TableHead className="hidden md:table-cell border-l">
             <Button variant="ghost" onClick={createSortHandler('createdAt')} className="-ml-4 h-8 group">
               登録日 <SortIndicator column="createdAt" />
             </Button>
           </TableHead>
-          <TableHead>
-            <span className="sr-only">Actions</span>
+          <TableHead className="border-l text-center">
+            操作
           </TableHead>
         </TableRow>
       </TableHeader>
