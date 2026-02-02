@@ -1,4 +1,3 @@
-
 'use client';
 import { useMemo, useState, useEffect } from 'react';
 import { File, Search } from 'lucide-react';
@@ -199,7 +198,7 @@ export default function MembersPage() {
       </div>
       
       <Card className="flex flex-1 flex-col overflow-hidden">
-        <CardHeader className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm">
+        <CardHeader className="sticky top-0 z-20 bg-muted/50 border-b">
           <div className="flex flex-col gap-4">
               <div>
                   <CardTitle>メンバー</CardTitle>
@@ -253,7 +252,7 @@ export default function MembersPage() {
             />
           </div>
         </CardContent>
-        <CardFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm">
+        <CardFooter className="sticky bottom-0 bg-muted/50 border-t">
             <DataTablePagination
               count={sortedAndFilteredMembers.length}
               rowsPerPage={rowsPerPage}

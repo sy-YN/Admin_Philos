@@ -239,7 +239,7 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
 
   return (
     <Table>
-      <TableHeader className="sticky top-0 z-10 bg-card">
+      <TableHeader className="sticky top-0 z-10 bg-muted">
         <TableRow>
           <TableHead>
             <Button variant="ghost" onClick={createSortHandler('furigana')} className="-ml-4 h-8 group">
