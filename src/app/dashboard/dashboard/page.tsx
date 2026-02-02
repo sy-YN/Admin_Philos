@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
@@ -9,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle, CalendarClock, Check, Search, X, Rows3, Columns2, LayoutGrid } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, MoreVertical, Trash2, Edit, Database, Star, Loader2, Info, Share2, CheckCircle2, XCircle, CalendarClock, Check, Search, X, Rows3, Columns2, LayoutGrid, Flag, Repeat } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import dynamic from 'next/dynamic';
@@ -37,7 +36,7 @@ import type { PersonalGoal, GoalStatus } from '@/types/personal-goal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { format, startOfDay, getWeek, getMonth, getYear, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
+import { format, startOfDay, getWeek, getMonth, getYear, startOfWeek, endOfWeek, eachDayOfInterval, addDays, differenceInDays, differenceInWeeks, differenceInMonths, formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Slider } from '@/components/ui/slider';
@@ -1712,8 +1711,8 @@ function PersonalGoalDialog({
   );
 }
 
-function PastGoalCard({ goal, onEdit, onDelete }: { goal: PersonalGoal; onEdit: () => void; onDelete: () => void }) {
-  const { title, startDate, endDate, progress, status } = goal;
+function PastGoalCard({ goal, onEdit, onDelete }: { goal: PersonalGoal; onEdit: () => void; onDelete: () => void; }) {
+  const { title, startDate, endDate, progress, status, updatedAt } = goal;
 
   const getStatusColor = () => {
     switch (status) {
@@ -1721,11 +1720,11 @@ function PastGoalCard({ goal, onEdit, onDelete }: { goal: PersonalGoal; onEdit: 
         return 'text-green-500';
       case '未達成':
         return 'text-red-500';
-      default: // Should not happen for past goals
+      default: // 進行中
         return 'text-yellow-500';
     }
   };
-
+  
   const getBadgeVariant = (): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case '達成済':
@@ -1740,66 +1739,92 @@ function PastGoalCard({ goal, onEdit, onDelete }: { goal: PersonalGoal; onEdit: 
   const statusColor = getStatusColor();
   const StatusIcon = status === '達成済' ? CheckCircle2 : XCircle;
 
+  const formattedStartDate = startDate ? format(startDate.toDate(), 'yyyy/MM/dd', { locale: ja }) : 'N/A';
+  const formattedEndDate = endDate ? format(endDate.toDate(), 'yyyy/MM/dd', { locale: ja }) : 'N/A';
+  const formattedUpdatedAt = updatedAt ? formatDistanceToNow(updatedAt.toDate(), { addSuffix: true, locale: ja }) : 'N/A';
+
   return (
     <Card className="flex flex-col">
-      <CardHeader className="flex flex-row items-start justify-between pb-2">
-        <div className="space-y-1 overflow-hidden">
-          <CardTitle className="text-base font-semibold truncate" title={title}>{title}</CardTitle>
-          <CardDescription className="text-xs">
-            {format(startDate.toDate(), 'yy/MM/dd')} - {format(endDate.toDate(), 'yy/MM/dd')}
-          </CardDescription>
+      <CardHeader className="flex-row items-start justify-between">
+        <div className="flex flex-col space-y-1.5">
+          <CardTitle className="text-lg font-bold">個人目標</CardTitle>
+          <CardDescription>過去に設定した目標の記録です。</CardDescription>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-              <MoreHorizontal className="h-4 w-4" />
+            <Button variant="ghost" size="icon">
+              <MoreVertical className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEdit}><Edit className="mr-2 h-4 w-4" />編集</DropdownMenuItem>
-            <DropdownMenuItem onClick={onDelete} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />削除</DropdownMenuItem>
+            <DropdownMenuItem onClick={onEdit}>
+              <Edit className="mr-2 h-4 w-4" />
+              編集
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={onDelete}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              削除
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
-      <CardContent className="flex flex-col flex-grow items-center justify-center pt-2">
-        <div className="relative">
-          <svg className="h-24 w-24" viewBox="0 0 100 100">
-            <circle
-              className="stroke-current text-gray-200 dark:text-gray-700"
-              strokeWidth="10"
-              cx="50"
-              cy="50"
-              r="40"
-              fill="transparent"
-            ></circle>
-            <circle
-              className={cn("stroke-current", statusColor)}
-              strokeWidth="10"
-              cx="50"
-              cy="50"
-              r="40"
-              fill="transparent"
-              strokeDasharray={`${2 * Math.PI * 40 * (progress / 100)} ${2 * Math.PI * 40 * (1 - progress / 100)}`}
-              strokeDashoffset={`${2 * Math.PI * 40 * 0.25}`}
-              strokeLinecap="round"
-              transform="rotate(-90 50 50)"
-            ></circle>
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold text-foreground">{progress}%</span>
+      <CardContent className="flex-grow space-y-6">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <svg className="h-32 w-32" viewBox="0 0 100 100">
+              <circle
+                className="stroke-current text-gray-200 dark:text-gray-700"
+                strokeWidth="10"
+                cx="50"
+                cy="50"
+                r="40"
+                fill="transparent"
+              ></circle>
+              <circle
+                className={cn("stroke-current", statusColor)}
+                strokeWidth="10"
+                cx="50"
+                cy="50"
+                r="40"
+                fill="transparent"
+                strokeDasharray={`${2 * Math.PI * 40 * (progress / 100)} ${2 * Math.PI * 40 * (1 - progress / 100)}`}
+                strokeDashoffset={`${2 * Math.PI * 40 * 0.25}`}
+                strokeLinecap="round"
+                transform="rotate(-90 50 50)"
+              ></circle>
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-3xl font-bold text-foreground">{progress}%</span>
+              <span className="text-xs text-muted-foreground">進捗</span>
+            </div>
+          </div>
+          <div className="text-center">
+             <div className="flex items-center justify-center gap-2">
+                {StatusIcon && <StatusIcon className={cn("h-5 w-5", statusColor)} />}
+                <p className="font-semibold text-foreground text-lg">{title}</p>
+            </div>
+            <Badge variant={getBadgeVariant()} className="mt-1">{status}</Badge>
           </div>
         </div>
-        <div className="mt-2 text-center">
-          <Badge variant={getBadgeVariant()} className="inline-flex items-center gap-1">
-            <StatusIcon className="h-3.5 w-3.5" />
-            <span>{status}</span>
-          </Badge>
+
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <CalendarIcon className="h-4 w-4" />
+            <span>期間: {formattedStartDate} ~ {formattedEndDate}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Flag className="h-4 w-4" />
+            <span>ステータス: {status}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Repeat className="h-4 w-4" />
+            <span>最終更新: {formattedUpdatedAt}</span>
+          </div>
         </div>
       </CardContent>
     </Card>
   );
 }
-
 
 function PersonalGoalsList({
   user,
@@ -2669,5 +2694,3 @@ export default function DashboardSettingsPage() {
         </Suspense>
     )
 }
-
-    
