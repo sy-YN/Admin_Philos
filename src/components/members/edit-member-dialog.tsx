@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -186,7 +185,7 @@ export function EditMemberDialog({ member, organizations, onSuccess, children }:
                 <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required disabled={isLoading}/>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="furigana">フリガナ</Label>
+                <Label htmlFor="furigana">ふりがな</Label>
                 <Input id="furigana" value={furigana} onChange={(e) => setFurigana(e.target.value)} disabled={isLoading} />
               </div>
             </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -244,7 +243,7 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
         <TableRow>
           <TableHead>
             <Button variant="ghost" onClick={createSortHandler('furigana')} className="-ml-4 h-8 group">
-              氏名/フリガナ <SortIndicator column="furigana" />
+              氏名/ふりがな <SortIndicator column="furigana" />
             </Button>
           </TableHead>
           <TableHead className="hidden sm:table-cell">

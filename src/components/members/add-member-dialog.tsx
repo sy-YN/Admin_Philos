@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -168,7 +167,7 @@ export function AddMemberDialog({ organizationOptions = [], organizations = [] }
                     <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} disabled={isLoading}/>
                 </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="furigana">フリガナ</Label>
+                    <Label htmlFor="furigana">ふりがな</Label>
                     <Input id="furigana" value={furigana} onChange={(e) => setFurigana(e.target.value)} disabled={isLoading}/>
                 </div>
             </div>
