@@ -103,6 +103,7 @@ export async function POST(req: Request) {
           uid: userRecord.uid,
           email: user.email,
           displayName: user.displayName,
+          furigana: user.furigana || '',
           role: user.role,
           employeeId: user.employeeId || '',
           organizationId: user.organizationId || null,

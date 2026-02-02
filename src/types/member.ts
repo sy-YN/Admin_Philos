@@ -3,6 +3,7 @@ import type { Timestamp } from 'firebase/firestore';
 export type Member = {
   uid: string;
   displayName: string;
+  furigana?: string;
   email: string;
   employeeId?: string;
   /** @deprecated Use organizationId instead */

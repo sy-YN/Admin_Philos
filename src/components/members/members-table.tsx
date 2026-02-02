@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -40,7 +41,7 @@ import { EditMemberDialog } from './edit-member-dialog';
 
 export type SortDirection = 'asc' | 'desc';
 export type SortDescriptor = {
-  column: keyof Member;
+  column: keyof Member | 'furigana';
   direction: SortDirection;
 };
 
@@ -130,7 +131,7 @@ function MemberTableRow({
     <TableRow>
       <TableCell>
         <div className="font-medium">{member.displayName}</div>
-        <div className="text-sm text-muted-foreground">{member.email}</div>
+        <div className="text-sm text-muted-foreground">{member.furigana || member.email}</div>
       </TableCell>
       <TableCell className="hidden sm:table-cell">
         {member.employeeId || 'N/A'}
@@ -204,12 +205,12 @@ function MemberTableRow({
 
 export function MembersTable({ members, isLoading, organizations, organizationsMap, sortDescriptor, onSortChange }: MembersTableProps) {
   
-  const createSortHandler = (column: keyof Member) => () => {
+  const createSortHandler = (column: keyof Member | 'furigana') => () => {
     const direction: SortDirection = sortDescriptor.column === column && sortDescriptor.direction === 'asc' ? 'desc' : 'asc';
     onSortChange({ column, direction });
   };
   
-  const SortIndicator = ({ column }: { column: keyof Member }) => {
+  const SortIndicator = ({ column }: { column: keyof Member | 'furigana' }) => {
     if (sortDescriptor.column === column) {
         return sortDescriptor.direction === 'asc' ? (
             <ChevronUp className="ml-2 h-4 w-4" />
@@ -242,8 +243,8 @@ export function MembersTable({ members, isLoading, organizations, organizationsM
       <TableHeader className="sticky top-0 z-10 bg-card">
         <TableRow>
           <TableHead>
-            <Button variant="ghost" onClick={createSortHandler('displayName')} className="-ml-4 h-8 group">
-              氏名/メール <SortIndicator column="displayName" />
+            <Button variant="ghost" onClick={createSortHandler('furigana')} className="-ml-4 h-8 group">
+              氏名/フリガナ <SortIndicator column="furigana" />
             </Button>
           </TableHead>
           <TableHead className="hidden sm:table-cell">

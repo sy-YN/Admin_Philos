@@ -30,8 +30,8 @@ export default function MembersPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
-    column: 'createdAt',
-    direction: 'desc',
+    column: 'furigana',
+    direction: 'asc',
   });
   
   const membersQuery = useMemoFirebase(() => {
@@ -91,6 +91,13 @@ export default function MembersPage() {
     }
     
     return [...filtered].sort((a, b) => {
+        if (sortDescriptor.column === 'furigana') {
+            const valA = a.furigana || a.displayName;
+            const valB = b.furigana || b.displayName;
+            const cmp = valA.localeCompare(valB, 'ja');
+            return sortDescriptor.direction === 'asc' ? cmp : -cmp;
+        }
+
         const first = a[sortDescriptor.column as keyof Member] ?? '';
         const second = b[sortDescriptor.column as keyof Member] ?? '';
 
@@ -127,7 +134,7 @@ export default function MembersPage() {
       return;
     }
 
-    const headers = ['uid', 'displayName', 'email', 'role', 'employeeId', 'organizationId', 'company', 'createdAt', 'updatedAt'];
+    const headers = ['uid', 'displayName', 'furigana', 'email', 'role', 'employeeId', 'organizationId', 'company', 'createdAt', 'updatedAt'];
     const headerString = headers.join(',');
 
     const replacer = (key: string, value: any) => value === null || value === undefined ? '' : value;
@@ -142,6 +149,7 @@ export default function MembersPage() {
       const orderedRow = {
         uid: row.uid,
         displayName: row.displayName,
+        furigana: row.furigana || '',
         email: row.email,
         role: row.role,
         employeeId: row.employeeId || '',

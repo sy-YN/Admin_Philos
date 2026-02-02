@@ -40,6 +40,7 @@ export function AddMemberDialog({ organizationOptions = [], organizations = [] }
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [furigana, setFurigana] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [organizationId, setOrganizationId] = useState('');
   const [role, setRole] = useState<Member['role'] | ''>('');
@@ -50,6 +51,7 @@ export function AddMemberDialog({ organizationOptions = [], organizations = [] }
       setEmail('');
       setPassword('');
       setDisplayName('');
+      setFurigana('');
       setEmployeeId('');
       setOrganizationId('');
       setRole('');
@@ -87,6 +89,7 @@ export function AddMemberDialog({ organizationOptions = [], organizations = [] }
       email,
       password,
       displayName,
+      furigana,
       role: (isFirstAdmin ? 'admin' : role) as Member['role'],
       employeeId,
       organizationId: organizationId || null,
@@ -159,14 +162,15 @@ export function AddMemberDialog({ organizationOptions = [], organizations = [] }
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="displayName">氏名</Label>
-              <Input
-                id="displayName"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                disabled={isLoading}
-              />
+            <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="displayName">氏名</Label>
+                    <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} disabled={isLoading}/>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="furigana">フリガナ</Label>
+                    <Input id="furigana" value={furigana} onChange={(e) => setFurigana(e.target.value)} disabled={isLoading}/>
+                </div>
             </div>
              <div className="grid gap-2">
               <Label htmlFor="email">メール</Label>

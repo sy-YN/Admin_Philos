@@ -25,7 +25,7 @@ import type { NewUserPayload, UserImportResult, BatchImportUsersResponse } from 
 // CSVで必須のヘッダーを定義
 const REQUIRED_HEADERS: (keyof NewUserPayload)[] = ['email', 'password', 'displayName', 'role'];
 // オプションのヘッダーを定義
-const OPTIONAL_HEADERS: (keyof NewUserPayload)[] = ['employeeId', 'organizationId'];
+const OPTIONAL_HEADERS: (keyof NewUserPayload)[] = ['furigana', 'employeeId', 'organizationId'];
 const ALL_VALID_HEADERS = [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS];
 const VALID_ROLES = ['admin', 'executive', 'manager', 'employee'];
 
@@ -116,7 +116,7 @@ export function ImportMembersDialog() {
 
       const result: BatchImportUsersResponse = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || result.errorCount > 0) {
         throw new Error(result.results[0]?.error || '不明なサーバーエラーが発生しました。');
       }
 

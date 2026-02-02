@@ -53,6 +53,7 @@ export function EditMemberDialog({ member, organizations, onSuccess, children }:
   const firestore = useFirestore();
 
   const [displayName, setDisplayName] = useState(member.displayName);
+  const [furigana, setFurigana] = useState(member.furigana || '');
   const [employeeId, setEmployeeId] = useState(member.employeeId || '');
   const [organizationId, setOrganizationId] = useState(member.organizationId || '');
   const [role, setRole] = useState<Member['role']>(member.role);
@@ -64,6 +65,7 @@ export function EditMemberDialog({ member, organizations, onSuccess, children }:
     if (open) {
       // Reset state when dialog opens
       setDisplayName(member.displayName);
+      setFurigana(member.furigana || '');
       setEmployeeId(member.employeeId || '');
       setOrganizationId(member.organizationId || '');
       setRole(member.role);
@@ -101,6 +103,7 @@ export function EditMemberDialog({ member, organizations, onSuccess, children }:
 
       const updatedData: Partial<Omit<Member, 'createdAt' | 'updatedAt'>> & { updatedAt: any } = {
         displayName,
+        furigana,
         employeeId,
         organizationId: organizationId || null,
         company: companyName, // Set company name based on new organization
@@ -177,17 +180,15 @@ export function EditMemberDialog({ member, organizations, onSuccess, children }:
                 disabled
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="displayName">
-                氏名
-              </Label>
-              <Input
-                id="displayName"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="displayName">氏名</Label>
+                <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required disabled={isLoading}/>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="furigana">フリガナ</Label>
+                <Input id="furigana" value={furigana} onChange={(e) => setFurigana(e.target.value)} disabled={isLoading} />
+              </div>
             </div>
              <div className="grid gap-2">
               <Label htmlFor="employeeId">
