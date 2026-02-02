@@ -259,7 +259,7 @@ function PermissionsPageComponent() {
       
       {selectedTab === 'roles' && (
         <Card>
-            <CardHeader>
+            <CardHeader className="bg-muted/50 border-b">
             <CardTitle>役割別メニューアクセス設定</CardTitle>
             <CardDescription>役割（ロール）ごとに、管理画面でアクセスできる機能を設定します。</CardDescription>
             </CardHeader>
@@ -267,9 +267,9 @@ function PermissionsPageComponent() {
               <div className="overflow-auto">
                 {isLoading ? <div className="flex h-full items-center justify-center p-4"><Loader2 className="animate-spin text-primary" /></div> : rolesData && rolesData.length > 0 ? (
                     <Table>
-                    <TableHeader className="sticky top-0 bg-background z-10">
+                    <TableHeader className="sticky top-0 bg-muted z-10">
                         <TableRow>
-                            <TableHead rowSpan={2} className="w-[120px] sticky left-0 bg-background z-20 px-2 align-middle border-b">役割</TableHead>
+                            <TableHead rowSpan={2} className="w-[120px] sticky left-0 bg-muted z-20 px-2 align-middle border-b">役割</TableHead>
                             {permissionGroups.map(group => (
                                 <TableHead key={group.name} colSpan={group.permissions.length} className="text-center p-1 border-l border-b min-w-[100px]">{group.name}</TableHead>
                             ))}
@@ -320,8 +320,8 @@ function PermissionsPageComponent() {
               </div>
             </CardContent>
             {rolesData && rolesData.length > 0 && (
-                <CardFooter>
-                    <div className="flex w-full justify-end mt-4">
+                <CardFooter className="bg-muted/50 border-t">
+                    <div className="flex w-full justify-end mt-0">
                         <Button onClick={handleSaveRolePermissions} disabled={isSaving}>
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                             役割権限を保存
@@ -334,7 +334,7 @@ function PermissionsPageComponent() {
 
       {selectedTab === 'users' && (
         <Card className="flex-1 flex flex-col overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between bg-muted/50 border-b">
                 <div>
                     <CardTitle>ユーザー個別権限の管理</CardTitle>
                     <CardDescription>役割の権限を基本とし、ユーザーごとに特定の権限をチェックでON/OFFします。</CardDescription>
@@ -352,7 +352,7 @@ function PermissionsPageComponent() {
                         </div>
                     ) : (
                     <Table>
-                        <TableHeader className="sticky top-0 bg-background z-10">
+                        <TableHeader className="sticky top-0 bg-muted z-10">
                         <TableRow>
                             <TableHead rowSpan={2} className="w-[180px] px-2 align-middle border-b">ユーザー</TableHead>
                             {permissionGroups.map(group => (
@@ -441,7 +441,7 @@ function PermissionsPageComponent() {
                 )}
                 </div>
             </CardContent>
-            <CardFooter className="border-t">
+            <CardFooter className="border-t bg-muted/50">
                 <DataTablePagination
                 count={usersData?.length || 0}
                 rowsPerPage={rowsPerPage}
