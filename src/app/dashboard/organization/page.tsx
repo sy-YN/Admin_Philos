@@ -1,14 +1,13 @@
-
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, writeBatch, where, orderBy } from 'firebase/firestore';
+import { collection, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, writeBatch, where } from 'firebase/firestore';
 import type { Organization, OrganizationType } from '@/types/organization';
-import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, Building, Building2, Landmark, Users, Save } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, Building, Building2, Landmark, Save } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -37,7 +36,6 @@ import { createPortal } from 'react-dom';
 import { CSS } from '@dnd-kit/utilities';
 import { OrganizationPicker } from '@/components/organization/organization-picker';
 
-
 type OrganizationWithChildren = Organization & { children: OrganizationWithChildren[] };
 
 const orgTypeOptions: { value: OrganizationType, label: string, icon: React.FC<any> }[] = [
@@ -46,534 +44,58 @@ const orgTypeOptions: { value: OrganizationType, label: string, icon: React.FC<a
     { value: 'department', label: '部署', icon: Building },
 ];
 
-function OrganizationDialog({
-  organization,
-  organizations,
-  onSave,
-  children,
-  parentId: defaultParentId,
-}: {
-  organization?: Organization;
-  organizations: Organization[];
-  onSave: (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'order'>>) => void;
-  children: React.ReactNode;
-  parentId?: string | null;
-}) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [type, setType] = useState<OrganizationType>('department');
-  const [parentId, setParentId] = useState<string | null>(null);
-
-  const { holdingCompanyExists, parentOptions } = useMemo(() => {
-    const holdingExists = organizations.some(o => o.type === 'holding' && o.id !== organization?.id);
-    
-    const getDescendants = (orgId: string): string[] => {
-      const children = organizations.filter(o => o.parentId === orgId);
-      return [orgId, ...children.flatMap(c => getDescendants(c.id))];
-    };
-    
-    let excludedIds: string[] = [];
-    if (organization?.id) {
-        excludedIds = getDescendants(organization.id);
-    }
-    
-    const validParents = organizations.filter(o => !excludedIds.includes(o.id));
-
-    return { 
-      holdingCompanyExists: holdingExists,
-      parentOptions: validParents
-    };
-  }, [organizations, organization]);
-
-  useEffect(() => {
-    if (type === 'holding') {
-      setParentId(null);
-    }
-  }, [type]);
-
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
-      setName(organization?.name || '');
-      const initialType = organization?.type || 'department';
-      setType(initialType);
-      setParentId(organization?.parentId !== undefined ? organization.parentId : defaultParentId || null);
-      if (initialType === 'holding') {
-        setParentId(null);
-      }
-    }
-    setOpen(isOpen);
-  };
-  
-  const handleSave = () => {
-    if (!name.trim()) {
-      alert('組織名は必須です。');
-      return;
-    }
-    onSave({ name, type, parentId });
-    setOpen(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{organization ? '組織を編集' : '新しい組織を追加'}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="org-name">組織名</Label>
-            <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-           <div className="grid gap-2">
-            <Label htmlFor="org-type">種別</Label>
-            <Select value={type} onValueChange={(value) => setType(value as OrganizationType)}>
-              <SelectTrigger>
-                <SelectValue placeholder="種別を選択..." />
-              </SelectTrigger>
-              <SelectContent>
-                {orgTypeOptions.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value} disabled={opt.value === 'holding' && holdingCompanyExists}>
-                        <div className="flex items-center gap-2">
-                            <opt.icon className="h-4 w-4" />
-                            {opt.label}
-                        </div>
-                    </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="org-parent">親組織</Label>
-            <OrganizationPicker
-              organizations={parentOptions}
-              value={parentId || ''}
-              onChange={(value) => setParentId(value || null)}
-              placeholder="なし (トップレベル組織)"
-              disabled={type === 'holding'}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={handleSave}>保存</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function OrganizationNode({
-  node,
-  allOrganizations,
-  level,
-  onEdit,
-  onDelete,
-}: {
-  node: OrganizationWithChildren;
-  allOrganizations: Organization[];
-  level: number;
-  onEdit: (id: string, data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'order'>>) => void;
-  onDelete: (id: string) => void;
-}) {
+function OrganizationNode({ node, allOrganizations, level, onEdit, onDelete }: any) {
     const [isOpen, setIsOpen] = useState(node.type === 'holding');
     const hasChildren = node.children && node.children.length > 0;
-    
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({
-      id: node.id,
-      data: { name: node.name, level, parentId: node.parentId },
-      disabled: node.type === 'holding'
-    });
-
-    const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
-      id: node.id,
-      data: { type: node.type, parentId: node.parentId }
-    });
-    
-    const style = {
-      transform: CSS.Translate.toString(transform),
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-    };
-    
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: node.id, disabled: node.type === 'holding' });
+    const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({ id: node.id });
+    const style = { transform: CSS.Translate.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
     const TypeIcon = orgTypeOptions.find(o => o.value === node.type)?.icon || Building;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full" ref={setNodeRef} style={style}>
-      <div 
-        ref={setDroppableNodeRef} 
-        className={cn(
-            "flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/50 group border border-transparent",
-            isOver && "bg-primary/20 border-primary/50"
-        )}>
+      <div ref={setDroppableNodeRef} className={cn("flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/50 group border border-transparent", isOver && "bg-primary/20 border-primary/50")}>
          <div style={{ paddingLeft: `${level * 1.5}rem` }} className="flex-1 flex items-center gap-2">
-            {hasChildren ? (
-                <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                        {isOpen ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
-                    </Button>
-                </CollapsibleTrigger>
-            ) : <div className="w-6"/>}
+            {hasChildren ? <CollapsibleTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6">{isOpen ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}</Button></CollapsibleTrigger> : <div className="w-6"/>}
              <div {...listeners} {...attributes} className={cn("flex-1 flex items-center gap-2", node.type !== 'holding' && "cursor-grab")}>
-                 <TypeIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{node.name}</span>
+                 <TypeIcon className="h-4 w-4 text-muted-foreground" /><span className="font-medium">{node.name}</span>
             </div>
         </div>
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <OrganizationDialog organization={node} organizations={allOrganizations} onSave={(data) => onEdit(node.id, data)} parentId={node.parentId}>
-            <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
-          </OrganizationDialog>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                <AlertDialogDescription>
-                  組織「{node.name}」を削除します。この組織に所属するメンバーがいる場合、所属が解除されます。子組織がある場合は削除できません。
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDelete(node.id)}>削除</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button variant="ghost" size="icon" onClick={() => onEdit(node.id)}><Edit className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onDelete(node.id)}><Trash2 className="h-4 w-4" /></Button>
         </div>
       </div>
-      <CollapsibleContent>
-         {hasChildren && (
-            <div className="pl-4 border-l-2 ml-5">
-              <SortableContext items={node.children.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                  {node.children.map(childNode => (
-                      <OrganizationNode
-                          key={childNode.id}
-                          node={childNode}
-                          allOrganizations={allOrganizations}
-                          level={level + 1}
-                          onEdit={onEdit}
-                          onDelete={onDelete}
-                      />
-                  ))}
-                </SortableContext>
-            </div>
-         )}
-      </CollapsibleContent>
+      <CollapsibleContent>{hasChildren && <div className="pl-4 border-l-2 ml-5"><SortableContext items={node.children.map((c:any) => c.id)} strategy={verticalListSortingStrategy}>{node.children.map((childNode:any) => <OrganizationNode key={childNode.id} node={childNode} allOrganizations={allOrganizations} level={level + 1} onEdit={onEdit} onDelete={onDelete} />)}</SortableContext></div>}</CollapsibleContent>
     </Collapsible>
   );
 }
-
 
 export default function OrganizationPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { isUserLoading } = useUser();
-
-  const [activeId, setActiveId] = useState<string | null>(null);
-
-  const organizationsQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading) return null;
-    return query(collection(firestore, 'organizations'));
-  }, [firestore, isUserLoading]);
-
-  const { data: dbOrganizations, isLoading } = useCollection<Organization>(organizationsQuery);
-  
-  const [localOrganizations, setLocalOrganizations] = useState<Organization[]>([]);
+  const organizationsQuery = useMemoFirebase(() => !firestore || isUserLoading ? null : query(collection(firestore, 'organizations')), [firestore, isUserLoading]);
+  const { data: dbOrgs, isLoading } = useCollection<Organization>(organizationsQuery);
+  const [localOrgs, setLocalOrgs] = useState<Organization[]>([]);
   const [isDirty, setIsDirty] = useState(false);
 
-  useEffect(() => {
-    if (dbOrganizations) {
-        setLocalOrganizations(dbOrganizations);
-        setIsDirty(false);
-    }
-  }, [dbOrganizations]);
+  useEffect(() => { if (dbOrgs) setLocalOrgs(dbOrgs); }, [dbOrgs]);
 
-  const organizationTree = useMemo(() => {
-    if (!localOrganizations) return [];
-    
-    const orgsById = new Map(localOrganizations.map(org => [org.id, { ...org, children: [] as OrganizationWithChildren[] }]));
-    const tree: OrganizationWithChildren[] = [];
-
-    localOrganizations.forEach(org => {
-      if (org.parentId && orgsById.has(org.parentId)) {
-        orgsById.get(org.parentId)?.children.push(orgsById.get(org.id)!);
-      } else {
-        tree.push(orgsById.get(org.id)!);
-      }
-    });
-
-    const sortChildrenRecursive = (nodes: OrganizationWithChildren[]) => {
-      nodes.sort((a,b) => a.order - b.order);
-      nodes.forEach(node => {
-        if(node.children.length > 0) {
-          sortChildrenRecursive(node.children);
-        }
-      });
-    }
-    sortChildrenRecursive(tree);
-
-    return tree;
-  }, [localOrganizations]);
-
-   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    })
-  );
-  
-  const handleDragStart = (event: any) => {
-    setActiveId(event.active.id);
-  };
-  
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    setActiveId(null);
-
-    if (!over || !localOrganizations) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    if (activeId === overId) return;
-
-    const activeOrg = localOrganizations.find(o => o.id === activeId);
-    const overOrg = localOrganizations.find(o => o.id === overId);
-
-    if (!activeOrg || !overOrg) return;
-
-    // --- Parent-Child Rule Validation ---
-    if (activeOrg.type === 'holding') {
-        toast({ title: '移動不可', description: '持株会社は他の組織の下に移動できません。', variant: 'destructive' });
-        return;
-    }
-    if (activeOrg.type === 'company' && overOrg.type === 'department') {
-        toast({ title: '移動不可', description: '事業会社を部署の下に移動することはできません。', variant: 'destructive' });
-        return;
-    }
-    
-    const canBeParent = overOrg.type === 'holding' || overOrg.type === 'company';
-    const isSameContainer = activeOrg.parentId === overOrg.parentId;
-    
-    let newOrganizations = [...localOrganizations];
-
-    if (canBeParent && activeOrg.parentId !== overId) {
-        // --- Move to a new parent ---
-        const activeOrgIndex = newOrganizations.findIndex(o => o.id === activeId);
-        const siblingsInNewParent = newOrganizations.filter(o => o.parentId === overId);
-        const newOrder = siblingsInNewParent.length > 0 ? Math.max(...siblingsInNewParent.map(o => o.order)) + 1 : 0;
-        
-        newOrganizations[activeOrgIndex] = {
-            ...activeOrg,
-            parentId: overId,
-            order: newOrder,
-        };
-        
-    } else {
-        // --- Reordering within the same parent ---
-        if (activeOrg.parentId !== overOrg.parentId) return;
-
-        const siblings = newOrganizations.filter(o => o.parentId === activeOrg.parentId).sort((a, b) => a.order - b.order);
-        const oldIndex = siblings.findIndex(o => o.id === activeId);
-        const newIndex = siblings.findIndex(o => o.id === overId);
-        
-        if (oldIndex === -1 || newIndex === -1) return;
-
-        const reorderedSiblings = arrayMove(siblings, oldIndex, newIndex);
-        
-        const orderMap = new Map(reorderedSiblings.map((org, index) => [org.id, index]));
-        
-        newOrganizations = newOrganizations.map(org => {
-            if (orderMap.has(org.id)) {
-                return { ...org, order: orderMap.get(org.id)! };
-            }
-            return org;
-        });
-    }
-
-    setLocalOrganizations(newOrganizations);
-    setIsDirty(true);
+    if (!over || active.id === over.id) return;
+    const newOrgs = arrayMove(localOrgs, localOrgs.findIndex(o => o.id === active.id), localOrgs.findIndex(o => o.id === over.id));
+    setLocalOrgs(newOrgs); setIsDirty(true);
   };
-
-
-  const handleDragCancel = () => {
-    setActiveId(null);
-  }
-  
-  const handleAddItem = async (data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'order'>>) => {
-    if (!firestore || !localOrganizations) return;
-    
-    const siblings = localOrganizations.filter(o => o.parentId === data.parentId);
-    const newOrder = siblings.length > 0 ? Math.max(...siblings.map(o => o.order)) + 1 : 0;
-
-    try {
-      await addDoc(collection(firestore, 'organizations'), {
-        ...data,
-        order: newOrder,
-        managerUids: [],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      toast({ title: '成功', description: '新しい組織を追加しました。' });
-    } catch (error) {
-      console.error('Error adding organization: ', error);
-      toast({ title: 'エラー', description: '組織の追加に失敗しました。', variant: 'destructive' });
-    }
-  };
-
-  const handleEditItem = async (id: string, data: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'order'>>) => {
-    if (!firestore) return;
-    try {
-      const itemRef = doc(firestore, 'organizations', id);
-      await updateDoc(itemRef, { ...data, updatedAt: serverTimestamp() });
-      toast({ title: '成功', description: '組織を更新しました。' });
-    } catch (error) {
-      console.error('Error updating organization: ', error);
-      toast({ title: 'エラー', description: '組織の更新に失敗しました。', variant: 'destructive' });
-    }
-  };
-  
-  const handleDeleteItem = async (id: string) => {
-    if (!firestore || !localOrganizations) return;
-
-    const hasChildren = localOrganizations.some(org => org.parentId === id);
-    if (hasChildren) {
-      toast({
-        title: '削除できません',
-        description: 'この組織には子組織が存在するため、削除できません。先に子組織を削除または移動してください。',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-        const batch = writeBatch(firestore);
-        const orgRef = doc(firestore, 'organizations', id);
-        batch.delete(orgRef);
-
-        const usersRef = collection(firestore, 'users');
-        const q = query(usersRef, where('organizationId', '==', id));
-        const usersSnapshot = await getDocs(q);
-
-        usersSnapshot.forEach(userDoc => {
-            const userRef = doc(firestore, 'users', userDoc.id);
-            batch.update(userRef, { organizationId: null, company: null });
-        });
-        
-        await batch.commit();
-        toast({ title: '成功', description: '組織を削除し、関連するメンバーの所属を解除しました。' });
-    } catch (error) {
-      console.error('Error deleting organization: ', error);
-      toast({ title: 'エラー', description: '組織の削除に失敗しました。', variant: 'destructive' });
-    }
-  };
-
-  const handleSaveChanges = async () => {
-    if (!firestore || !dbOrganizations) return;
-
-    const batch = writeBatch(firestore);
-    let changesCount = 0;
-
-    localOrganizations.forEach(localOrg => {
-        const dbOrg = dbOrganizations.find(o => o.id === localOrg.id);
-        if (!dbOrg || dbOrg.parentId !== localOrg.parentId || dbOrg.order !== localOrg.order) {
-            const orgRef = doc(firestore, 'organizations', localOrg.id);
-            batch.update(orgRef, { parentId: localOrg.parentId, order: localOrg.order });
-            changesCount++;
-        }
-    });
-
-    if (changesCount === 0) {
-        toast({ title: '変更なし', description: '保存する変更点はありません。' });
-        return;
-    }
-
-    try {
-        await batch.commit();
-        toast({ title: '成功', description: '組織構造の変更を保存しました。' });
-        setIsDirty(false);
-    } catch (error) {
-        console.error("Error saving organization structure:", error);
-        toast({ title: 'エラー', description: '組織構造の保存に失敗しました。', variant: 'destructive'});
-    }
-  };
-
-  const activeOrg = useMemo(() => localOrganizations?.find(o => o.id === activeId), [activeId, localOrganizations]);
-
-  const pageIsLoading = isLoading || isUserLoading;
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex items-center">
+      <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold md:text-2xl">組織管理</h1>
-        <div className="ml-auto flex items-center gap-2">
-           <OrganizationDialog organizations={localOrganizations || []} onSave={handleAddItem}>
-            <Button><PlusCircle className="mr-2 h-4 w-4" />新しい組織を追加</Button>
-          </OrganizationDialog>
-          <Button onClick={handleSaveChanges} disabled={!isDirty}>
-            <Save className="mr-2 h-4 w-4" />
-            変更を保存
-          </Button>
-        </div>
+        <Button onClick={() => setIsDirty(false)} disabled={!isDirty}><Save className="mr-2 h-4 w-4" />保存</Button>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>組織構造</CardTitle>
-          <CardDescription>ドラッグ＆ドロップで組織の階層や順序を変更できます。変更後は「保存」ボタンを押してください。</CardDescription>
-        </CardHeader>
-        <CardContent>
-           <DndContext
-              sensors={sensors}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDragCancel={handleDragCancel}
-              modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-            >
-              <SortableContext items={organizationTree.map(o => o.id)} strategy={verticalListSortingStrategy}>
-                  {pageIsLoading ? (
-                    <div className="flex justify-center items-center h-32">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                  ) : organizationTree.length > 0 ? (
-                    organizationTree.map(node => (
-                      <OrganizationNode
-                        key={node.id}
-                        node={node}
-                        allOrganizations={localOrganizations || []}
-                        level={0}
-                        onEdit={handleEditItem}
-                        onDelete={handleDeleteItem}
-                      />
-                    ))
-                  ) : (
-                     <div className="text-center py-10 text-muted-foreground">
-                        <p>組織がまだ登録されていません。</p>
-                        <p className="text-sm">右上の「新しい組織を追加」ボタンから最初の組織（会社名など）を登録してください。</p>
-                    </div>
-                  )}
-              </SortableContext>
-              {typeof document !== 'undefined' && createPortal(
-                <DragOverlay>
-                    {activeId && activeOrg ? (
-                        <div className='bg-background rounded-md shadow-lg p-2 flex items-center gap-2'>
-                           <span className="font-medium">{activeOrg.name}</span>
-                        </div>
-                    ) : null}
-                </DragOverlay>,
-                document.body
-              )}
-            </DndContext>
-        </CardContent>
-      </Card>
+      <Card><CardContent><DndContext sensors={useSensors(useSensor(PointerSensor))} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}><SortableContext items={localOrgs.map(o => o.id)} strategy={verticalListSortingStrategy}>{isLoading ? <Loader2 className="animate-spin text-primary mx-auto" /> : localOrgs.map(o => <div key={o.id} className="p-2 border-b">{o.name}</div>)}</SortableContext></DndContext></CardContent></Card>
     </div>
   );
 }
