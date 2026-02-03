@@ -25,8 +25,6 @@ import {
   type DragEndEvent,
   DragOverlay,
   useDroppable,
-  restrictToVerticalAxis,
-  restrictToWindowEdges,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -34,6 +32,7 @@ import {
   arrayMove,
   useSortable,
 } from '@dnd-kit/sortable';
+import { restrictToVerticalAxis, restrictToWindowEdges } from '@dnd-kit/modifiers';
 import { createPortal } from 'react-dom';
 import { CSS } from '@dnd-kit/utilities';
 import { OrganizationPicker } from '@/components/organization/organization-picker';
