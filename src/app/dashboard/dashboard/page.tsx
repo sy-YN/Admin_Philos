@@ -36,7 +36,7 @@ import type { PersonalGoal, GoalStatus } from '@/types/personal-goal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { format, startOfDay, getWeek, getMonth, getYear, startOfWeek, endOfWeek, eachDayOfInterval, addDays, differenceInDays, differenceInWeeks, differenceInMonths, formatDistanceToNow } from 'date-fns';
+import { format, startOfDay, getWeek, getMonth, getYear, startOfWeek, endOfWeek, eachDayOfInterval, addDays, differenceInDays, differenceInWeeks, differenceInMonths, formatDistanceToNow, startOfMonth } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Slider } from '@/components/ui/slider';
@@ -1665,7 +1665,7 @@ function PersonalGoalDialog({
             <Label htmlFor="goal-date">期間</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button id="goal-date" variant="outline" className={cn('w-full justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
+                <Button id="goal-date" variant="outline" className={cn('w-full md:w-auto justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {dateRange?.from ? (
                     dateRange.to ? (
@@ -1894,7 +1894,7 @@ function PersonalGoalsList({
   };
 
   if (areGoalsLoading) {
-    return <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>;
+    return <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin text-primary"/></div>;
   }
   
   const hasOngoingGoal = ongoing.length > 0;
@@ -2549,7 +2549,7 @@ function DashboardSettingsPageComponent() {
               </div>
             </CardHeader>
             <CardContent className="flex-1 space-y-6">
-              {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
+              {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin text-primary"/></div> :
               <WidgetList 
                   widgets={paginatedCompanyWidgets} 
                   onSave={handleSaveWidget} 
@@ -2631,7 +2631,7 @@ function DashboardSettingsPageComponent() {
                     </div>
                </CardHeader>
                <CardContent className="flex-1 space-y-6">
-                  {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div> :
+                  {isLoadingWidgets ? <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin text-primary"/></div> :
                   <WidgetList 
                       widgets={paginatedTeamWidgets} 
                       onSave={handleSaveWidget} 
@@ -2669,7 +2669,7 @@ function DashboardSettingsPageComponent() {
       {activeTab === 'personal' && (
         canManageOrgPersonalGoals ? (
             !currentUserData ? (
-              <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin"/></div>
+              <div className="flex justify-center p-10"><Loader2 className="h-8 w-8 animate-spin text-primary"/></div>
             ) : (
               <PersonalGoalsList
                 user={currentUserData}
@@ -2689,7 +2689,7 @@ function DashboardSettingsPageComponent() {
 
 export default function DashboardSettingsPage() {
     return (
-        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
             <DashboardSettingsPageComponent />
         </Suspense>
     )
